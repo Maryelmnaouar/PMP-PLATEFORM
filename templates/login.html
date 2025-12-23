@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connexion – Tableau de bord PMP</title>
+  <style>
+    :root {
+      --bg1: #2c2c2dff;
+      --bg2: #b73831ff;
+      --bg3: #e24b4b;
+      --card: #eef0f9ff;
+      --input: #f69c95ff;
+      --text: #0c0c0cff;
+      --muted: #47484aff;
+      --accent: #961305ff; /* Rouge vif */
+      --accent-hover: #ff3844;
+      --radius: 18px;
+      --shadow: 0 12px 40px rgba(0,0,0,0.4);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+    body {
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--bg1), var(--bg2), var(--bg3));
+      background-size: 200% 200%;
+      animation: moveGradient 12s ease infinite;
+      color: var(--text);
+    }
+
+    @keyframes moveGradient {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .login-card {
+      background: var(--card);
+      padding: 40px 35px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      width: 330px;
+      text-align: center;
+    }
+
+    .login-card img {
+      width: 65px;
+      margin-bottom: 10px;
+    }
+
+    .login-card h2 {
+      font-size: 1.8rem;
+      margin-bottom: 20px;
+      color: var(--text);
+    }
+
+    .input-group {
+      position: relative;
+      margin-bottom: 18px;
+    }
+
+    .input-group input {
+      width: 90%; /* Ajustement pour que ça reste dans la carte */
+      padding: 10px 14px 10px 40px;
+      border: none;
+      border-radius: 8px;
+      background: var(--input);
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+      transition: background 0.2s ease;
+    }
+
+    .input-group input::placeholder {
+      color: var(--muted);
+    }
+
+    .input-group svg {
+      position: absolute;
+      top: 50%;
+      left: 12px;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      stroke: var(--muted);
+    }
+
+    .login-btn {
+      width: 90%;
+      padding: 12px;
+      margin-top: 12px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+      border: none;
+      border-radius: 10px;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 1rem;
+      box-shadow: 0 0 20px rgba(229,19,26,0.3);
+    }
+
+    .login-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 25px rgba(229,19,26,0.5);
+    }
+
+    .forgot {
+      display: block;
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .forgot:hover {
+      color: var(--accent);
+    }
+
+    .back-home {
+      display: block;
+      margin-top: 20px;
+      font-size: 0.9rem;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .back-home:hover {
+      color: var(--accent);
+    }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <img src="{{ url_for('static', filename='images/logo_entreprise.png') }}" alt="Logo Entreprise">
+    <h2>Connexion</h2>
+
+    <form action="{{ url_for('login') }}" method="POST">
+      <div class="input-group">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A10.97 10.97 0 0112 15c2.389 0 4.6.832 6.373 2.218M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+        <input type="text" name="username" placeholder="Nom d’utilisateur" required>
+      </div>
+
+      <div class="input-group">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c.5304 0 1.0391-.2107 1.4142-.5858C13.7893 10.0391 14 9.5304 14 9s-.2107-1.0391-.5858-1.4142C13.0391 7.2107 12.5304 7 12 7s-1.0391.2107-1.4142.5858C10.2107 7.9609 10 8.4696 10 9s.2107 1.0391.5858 1.4142C10.9609 10.7893 11.4696 11 12 11zM5 21v-2a7 7 0 0114 0v2H5z" /></svg>
+        <input type="password" name="password" placeholder="Mot de passe" required>
+      </div>
+
+      <button class="login-btn" type="submit">Se connecter</button>
+
+      <a href="#" class="forgot">Mot de passe oublié ?</a>
+      <a href="{{ url_for('index') }}" class="back-home">← Retour à l’accueil</a>
+    </form>
+  </div>
+</body>
+</html>

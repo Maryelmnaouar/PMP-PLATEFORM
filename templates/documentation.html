@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Documentation PMP</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<h2>📚 Documentation PMP – Machines</h2>
+
+<ul style="margin-top:20px;">
+    {% for pdf in pdfs %}
+        <li style="margin-bottom:10px;">
+            <a href="{{ url_for('static', filename='images/docs/' + pdf) }}"
+               target="_blank">
+               📄 {{ pdf.replace('_', ' ').replace('.pdf', '') }}
+            </a>
+        </li>
+    {% else %}
+        <li>Aucune documentation disponible.</li>
+    {% endfor %}
+</ul>
+
+<br>
+<a href="/me" class="btn btn-secondary">⬅ Retour au tableau de bord</a>
+
+</body>
+</html>

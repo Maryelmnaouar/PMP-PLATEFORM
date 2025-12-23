@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Historique des tâches clôturées – Coca-Cola x Cobomi</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+  :root {
+    --red-dark: #b51212;
+    --red-light: #e41b13;
+    --bg-light: #fff6f6;
+    --card-bg: #fff3f3;
+    --text: #1a1a1a;
+    --muted: #555;
+    --shadow: 0 6px 25px rgba(0,0,0,0.12);
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(135deg, var(--bg-light), #ffe0e0);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(90deg, var(--muted), var(--red-light));
+    padding: 16px 28px;
+    box-shadow: var(--shadow);
+    color: #fff;
+  }
+
+  .logo-box {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .logo-box img {
+    height: 55px;
+    transition: transform 0.4s ease;
+  }
+
+  .logo-box img:hover {
+    transform: scale(1.05);
+  }
+
+  .title-zone {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+
+  a.logout {
+    color: #fff;
+    text-decoration: none;
+    font-weight: bold;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 6px 14px;
+    border-radius: 8px;
+    transition: 0.3s;
+  }
+
+  a.logout:hover {
+    background: rgba(255,255,255,0.2);
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 40px auto 30px;
+    padding: 0 20px;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 24px;
+    margin-bottom: 26px;
+    position: relative;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeIn 0.8s ease forwards;
+  }
+
+  @keyframes fadeIn {
+    to { opacity: 1; transform: none; }
+  }
+
+  h2 {
+    color: var(--red-dark);
+    margin-bottom: 16px;
+    font-weight: 700;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  th, td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+  }
+
+  th {
+    background: #ffe0e0;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-size: 0.8rem;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #ffe0e0;
+    color: var(--red-dark);
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .btn-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+    text-decoration: none;
+    background: #fff;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(0,0,0,0.08);
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .btn-back:hover {
+    background:#fbe9e9;
+  }
+
+  .footer {
+    text-align: center;
+    color: var(--muted);
+    margin: 10px 0 18px;
+    font-size: 0.85rem;
+  }
+
+  .coca-bottle {
+    position: fixed;
+    bottom: 30px;
+    right: 40px;
+    height: 170px;
+    animation: float 4s ease-in-out infinite;
+    opacity: 0.95;
+    z-index: 10;
+  }
+
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50%     { transform: translateY(-14px); }
+  }
+
+  #fx {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: -1;
+    opacity: 0.55;
+  }
+</style>
+</head>
+
+<body>
+  <!-- Canvas bulles -->
+  <canvas id="fx"></canvas>
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo-box">
+      <img src="{{ url_for('static', filename='images/logo_cocacola.png') }}" alt="Logo Coca-Cola">
+      <img src="{{ url_for('static', filename='images/logo_cobomi.png') }}" alt="Logo Cobomi">
+    </div>
+    <div class="title-zone">
+      <i class="fa-solid fa-clipboard-check"></i>
+      Historique des tâches clôturées
+    </div>
+    <a href="{{ url_for('logout') }}" class="logout">Déconnexion</a>
+  </header>
+
+  <!-- CONTENU -->
+  <div class="container">
+
+    <div class="card">
+      <a href="{{ url_for('admin_dashboard') }}" class="btn-back">
+        <i class="fa-solid fa-arrow-left"></i> Retour au dashboard admin
+      </a>
+
+      <h2><i class="fa-solid fa-clipboard-check"></i> Tâches clôturées</h2>
+<form method="get" style="margin-bottom:16px;padding:10px 14px;background:#ffecec;border-radius:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+  <div>
+    <label>Ligne</label><br>
+    <select name="line">
+      <option value="">(Toutes)</option>
+      {% for l in lignes %}
+        <option value="{{ l }}" {% if filters.line == l %}selected{% endif %}>{{ l }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Machine</label><br>
+    <select name="machine">
+      <option value="">(Toutes)</option>
+      {% for l, machines in machines_par_ligne.items() %}
+        {% for m in machines %}
+          <option value="{{ m }}" {% if filters.machine == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Date début</label><br>
+    <input type="date" name="start_date" value="{{ filters.start_date }}">
+  </div>
+  <div>
+    <label>Date fin</label><br>
+    <input type="date" name="end_date" value="{{ filters.end_date }}">
+  </div>
+  <div>
+    <button type="submit">Filtrer</button>
+    <a href="{{ url_for('admin_tasks_closed') }}" style="margin-left:320px; color:var(--red-dark)">Réinitialiser</a>
+  </div>
+</form>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Ligne</th>
+            <th>Machine</th>
+            <th>Description</th>
+            <th>Fréquence</th>
+            <th>Assignée à</th>
+            <th>Points</th>
+            <th>Clôturée le</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in tasks %}
+          <tr>
+            <td>#{{ t.id }}</td>
+            <td>{{ t.line }}</td>
+            <td>{{ t.machine }}</td>
+            <td>{{ t.description }}</td>
+            <td>{{ t.frequency }}</td>
+            <td><span class="tag">{{ t.username }}</span></td>
+            <td>{{ t.points }}</td>
+            <td>{{ t.closed_at }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="8" style="text-align:center;color:var(--muted);padding:16px;">
+              Aucune tâche clôturée pour le moment.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- Bouteille Coca -->
+  <img src="{{ url_for('static', filename='images/coca_bottle.png') }}" alt="Coca-Cola" class="coca-bottle">
+
+  <!-- FOOTER -->
+  <div class="footer">
+    © {{ current_year or 2025 }} Coca-Cola x Cobomi Maintenance System • Made with ❤️ by Maryam
+  </div>
+
+  <!-- Effet bulles -->
+  <script>
+    const c = document.getElementById('fx'),
+          ctx = c.getContext('2d');
+    let w, h, bubbles = [];
+
+    function resize(){
+      w = c.width = window.innerWidth;
+      h = c.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    for(let i=0;i<140;i++){
+      bubbles.push({
+        x: Math.random()*w,
+        y: Math.random()*h,
+        r: Math.random()*5+1.5,
+        s: Math.random()*1+0.4,
+        drift: Math.random()*0.4-0.2,
+        alpha: Math.random()*0.6+0.3
+      });
+    }
+
+    function draw(){
+      ctx.clearRect(0,0,w,h);
+      const g = ctx.createLinearGradient(0,h,0,0);
+      g.addColorStop(0,'rgba(255,90,90,0.08)');
+      g.addColorStop(1,'rgba(255,0,0,0.05)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0,0,w,h);
+
+      bubbles.forEach(b=>{
+        b.y -= b.s;
+        b.x += b.drift;
+        if(b.y < -10){ b.y = h+10; b.x = Math.random()*w; }
+
+        ctx.beginPath();
+        const glow = ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r*2);
+        glow.addColorStop(0,`rgba(255,80,80,${b.alpha})`);
+        glow.addColorStop(1,'rgba(255,0,0,0)');
+        ctx.fillStyle = glow;
+        ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+        ctx.fill();
+      });
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+  </script>
+
+</body>
+</html>

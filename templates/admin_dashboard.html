@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin – Coca-Cola x Cobomi Maintenance</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+  :root {
+    --red-dark: #b51212;
+    --red-light: #e41b13;
+    --bg-light: #fff6f6;
+    --card-bg: #fff3f3;
+    --text: #1a1a1a;
+    --muted: #555;
+    --shadow: 0 6px 25px rgba(0,0,0,0.12);
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(135deg, var(--bg-light), #ffe0e0);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(90deg, var(--muted), var(--red-light));
+    padding: 16px 28px;
+    box-shadow: var(--shadow);
+    color: #fff;
+  }
+
+  .logo-box {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .logo-box img {
+    height: 55px;
+    transition: transform 0.4s ease;
+  }
+
+  .logo-box img:hover {
+    transform: scale(1.05);
+  }
+
+  .title-zone {
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+
+  a.logout {
+    color: #fff;
+    text-decoration: none;
+    font-weight: bold;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 6px 14px;
+    border-radius: 8px;
+    transition: 0.3s;
+  }
+
+  a.logout:hover {
+    background: rgba(255,255,255,0.2);
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 30px auto 50px;
+    padding:  100px;
+    position: relative;
+  }
+
+  /* grille des 6 boutons */
+  .menu-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 26px;
+    margin-top: 20px;
+  }
+
+  @media (max-width: 900px) {
+    .menu-grid {
+      grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+  }
+
+  @media (max-width: 640px) {
+    .menu-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .menu-card {
+    background: var(--card-bg);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 22px 18px;
+    text-align: center;
+    border: 1.8px solid rgba(181,18,18,0.7);
+    text-decoration: none;
+    color: var(--text);
+    font-size: 1.05rem;
+    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, color 0.25s ease;
+  }
+
+  .menu-card i {
+    font-size: 1.5rem;
+    color: var(--red-dark);
+  }
+
+  .menu-card:hover {
+    background: linear-gradient(180deg, #ffe0e0, #ffd0d0);
+    transform: translateY(-6px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+  }
+
+  .menu-card:hover i {
+    color: var(--red-light);
+  }
+
+  .menu-title {
+    font-size: 1.05rem;
+  }
+
+  .menu-sub {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .footer {
+    text-align: center;
+    color: var(--muted);
+    margin: 0 0 16px;
+    font-size: 0.85rem;
+  }
+
+  .coca-bottle {
+    position: fixed;
+    bottom: 30px;
+    right: 40px;
+    height: 170px;
+    animation: float 4s ease-in-out infinite;
+    opacity: 0.95;
+    z-index: 10;
+  }
+
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50%    { transform: translateY(-14px); }
+  }
+
+  #fx {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: -1;
+    opacity: 0.55;
+  }
+</style>
+</head>
+
+<body>
+  <!-- canvas bulles -->
+  <canvas id="fx"></canvas>
+
+  <header>
+    <div class="logo-box">
+      <img src="{{ url_for('static', filename='images/logo_cocacola.png') }}" alt="Logo Coca-Cola">
+      <img src="{{ url_for('static', filename='images/logo_cobomi.png') }}" alt="Logo Cobomi">
+    </div>
+    <div class="title-zone"><i class="fa-solid fa-gears"></i> Maintenance Préventive – Administration</div>
+    <a href="{{ url_for('logout') }}" class="logout">Déconnexion</a>
+  </header>
+
+  <div class="container">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="card" style="margin-bottom:25px;padding:12px 18px;">
+          {% for cat,msg in messages %}
+            <div style="
+              margin-bottom:6px;
+              padding:8px 10px;
+              border-radius:10px;
+              font-size:0.9rem;
+              {% if cat == 'ok' %}
+                background:#e4f8ea;color:#145a1f;border:1px solid #53b46b;
+              {% else %}
+                background:#ffe5e5;color:#7b1515;border:1px solid #e15b5b;
+              {% endif %}
+            ">
+              {{ msg }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="menu-grid">
+      <!-- 1. Créer un utilisateur -->
+      <a class="menu-card" href="{{ url_for('admin_users') }}">
+        <i class="fa-solid fa-user-plus"></i>
+        <div class="menu-title">Créer un utilisateur</div>
+        <div class="menu-sub">Opérateur ou technicien, lié à une ligne et des équipements.</div>
+      </a>
+
+      <!-- 2. Assigner une tâche automatique -->
+      <a class="menu-card" href="{{ url_for('admin_auto_page') }}">
+        <i class="fa-solid fa-arrows-rotate"></i>
+        <div class="menu-title">Assigner PMP automatique</div>
+        <div class="menu-sub">Répartir automatiquement les PMP hebdo / mensuelles.</div>
+      </a>
+
+      <!-- 3. Ajouter & assigner une tâche manuelle -->
+      <a class="menu-card" href="{{ url_for('admin_manual_page') }}">
+        <i class="fa-solid fa-wrench"></i>
+        <div class="menu-title">Ajouter une tâche manuelle</div>
+        <div class="menu-sub">Créer une tâche PMP à partir du plan Excel.</div>
+      </a>
+
+      <!-- 4. Liste des tâches en cours -->
+      <a class="menu-card" href="{{ url_for('admin_tasks_open') }}">
+        <i class="fa-solid fa-list-check"></i>
+        <div class="menu-title">Liste des tâches en cours</div>
+        <div class="menu-sub">Suivi des actions ouvertes par ligne, machine et intervenant.</div>
+      </a>
+
+      <!-- 5. Historique des tâches clôturées -->
+      <a class="menu-card" href="{{ url_for('admin_tasks_closed') }}">
+        <i class="fa-solid fa-clipboard-check"></i>
+        <div class="menu-title">Historique des tâches clôturées</div>
+        <div class="menu-sub">Traçabilité des PMP réalisées et scores associés.</div>
+      </a>
+
+      <!-- 6. Boîte à suggestions -->
+      <a class="menu-card" href="#">
+        <i class="fa-solid fa-lightbulb"></i>
+        <div class="menu-title">Boîte à suggestions</div>
+        <div class="menu-sub">Idées d'amélioration, Kaizen & retours des équipes.</div>
+      </a>
+    </div>
+  </div>
+
+  <img src="{{ url_for('static', filename='images/coca_bottle.png') }}" alt="Coca-Cola" class="coca-bottle">
+
+  <div class="footer">
+    © {{ current_year or 2025 }} Coca-Cola x Cobomi Maintenance System • Made with ❤️ by Maryam
+  </div>
+
+  <!-- Effet bulles -->
+  <script>
+    const c = document.getElementById('fx');
+    const ctx = c.getContext('2d');
+    let w, h, bubbles = [];
+
+    function resize(){
+      w = c.width = innerWidth;
+      h = c.height = innerHeight;
+    }
+    addEventListener('resize', resize);
+    resize();
+
+    for(let i=0; i<140; i++){
+      bubbles.push({
+        x: Math.random()*w,
+        y: Math.random()*h,
+        r: Math.random()*5+1.5,
+        s: Math.random()*1+0.4,
+        drift: Math.random()*0.4-0.2,
+        alpha: Math.random()*0.6+0.3
+      });
+    }
+
+    function draw(){
+      ctx.clearRect(0,0,w,h);
+      const g = ctx.createLinearGradient(0,h,0,0);
+      g.addColorStop(0,'rgba(255,90,90,0.08)');
+      g.addColorStop(1,'rgba(255,0,0,0.05)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0,0,w,h);
+
+      bubbles.forEach(b=>{
+        b.y -= b.s;
+        b.x += b.drift;
+        if(b.y < -10){ b.y = h+10; b.x = Math.random()*w; }
+
+        ctx.beginPath();
+        const glow = ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r*2);
+        glow.addColorStop(0,`rgba(255,80,80,${b.alpha})`);
+        glow.addColorStop(1,'rgba(255,0,0,0)');
+        ctx.fillStyle = glow;
+        ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+        ctx.fill();
+      });
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+  </script>
+
+</body>
+</html>

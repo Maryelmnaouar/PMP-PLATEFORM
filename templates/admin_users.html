@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Créer un utilisateur – Coca-Cola x Cobomi Maintenance</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+  :root {
+    --red-dark: #b51212;
+    --red-light: #e41b13;
+    --bg-light: #fff6f6;
+    --card-bg: #fff3f3;
+    --text: #1a1a1a;
+    --muted: #555;
+    --shadow: 0 6px 25px rgba(0,0,0,0.12);
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(135deg, var(--bg-light), #ffe0e0);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(90deg, var(--muted), var(--red-light));
+    padding: 16px 28px;
+    box-shadow: var(--shadow);
+    color: #fff;
+  }
+
+  .logo-box {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .logo-box img {
+    height: 55px;
+    transition: transform 0.4s ease;
+  }
+
+  .logo-box img:hover {
+    transform: scale(1.05);
+  }
+
+  .title-zone {
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+
+  a.logout {
+    color: #fff;
+    text-decoration: none;
+    font-weight: bold;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 6px 14px;
+    border-radius: 8px;
+    transition: 0.3s;
+  }
+
+  a.logout:hover {
+    background: rgba(255,255,255,0.2);
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 40px auto;
+    padding: 0 20px 60px;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 24px;
+    margin-bottom: 26px;
+    position: relative;
+  }
+
+  h2 {
+    color: var(--red-dark);
+    margin-bottom: 16px;
+    font-weight: 700;
+  }
+
+  form label {
+    display: block;
+    margin-top: 8px;
+    color: var(--muted);
+  }
+
+  input, select, textarea {
+    width: 100%;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    padding: 10px;
+    font-size: 0.95rem;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    outline: 1px solid var(--red-dark);
+  }
+
+  button {
+    background: linear-gradient(180deg, var(--red-light), var(--red-dark));
+    border: none;
+    color: white;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.25s, box-shadow 0.25s;
+    box-shadow: 0 4px 20px rgba(255,0,0,0.25);
+  }
+
+  button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255,0,0,0.4);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+
+  th, td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  th {
+    color: var(--muted);
+    text-transform: uppercase;
+    font-size: 0.8rem;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #ffe0e0;
+    color: var(--red-dark);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .footer {
+    text-align: center;
+    color: var(--muted);
+    margin: 10px 0 20px;
+    font-size: 0.85rem;
+  }
+
+  .coca-bottle {
+    position: fixed;
+    bottom: 30px;
+    right: 40px;
+    height: 170px;
+    animation: float 4s ease-in-out infinite;
+    opacity: 0.95;
+    z-index: 10;
+  }
+
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-14px); }
+  }
+
+  #fx {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: -1;
+    opacity: 0.55;
+  }
+</style>
+</head>
+
+<body>
+<canvas id="fx"></canvas>
+
+<header>
+  <div class="logo-box">
+    <img src="{{ url_for('static', filename='images/logo_cocacola.png') }}" alt="Logo Coca-Cola">
+    <img src="{{ url_for('static', filename='images/logo_cobomi.png') }}" alt="Logo Cobomi">
+  </div>
+  <div class="title-zone"><i class="fa-solid fa-user-plus"></i> Créer un utilisateur</div>
+  <a href="{{ url_for('admin_dashboard') }}" class="logout">← Retour dashboard</a>
+</header>
+
+<div class="container">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="card" style="padding:12px 18px;">
+        {% for cat, msg in messages %}
+          <div style="
+              margin-bottom:6px;
+              padding:8px 10px;
+              border-radius:10px;
+              font-size:0.9rem;
+              {% if cat == 'ok' %}
+                background:#e4f8ea;color:#145a1f;border:1px solid #53b46b;
+              {% else %}
+                background:#ffe5e5;color:#7b1515;border:1px solid #e15b5b;
+              {% endif %}
+          ">
+            {{ msg }}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="card">
+    <h2><i class="fa-solid fa-user-plus"></i> Nouveau compte opérateur / technicien</h2>
+
+    <form action="{{ url_for('admin_create_user') }}" method="POST">
+      <label><i class="fa-solid fa-id-badge"></i> Nom d'utilisateur</label>
+      <input type="text" name="username" placeholder="Ex : Operateur1" required>
+
+      <label><i class="fa-solid fa-key"></i> Mot de passe</label>
+      <input type="password" name="password" placeholder="Mot de passe" required>
+
+      <!-- Intervenant venant d’Excel -> rôle auto (conducteur => opérateur, mécano/élec => technicien) -->
+      <label><i class="fa-solid fa-user-gear"></i> Type d’intervenant (depuis Excel)</label>
+      <select name="intervenant_type" required>
+        <option value="" disabled selected>-- Choisir un type (Conducteur, Mécanicien, Electricien...) --</option>
+        {% for i in intervenants %}
+          <option value="{{ i }}">{{ i }}</option>
+        {% endfor %}
+      </select>
+
+      <!-- Ligne -->
+      <label><i class="fa-solid fa-industry"></i> Ligne de production</label>
+      <select id="user-line" name="prod_line" required>
+        <option value="" disabled selected>-- Choisir une ligne --</option>
+        {% for l in lignes %}
+          <option value="{{ l }}">{{ l }}</option>
+        {% endfor %}
+      </select>
+
+      <!-- Machines (multi) -->
+      <label><i class="fa-solid fa-robot"></i> Machines / Équipements (un ou plusieurs)</label>
+      <select id="user-machine" name="machine_assigned" multiple size="6" required>
+        <!-- options remplies par JS -->
+      </select>
+      <p style="font-size:0.8rem;color:#777;margin-top:4px;">
+        Maintiens <b>Ctrl</b> pour sélectionner plusieurs équipements.
+      </p>
+
+      <br>
+      <button type="submit">
+        <i class="fa-solid fa-user-check"></i> Créer l’utilisateur
+      </button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2><i class="fa-solid fa-users"></i> Utilisateurs existants</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Nom</th><th>Rôle</th><th>Ligne</th><th>Équipements</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ u.username }}</td>
+          <td>{{ u.role }}</td>
+          <td>{{ u.prod_line or '-' }}</td>
+          <td>{{ (u.machine_assigned or '').replace('|', ', ') or '-' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4">Aucun utilisateur créé (hors admin).</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<img src="{{ url_for('static', filename='images/coca_bottle.png') }}" alt="Coca-Cola" class="coca-bottle">
+
+<div class="footer">© {{ current_year or 2025 }} Coca-Cola x Cobomi Maintenance System • Made with ❤️ by Maryam</div>
+
+<script>
+  /* Effet bulles identique au dashboard */
+  const c = document.getElementById('fx'), ctx = c.getContext('2d');
+  let w,h,bubbles=[];
+  function resize(){w=c.width=innerWidth;h=c.height=innerHeight;}
+  addEventListener('resize',resize);resize();
+  for(let i=0;i<140;i++){
+    bubbles.push({x:Math.random()*w,y:Math.random()*h,r:Math.random()*5+1.5,s:Math.random()*1+0.4,drift:Math.random()*0.4-0.2,alpha:Math.random()*0.6+0.3});
+  }
+  function draw(){
+    ctx.clearRect(0,0,w,h);
+    const g=ctx.createLinearGradient(0,h,0,0);
+    g.addColorStop(0,'rgba(255,90,90,0.08)');
+    g.addColorStop(1,'rgba(255,0,0,0.05)');
+    ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+    bubbles.forEach(b=>{
+      b.y-=b.s;b.x+=b.drift;
+      if(b.y<-10){b.y=h+10;b.x=Math.random()*w;}
+      ctx.beginPath();
+      const glow=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r*2);
+      glow.addColorStop(0,`rgba(255,80,80,${b.alpha})`);
+      glow.addColorStop(1,'rgba(255,0,0,0)');
+      ctx.fillStyle=glow;
+      ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+
+  // Lignes -> Machines (à partir de MACHINES_PAR_LIGNE passé par Flask)
+  const MACHINES_PAR_LIGNE = {{ machines_par_ligne | tojson }};
+  const userLineSelect    = document.getElementById('user-line');
+  const userMachineSelect = document.getElementById('user-machine');
+
+  if (userLineSelect) {
+    userLineSelect.addEventListener('change', () => {
+      const L = userLineSelect.value;
+      userMachineSelect.innerHTML = "";
+
+      (MACHINES_PAR_LIGNE[L] || []).forEach(machine => {
+        const opt = document.createElement('option');
+        opt.value = machine;
+        opt.textContent = machine;
+        userMachineSelect.appendChild(opt);
+      });
+    });
+  }
+</script>
+</body>
+</html>

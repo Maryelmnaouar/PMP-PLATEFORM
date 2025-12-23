@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Ajouter une tâche manuelle – PMP</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+  body{
+    margin:0;
+    font-family:"Segoe UI",Roboto,Arial,sans-serif;
+    background:linear-gradient(135deg,#fff5f5,#ffdcdc);
+  }
+  .container{
+    max-width:800px;
+    margin:80px auto;
+    background:#fff3f3;
+    padding:24px;
+    border-radius:18px;
+    box-shadow:0 6px 25px rgba(0,0,0,0.15);
+  }
+  h1{
+    margin-top:0;
+    color:#b51212;
+    margin-bottom:10px;
+  }
+  p.sub{
+    color:#666;
+    font-size:0.92rem;
+    margin-top:0;
+    margin-bottom:18px;
+  }
+  label{
+    display:block;
+    margin-top:10px;
+    font-weight:600;
+    color:#555;
+  }
+  select,textarea,input{
+    width:100%;
+    padding:10px;
+    border-radius:10px;
+    border:1px solid #ccc;
+    margin-top:4px;
+    font-size:0.95rem;
+  }
+  textarea{ min-height:80px; }
+  button{
+    margin-top:18px;
+    padding:11px 18px;
+    border:none;
+    border-radius:10px;
+    background:linear-gradient(180deg,#e41b13,#b51212);
+    color:#fff;
+    font-weight:700;
+    cursor:pointer;
+    box-shadow:0 4px 18px rgba(255,0,0,0.3);
+  }
+  button:hover{ transform:translateY(-1px); }
+  a.back{
+    display:inline-block;
+    margin-top:18px;
+    color:#b51212;
+    text-decoration:none;
+    font-weight:600;
+  }
+  .coca-bottle{
+    position:fixed;
+    bottom:30px;
+    right:40px;
+    height:160px;
+    animation:float 4s ease-in-out infinite;
+    opacity:0.95;
+  }
+  @keyframes float{
+    0%,100%{transform:translateY(0);}
+    50%{transform:translateY(-14px);}
+  }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <h1><i class="fa-solid fa-wrench"></i> Ajouter une tâche manuelle</h1>
+  <p class="sub">
+    Cette tâche sera <b>ajoutée au plan PMP Excel</b> (ligne : Line / EQUIPEMENT / TÂCHE / FREQUENCE / INTERVENANT)
+    et <b>créée dans la base</b> pour l’opérateur / technicien choisi.
+  </p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for cat,msg in messages %}
+        <div style="
+          margin-bottom:8px;
+          padding:8px 10px;
+          border-radius:10px;
+          font-size:0.9rem;
+          {% if cat=='ok' %}
+            background:#e4f8ea;color:#145a1f;border:1px solid #53b46b;
+          {% else %}
+            background:#ffe5e5;color:#7b1515;border:1px solid #e15b5b;
+          {% endif %}
+        ">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <form action="{{ url_for('admin_manual_create') }}" method="POST">
+
+    <!-- LIGNE -->
+    <label>Ligne</label>
+    <select id="select-line" name="line" required>
+      <option value="" disabled selected>-- choisir une ligne --</option>
+      {% for l in lignes %}
+        <option value="{{ l }}">{{ l }}</option>
+      {% endfor %}
+    </select>
+
+    <!-- MACHINE dépend de la ligne -->
+    <label>Machine / Équipement</label>
+    <select id="select-machine" name="machine" required>
+      <option value="" disabled selected>-- choisir une machine --</option>
+    </select>
+
+    <!-- FREQUENCE (depuis Excel pour garder la même écriture) -->
+    <label>Fréquence</label>
+    <select name="frequence" required id="select-freq">
+      <option value="" disabled selected>-- choisir une fréquence --</option>
+      {% for f in frequences %}
+        <option value="{{ f }}">{{ f }}</option>
+      {% endfor %}
+    </select>
+
+    <!-- INTERVENANT (pour Excel + rôle logique) -->
+    <label>Intervenant (plan PMP)</label>
+    <select name="intervenant_type" required id="select-interv">
+      <option value="" disabled selected>-- choisir un intervenant --</option>
+      {% for i in intervenants %}
+        <option value="{{ i }}">{{ i }}</option>
+      {% endfor %}
+    </select>
+
+    <!-- DESCRIPTION SAISIE A LA MAIN -->
+    <label>Nouvelle tâche (description)</label>
+    <textarea name="description" placeholder="Décris précisément l’action de maintenance..." required></textarea>
+
+    <!-- ASSIGNER A UN USER EXISTANT -->
+    <label>Assigner à</label>
+    <select name="assigned_to" required>
+      {% for u in users %}
+        <option value="{{ u.id }}">{{ u.username }} ({{ u.role }})</option>
+      {% endfor %}
+    </select>
+
+    <!-- POINTS -->
+    <label>Points</label>
+    <input type="number" name="points" min="1" value="3" required>
+
+    <button type="submit">
+      <i class="fa-solid fa-plus-circle"></i> Créer la tâche manuelle
+    </button>
+  </form>
+
+  <a href="{{ url_for('admin_dashboard') }}" class="back">← Retour au dashboard admin</a>
+</div>
+
+<img src="{{ url_for('static', filename='images/coca_bottle.png') }}" class="coca-bottle" alt="Coca-Cola">
+
+<script>
+  // données envoyées par Flask
+  const MACHINES_PAR_LIGNE = {{ machines_par_ligne | tojson }};
+
+  const lineSelect    = document.getElementById('select-line');
+  const machineSelect = document.getElementById('select-machine');
+
+  lineSelect.addEventListener('change', () => {
+    const ligne = lineSelect.value;
+    machineSelect.innerHTML =
+      '<option value="" disabled selected>-- choisir une machine --</option>';
+
+    (MACHINES_PAR_LIGNE[ligne] || []).forEach(machine => {
+      const opt = document.createElement('option');
+      opt.value = machine;
+      opt.textContent = machine;
+      machineSelect.appendChild(opt);
+    });
+  });
+</script>
+
+</body>
+</html>

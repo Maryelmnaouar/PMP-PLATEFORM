@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Assignation automatique PMP</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+  body {
+    margin:0;
+    padding:0;
+    font-family: "Segoe UI";
+    background: linear-gradient(135deg, #fff5f5, #ffdcdc);
+  }
+  .container {
+    max-width: 600px;
+    margin: 80px auto;
+    background: #fff3f3;
+    padding: 25px;
+    border-radius: 16px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+  }
+  h1 {
+    margin-bottom: 20px;
+    color: #b51212;
+  }
+  label {
+    font-weight: 600;
+    color: #555;
+  }
+  select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    margin-top: 6px;
+  }
+  button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 15px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #e41b13, #b51212);
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+  button:hover {
+    transform: translateY(-2px);
+  }
+  a.back {
+    display:block;
+    text-align:center;
+    margin-top:25px;
+    color:#b51212;
+    font-weight:bold;
+    text-decoration:none;
+  }
+  .coca-bottle {
+    position: fixed;
+    bottom: 30px;
+    right: 40px;
+    height: 160px;
+    animation: float 4s ease-in-out infinite;
+    opacity: 0.95;
+  }
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-14px); }
+  }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <h1><i class="fa-solid fa-arrows-rotate"></i> Assignation automatique PMP</h1>
+
+  <!-- Sélecteur de ligne -->
+  <label>Ligne</label>
+  <select id="line-select">
+    <option value="" disabled selected>-- choisir une ligne --</option>
+    {% for l in lignes %}
+      <option value="{{ l }}">{{ l }}</option>
+    {% endfor %}
+  </select>
+
+  <!-- Form HEBDO -->
+  <form id="form-hebdo" action="{{ url_for('admin_auto_assign_hebdo') }}" method="POST">
+    <input type="hidden" name="line" id="hebdo-line">
+    <button type="submit"><i class="fa-solid fa-calendar-week"></i> Assigner PMP hebdomadaires</button>
+  </form>
+
+  <!-- Form MENSUEL -->
+  <form id="form-mensu" action="{{ url_for('admin_auto_assign_mensuel') }}" method="POST">
+    <input type="hidden" name="line" id="mensu-line">
+    <button type="submit"><i class="fa-solid fa-calendar-days"></i> Assigner PMP mensuelles</button>
+  </form>
+
+  <a href="{{ url_for('admin_dashboard') }}" class="back">← Retour au tableau de bord</a>
+</div>
+
+<img src="{{ url_for('static', filename='images/coca_bottle.png') }}" class="coca-bottle">
+
+<script>
+  // Mettre à jour automatiquement la ligne sélectionnée
+  const select = document.getElementById("line-select");
+  const h = document.getElementById("hebdo-line");
+  const m = document.getElementById("mensu-line");
+
+  select.addEventListener("change", () => {
+    h.value = select.value;
+    m.value = select.value;
+  });
+</script>
+
+</body>
+</html>
