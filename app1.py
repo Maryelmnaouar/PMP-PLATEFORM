@@ -124,12 +124,12 @@ def load_task_templates():
 # AUTH HELPERS
 # -------------------------------------------------------
 def current_user():
-    if "user_id" not in session:
+    user_id = session.get("user_id")
+    if not user_id:
         return None
     db = get_db()
-    u = db.execute("SELECT * FROM users WHERE id=?", (session["user_id"],)).fetchone()
-    db.close()
-    return u
+    return db.execute("SELECT * FROM users WHERE id=?", ("user_id",)).fetchone()
+    
 
 def login_required(role=None):
     def decorator(f):
