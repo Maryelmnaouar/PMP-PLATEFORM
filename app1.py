@@ -16,8 +16,6 @@ APP_DB = "pmp.db"
 
 app = Flask(__name__)
 app.secret_key = "change-this-secret-please"
-init_db()
-
 
 # -------------------------------------------------------
 # DB HELPERS
@@ -863,4 +861,5 @@ def inject_routes():
 # MAIN : lancement app
 # -------------------------------------------------------
 if __name__ == "__main__":
+    init_db()
     app.run(host="0.0.0.0", port=5000)
