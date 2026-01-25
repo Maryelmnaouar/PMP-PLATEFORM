@@ -16,6 +16,8 @@ APP_DB = "pmp.db"
 
 app = Flask(__name__)
 app.secret_key = "change-this-secret-please"
+def sturtup():
+    init_db()
 
 # -------------------------------------------------------
 # DB HELPERS
