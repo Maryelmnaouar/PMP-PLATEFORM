@@ -131,6 +131,9 @@ def current_user():
     db = get_db()
     u = db.execute("SELECT * FROM users WHERE id=?", (session["user_id"],)).fetchone()
     db.close()
+    if u is None :
+        session.clear()
+        return None
     return u
 
 def login_required(role=None):
