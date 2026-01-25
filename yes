@@ -1,0 +1,39 @@
+[33mcommit 8fa86e95534b5fc5db0d1a875589d7f448f3f786[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m
+Author: unknown <elmnaouarmaryam@gmail.com>
+Date:   Tue Dec 23 12:58:19 2025 +0100
+
+    Remove large PDF and ignore documentation files
+
+ .gitignore | 3 [32m++[m[31m-[m
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+[33mcommit ce2d81908e3e3ffc728ae9b89fb32cc6c7bb3aa8[m
+Author: unknown <elmnaouarmaryam@gmail.com>
+Date:   Tue Dec 23 12:38:27 2025 +0100
+
+    Initial commit - PMP PLATFORM
+
+ .gitignore                                     |   4 [32m+[m
+ app1.py                                        | 865 [32m+++++++++++++++++++++++++[m
+ data/plan_pmp.xlsx                             | Bin [31m0[m -> [32m1292182[m bytes
+ pmp.db                                         | Bin [31m0[m -> [32m20480[m bytes
+ requirements.txt                               |   0
+ static/images/coca_bottle.png                  | Bin [31m0[m -> [32m361720[m bytes
+ static/images/css/style.css                    |  61 [32m++[m
+ static/images/favicon.ico                      |   1 [32m+[m
+ static/images/logo.png                         | Bin [31m0[m -> [32m30409[m bytes
+ static/images/logo_cobomi.png                  | Bin [31m0[m -> [32m45698[m bytes
+ static/images/logo_cocacola.png                | Bin [31m0[m -> [32m249087[m bytes
+ static/images/logo_entreprise.png              | Bin [31m0[m -> [32m77507[m bytes
+ templates/admin_auto_page.html                 | 121 [32m++++[m
+ templates/admin_dashboard.html                 | 317 [32m+++++++++[m
+ templates/admin_manual_page.html               | 194 [32m++++++[m
+ templates/admin_tasks_closed.html              | 347 [32m++++++++++[m
+ templates/admin_tasks_open.html                | 223 [32m+++++++[m
+ templates/admin_users.html                     | 349 [32m++++++++++[m
+ templates/documentation.html                   |  29 [32m+[m
+ templates/index.html                           | 331 [32m++++++++++[m
+ templates/login.html                           | 162 [32m+++++[m
+ templates/operator_dashboard.html              | 331 [32m++++++++++[m
+ templates/teamleader_production_dashboard.html |   1 [32m+[m
+ 23 files changed, 3336 insertions(+)

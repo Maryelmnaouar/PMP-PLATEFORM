@@ -1,1 +1,1 @@
-web: gunicorm app1 : app
+web: gunicorm app1:app
