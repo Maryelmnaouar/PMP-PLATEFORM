@@ -160,9 +160,9 @@ def index():
         "line": request.args.get("line", "")
     }
     kpi = get_global_kpis(filters)
-    machine_par_ligne={}
+    machines_par_ligne=machines_par_ligne()
     
-    return render_template("index.html", **kpi, machine_par_ligne=machine_par_ligne, current_year=datetime.now().year)
+    return render_template("index.html", **kpi, machines_par_ligne=machines_par_ligne, current_year=datetime.now().year)
 
 @app.route("/login", methods=["GET","POST"])
 def login():
