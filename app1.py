@@ -22,7 +22,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret")
 # DB HELPERS (PostgreSQL)
 # -------------------------------------------------------
 def get_db():
-    return psycopg2.connect(os.environ["postgresql://pmp_db_dmwx_user:yiQEatoqhTrUXKaLKjnVwpJ0oBl4zH5b@dpg-d5raoashg0os73csb4f0-a/pmp_db_dmwx"])
+    return psycopg2.connect(os.environ["DATABASE_URL"])
 
 def init_db():
     conn = get_db()
