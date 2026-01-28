@@ -106,24 +106,39 @@ def get_global_kpis(filters=None):
     conn = get_db()
     cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
-    where = []
+    where = ["1=1"]
     params = []
 
     if filters.get("line"):
         where.append("line=%s")
         params.append(filters["line"])
 
-    where_sql = "WHERE " + " AND ".join(where) if where else ""
+    where_sql = "WHERE " + " AND ".join(where)
 
-    cur.execute(f"SELECT COUNT(*) n FROM tasks {where_sql}", params)
+    # Total tâches
+    cur.execute(f"""
+        SELECT COUNT(*) n
+        FROM tasks
+        {where_sql}
+    """, params)
     total = cur.fetchone()["n"]
 
-    cur.execute(f"SELECT COUNT(*) n FROM tasks {where_sql} AND status='cloturee'", params)
+    # Tâches clôturées
+    cur.execute(f"""
+        SELECT COUNT(*) n
+        FROM tasks
+        {where_sql} AND status='cloturee'
+    """, params)
     done = cur.fetchone()["n"]
 
     taux = round(done * 100 / total) if total else 0
 
-    cur.execute(f"SELECT COALESCE(SUM(points),0) s FROM tasks {where_sql} AND status='cloturee'", params)
+    # Score global
+    cur.execute(f"""
+        SELECT COALESCE(SUM(points), 0) s
+        FROM tasks
+        {where_sql} AND status='cloturee'
+    """, params)
     score = cur.fetchone()["s"]
 
     conn.close()
@@ -135,7 +150,6 @@ def get_global_kpis(filters=None):
         "taux_couleur": "green" if taux >= 80 else "orange" if taux >= 60 else "red",
         "score_global": score
     }
-
 # -------------------------------------------------------
 # ROUTES
 # -------------------------------------------------------
