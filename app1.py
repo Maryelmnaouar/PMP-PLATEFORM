@@ -29,9 +29,9 @@ def get_db():
 
 def init_db():
     db = get_db()
-    c = db.cursor()
+    cur = db.cursor()
 
-    c.execute("""
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS users(
         id SERIAL PRIMARY KEY,
         username TEXT UNIQUE NOT NULL,
@@ -42,7 +42,7 @@ def init_db():
     )
     """)
 
-    c.execute("""
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS tasks(
         id SERIAL PRIMARY KEY,
         line TEXT NOT NULL,
@@ -59,10 +59,9 @@ def init_db():
     )
     """)
 
-    # seed admin
-    c.execute("SELECT COUNT(*) AS n FROM users")
-    if c.fetchone()["n"] == 0:
-        c.execute("""
+    cur.execute("SELECT COUNT(*) AS n FROM users")
+    if cur.fetchone()["n"] == 0:
+        cur.execute("""
             INSERT INTO users(username,password_hash,role,prod_line,machine_assigned)
             VALUES (%s,%s,%s,%s,%s)
         """, ("admin", generate_password_hash("1234"), "admin", None, None))
@@ -70,7 +69,7 @@ def init_db():
     db.commit()
     db.close()
 
-# ⚠️ CRITIQUE : initialisation DB au chargement (Render / Gunicorn)
+# Initialisation DB (Render / Gunicorn)
 init_db()
 
 # -------------------------------------------------------
@@ -110,16 +109,15 @@ def load_task_templates():
     return records, lignes, machines_par_ligne, intervenants, frequences
 
 # -------------------------------------------------------
-# AUTH
+# AUTH HELPERS
 # -------------------------------------------------------
 def current_user():
     if "user_id" not in session:
         return None
     db = get_db()
-    u = db.cursor().execute(
-        "SELECT * FROM users WHERE id=%s",
-        (session["user_id"],)
-    ).fetchone()
+    cur = db.cursor()
+    cur.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],))
+    u = cur.fetchone()
     db.close()
     if not u:
         session.clear()
@@ -140,50 +138,74 @@ def login_required(role=None):
     return decorator
 
 # -------------------------------------------------------
-# KPI (LOGIQUE STRICTEMENT IDENTIQUE)
+# EXCEL : Ajout tâche
+# -------------------------------------------------------
+def append_task_to_excel(line, machine, description, frequence, intervenant):
+    if not os.path.exists(EXCEL_PATH):
+        return
+
+    wb = load_workbook(EXCEL_PATH)
+    ws = wb[EXCEL_SHEET]
+
+    headers = {}
+    for idx, cell in enumerate(ws[1], 1):
+        title = str(cell.value).strip().upper() if cell.value else ""
+        headers[title] = idx
+
+    new_row = [None] * len(ws[1])
+
+    def set_col(title, value):
+        col = headers.get(title)
+        if col:
+            new_row[col - 1] = value
+
+    task_header = "TÂCHE" if "TÂCHE" in headers else ("TACHE" if "TACHE" in headers else None)
+
+    set_col("LINE", line)
+    set_col("EQUIPEMENT", machine)
+    if task_header:
+        set_col(task_header, description)
+    set_col("FREQUENCE", frequence)
+    set_col("INTERVENANT", intervenant)
+
+    ws.append(new_row)
+    wb.save(EXCEL_PATH)
+    wb.close()
+
+# -------------------------------------------------------
+# KPI (LOGIQUE IDENTIQUE)
 # -------------------------------------------------------
 def get_global_kpis(filters=None):
     filters = filters or {}
-    line = (filters.get("line") or "").strip()
-    machine = (filters.get("machine") or "").strip()
-    start_date = (filters.get("start_date") or "").strip()
-    end_date = (filters.get("end_date") or "").strip()
-
     db = get_db()
-    c = db.cursor()
+    cur = db.cursor()
 
     where = []
     params = []
 
-    if line:
+    if filters.get("line"):
         where.append("line=%s")
-        params.append(line)
-    if machine:
+        params.append(filters["line"])
+    if filters.get("machine"):
         where.append("machine=%s")
-        params.append(machine)
-    if start_date:
-        where.append("DATE(created_at) >= %s")
-        params.append(start_date)
-    if end_date:
-        where.append("DATE(created_at) <= %s")
-        params.append(end_date)
+        params.append(filters["machine"])
 
     where_sql = "WHERE " + " AND ".join(where) if where else ""
 
-    c.execute(f"SELECT COUNT(*) n FROM tasks {where_sql}", params)
-    total = c.fetchone()["n"]
+    cur.execute(f"SELECT COUNT(*) n FROM tasks {where_sql}", params)
+    total = cur.fetchone()["n"]
 
-    c.execute(f"SELECT COUNT(*) n FROM tasks {where_sql} AND status='cloturee'", params)
-    done = c.fetchone()["n"]
+    cur.execute(f"SELECT COUNT(*) n FROM tasks {where_sql} AND status='cloturee'", params)
+    done = cur.fetchone()["n"]
 
     taux = round(done * 100 / total) if total else 0
     color = "green" if taux >= 80 else "orange" if taux >= 60 else "red"
 
-    c.execute(
+    cur.execute(
         f"SELECT COALESCE(SUM(points),0) s FROM tasks {where_sql} AND status='cloturee'",
         params
     )
-    score = c.fetchone()["s"]
+    score = cur.fetchone()["s"]
 
     db.close()
 
@@ -196,16 +218,14 @@ def get_global_kpis(filters=None):
     }
 
 # -------------------------------------------------------
-# ROUTES (INCHANGÉES)
+# ROUTES PUBLIQUES
 # -------------------------------------------------------
 @app.route("/")
 @login_required()
 def index():
     filters = {
         "line": request.args.get("line",""),
-        "machine": request.args.get("machine",""),
-        "start_date": request.args.get("start_date",""),
-        "end_date": request.args.get("end_date",""),
+        "machine": request.args.get("machine","")
     }
 
     kpi = get_global_kpis(filters)
@@ -227,10 +247,9 @@ def login():
         password = request.form.get("password","")
 
         db = get_db()
-        u = db.cursor().execute(
-            "SELECT * FROM users WHERE username=%s",
-            (username,)
-        ).fetchone()
+        cur = db.cursor()
+        cur.execute("SELECT * FROM users WHERE username=%s", (username,))
+        u = cur.fetchone()
         db.close()
 
         if u and check_password_hash(u["password_hash"], password):
@@ -246,6 +265,121 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+# -------------------------------------------------------
+# ADMIN DASHBOARD
+# -------------------------------------------------------
+@app.route("/admin")
+@login_required(role="admin")
+def admin_dashboard():
+    _, lignes, machines_L, intervenants, frequences = load_task_templates()
+    return render_template(
+        "admin_dashboard.html",
+        lignes=lignes,
+        machines_par_ligne=machines_L,
+        intervenants=intervenants,
+        frequences=frequences,
+        current_year=datetime.now().year
+    )
+
+# -------------------------------------------------------
+# ADMIN : USERS
+# -------------------------------------------------------
+@app.route("/admin/users")
+@login_required(role="admin")
+def admin_users():
+    db = get_db()
+    cur = db.cursor()
+    cur.execute("""
+        SELECT id, username, role, prod_line, machine_assigned
+        FROM users
+        WHERE role!='admin'
+        ORDER BY username
+    """)
+    users = cur.fetchall()
+    db.close()
+
+    _, lignes, machines_pl, intervenants, frequences = load_task_templates()
+
+    return render_template(
+        "admin_users.html",
+        users=users,
+        lignes=lignes,
+        machines_par_ligne=machines_pl,
+        intervenants=intervenants,
+        frequences=frequences,
+        current_year=datetime.now().year
+    )
+
+# -------------------------------------------------------
+# OPERATOR DASHBOARD
+# -------------------------------------------------------
+@app.route("/me")
+@login_required()
+def operator_dashboard():
+    user = current_user()
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("""
+        SELECT *
+        FROM tasks
+        WHERE assigned_to=%s
+        ORDER BY CASE status WHEN 'en_cours' THEN 0 ELSE 1 END, created_at DESC
+    """, (user["id"],))
+    tasks = cur.fetchall()
+
+    cur.execute("""
+        SELECT COALESCE(SUM(points),0)
+        FROM tasks
+        WHERE assigned_to=%s AND status='cloturee'
+    """, (user["id"],))
+    score = cur.fetchone()["coalesce"]
+
+    db.close()
+
+    return render_template(
+        "operator_dashboard.html",
+        me=user,
+        tasks=tasks,
+        score_total=score
+    )
+
+# -------------------------------------------------------
+# CLOSE TASK
+# -------------------------------------------------------
+@app.route("/me/task/close/<int:task_id>", methods=["POST"])
+@login_required()
+def me_close_task(task_id):
+    user = current_user()
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("SELECT * FROM tasks WHERE id=%s", (task_id,))
+    task = cur.fetchone()
+
+    if not task or task["assigned_to"] != user["id"]:
+        flash("Action interdite.", "err")
+        db.close()
+        return redirect(url_for("operator_dashboard"))
+
+    cur.execute("""
+        UPDATE tasks
+        SET status='cloturee', closed_at=%s
+        WHERE id=%s
+    """, (datetime.now().isoformat(), task_id))
+
+    db.commit()
+    db.close()
+
+    flash("Tâche validée, bravo !", "ok")
+    return redirect(url_for("operator_dashboard"))
+
+# -------------------------------------------------------
+# CONTEXT PROCESSOR
+# -------------------------------------------------------
+@app.context_processor
+def inject_routes():
+    return dict(index=url_for("index"))
 
 # -------------------------------------------------------
 # MAIN
