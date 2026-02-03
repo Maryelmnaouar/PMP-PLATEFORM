@@ -709,6 +709,22 @@ def me_close_task(task_id):
     return redirect(url_for("operator_dashboard"))
 
 # -------------------------------------------------------
+# REDIRECTION PLATEFORME SELON UTILISATEUR
+# -------------------------------------------------------
+@app.route("/platform")
+def platform_redirect():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+
+    role = session.get("role")
+
+    if role == "admin":
+        return redirect(url_for("admin_dashboard"))
+    else:
+        return redirect(url_for("operator_dashboard"))
+
+
+# -------------------------------------------------------
 # CONTEXT PROCESSOR
 # -------------------------------------------------------
 @app.context_processor
