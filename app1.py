@@ -192,18 +192,34 @@ def get_global_kpis(filters=None):
 
     where_sql = "WHERE " + " AND ".join(where) if where else ""
 
+    # Total tâches
     cur.execute(f"SELECT COUNT(*) n FROM tasks {where_sql}", params)
     total = cur.fetchone()["n"]
 
-    cur.execute(f"SELECT COUNT(*) n FROM tasks {where_sql} AND status='cloturee'", params)
+    # Tâches clôturées
+    if where_sql:
+        cur.execute(
+            f"SELECT COUNT(*) n FROM tasks {where_sql} AND status='cloturee'",
+            params
+        )
+    else:
+        cur.execute(
+            "SELECT COUNT(*) n FROM tasks WHERE status='cloturee'"
+        )
     done = cur.fetchone()["n"]
+
 
     taux = round(done * 100 / total) if total else 0
     color = "green" if taux >= 80 else "orange" if taux >= 60 else "red"
 
-    cur.execute(
+    if where_sql:
+        cur.execute(
         f"SELECT COALESCE(SUM(points),0) s FROM tasks {where_sql} AND status='cloturee'",
         params
+    )
+    else:
+        cur.execute(
+        "SELECT COALESCE(SUM(points),0) s FROM tasks WHERE status='cloturee'"
     )
     score = cur.fetchone()["s"]
 
