@@ -278,18 +278,25 @@ def index():
     )
 
 
+from psycopg2.extras import RealDictCursor
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
 
-        db = get_db()
-        u = db.execute(
-            "SELECT * FROM users WHERE username=%s",
+        conn = get_db()
+        cur = conn.cursor(cursor_factory=RealDictCursor)
+
+        cur.execute(
+            "SELECT * FROM users WHERE username = %s",
             (username,)
-        ).fetchone()
-        db.close()
+        )
+        u = cur.fetchone()
+
+        cur.close()
+        conn.close()
 
         if u and check_password_hash(u["password_hash"], password):
             session["user_id"] = u["id"]
@@ -299,6 +306,7 @@ def login():
         return render_template("login.html", error="Nom ou mot de passe incorrect")
 
     return render_template("login.html")
+
 
 
 @app.route("/logout")
