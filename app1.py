@@ -249,10 +249,9 @@ def get_global_kpis(filters=None):
 # -------------------------------------------------------
 @app.route("/")
 def home():
-    if "user_id" not in session:
-        return redirect(url_for("login"))
-    return redirect(url_for("index"))
+    return redirect(url_for("login"))
 @app.route("/index")
+@login_required()
 def index():
     line       = (request.args.get("line") or "").strip()
     machine    = (request.args.get("machine") or "").strip()
@@ -278,28 +277,29 @@ def index():
         current_year=datetime.now().year
     )
 
-@app.route("/login", methods=["GET","POST"])
+
+@app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form.get("username","").strip()
-        password = request.form.get("password","")
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
 
         db = get_db()
-        c = db.cursor()
-        c.execute("SELECT * FROM users WHERE username=%s", (username,))
-        u = c.fetchone()
+        u = db.execute(
+            "SELECT * FROM users WHERE username=%s",
+            (username,)
+        ).fetchone()
         db.close()
 
         if u and check_password_hash(u["password_hash"], password):
             session["user_id"] = u["id"]
             session["role"] = u["role"]
-            return redirect(
-                url_for("admin_dashboard" if u["role"]=="admin" else "operator_dashboard")
-            )
+            return redirect(url_for("index"))
 
         return render_template("login.html", error="Nom ou mot de passe incorrect")
 
     return render_template("login.html")
+
 
 @app.route("/logout")
 def logout():
