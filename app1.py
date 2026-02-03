@@ -248,6 +248,10 @@ def get_global_kpis(filters=None):
 # ROUTES PUBLIQUES (LOGIQUE IDENTIQUE)
 # -------------------------------------------------------
 @app.route("/")
+def home():
+    if "user_id" not in session:
+        return redirect(url_for("login"))
+    return redirect(url_for("index"))
 def index():
     line       = (request.args.get("line") or "").strip()
     machine    = (request.args.get("machine") or "").strip()
