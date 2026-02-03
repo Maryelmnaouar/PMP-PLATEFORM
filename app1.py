@@ -137,6 +137,21 @@ def login_required(role=None):
         return wrapper
     return decorator
 
+@app.route("/platform")
+@login_required()
+def platform_redirect():
+    """
+    Redirection centrale selon le rôle utilisateur
+    (utilisée par index.html)
+    """
+    role = session.get("role")
+
+    if role == "admin":
+        return redirect(url_for("admin_dashboard"))
+    else:
+        return redirect(url_for("operator_dashboard"))
+
+
 # -------------------------------------------------------
 # EXCEL : Ajout tâche
 # -------------------------------------------------------
