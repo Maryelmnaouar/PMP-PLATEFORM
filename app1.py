@@ -29,9 +29,9 @@ def get_db():
 
 def init_db():
     db = get_db()
-    cur = db.cursor()
+    c = db.cursor()
 
-    cur.execute("""
+    c.execute("""
     CREATE TABLE IF NOT EXISTS users(
         id SERIAL PRIMARY KEY,
         username TEXT UNIQUE NOT NULL,
@@ -42,7 +42,7 @@ def init_db():
     )
     """)
 
-    cur.execute("""
+    c.execute("""
     CREATE TABLE IF NOT EXISTS tasks(
         id SERIAL PRIMARY KEY,
         line TEXT NOT NULL,
@@ -59,9 +59,9 @@ def init_db():
     )
     """)
 
-    cur.execute("SELECT COUNT(*) AS n FROM users")
-    if cur.fetchone()["n"] == 0:
-        cur.execute("""
+    c.execute("SELECT COUNT(*) AS n FROM users")
+    if c.fetchone()["n"] == 0:
+        c.execute("""
             INSERT INTO users(username,password_hash,role,prod_line,machine_assigned)
             VALUES (%s,%s,%s,%s,%s)
         """, ("admin", generate_password_hash("1234"), "admin", None, None))
@@ -69,11 +69,11 @@ def init_db():
     db.commit()
     db.close()
 
-# Initialisation DB (Render / Gunicorn)
+# IMPORTANT pour Render
 init_db()
 
 # -------------------------------------------------------
-# LECTURE EXCEL (INCHANGÉ)
+# LECTURE EXCEL (INCHANGÉE)
 # -------------------------------------------------------
 def load_task_templates():
     if not os.path.exists(EXCEL_PATH):
@@ -90,7 +90,7 @@ def load_task_templates():
         "Emplacement Documentation": "Documentation"
     })
 
-    for col in ["Ligne", "Machine", "Description", "Frequence", "Intervenant", "Documentation"]:
+    for col in ["Ligne", "Machine", "Description", "Frequence", "Intervenant","Documentation"]:
         if col in df.columns:
             df[col] = df[col].astype(str).str.strip()
 
@@ -109,18 +109,16 @@ def load_task_templates():
     return records, lignes, machines_par_ligne, intervenants, frequences
 
 # -------------------------------------------------------
-# AUTH HELPERS
+# AUTH HELPERS (LOGIQUE IDENTIQUE)
 # -------------------------------------------------------
 def current_user():
     if "user_id" not in session:
         return None
     db = get_db()
-    cur = db.cursor()
-    cur.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],))
-    u = cur.fetchone()
+    c = db.cursor()
+    c.execute("SELECT * FROM users WHERE id=%s", (session["user_id"],))
+    u = c.fetchone()
     db.close()
-    if not u:
-        session.clear()
     return u
 
 def login_required(role=None):
@@ -132,28 +130,15 @@ def login_required(role=None):
             if not u:
                 return redirect(url_for("login"))
             if role and u["role"] != role:
-                return redirect(url_for("index"))
+                return redirect(
+                    url_for("admin_dashboard" if u["role"]=="admin" else "operator_dashboard")
+                )
             return f(*args, **kwargs)
         return wrapper
     return decorator
 
-@app.route("/platform")
-@login_required()
-def platform_redirect():
-    """
-    Redirection centrale selon le rôle utilisateur
-    (utilisée par index.html)
-    """
-    role = session.get("role")
-
-    if role == "admin":
-        return redirect(url_for("admin_dashboard"))
-    else:
-        return redirect(url_for("operator_dashboard"))
-
-
 # -------------------------------------------------------
-# EXCEL : Ajout tâche
+# EXCEL : Ajout d’une ligne (INCHANGÉ)
 # -------------------------------------------------------
 def append_task_to_excel(line, machine, description, frequence, intervenant):
     if not os.path.exists(EXCEL_PATH):
@@ -188,55 +173,66 @@ def append_task_to_excel(line, machine, description, frequence, intervenant):
     wb.close()
 
 # -------------------------------------------------------
+# MAPPING INTERVENANT → rôle (INCHANGÉ)
+# -------------------------------------------------------
+def _role_from_intervenant(x):
+    x = (x or "").lower()
+    if "conduct" in x:
+        return "operator"
+    if "mec" in x or "élec" in x or "elec" in x:
+        return "technician"
+    return "operator"
+
+# -------------------------------------------------------
 # KPI (LOGIQUE IDENTIQUE)
 # -------------------------------------------------------
 def get_global_kpis(filters=None):
-    filters = filters or {}
+    if filters is None:
+        filters = {}
+
+    line       = (filters.get("line") or "").strip()
+    machine    = (filters.get("machine") or "").strip()
+    start_date = (filters.get("start_date") or "").strip()
+    end_date   = (filters.get("end_date") or "").strip()
+
     db = get_db()
-    cur = db.cursor()
+    c = db.cursor()
 
     where = []
     params = []
 
-    if filters.get("line"):
+    if line:
         where.append("line=%s")
-        params.append(filters["line"])
-    if filters.get("machine"):
+        params.append(line)
+    if machine:
         where.append("machine=%s")
-        params.append(filters["machine"])
+        params.append(machine)
+    if start_date:
+        where.append("DATE(created_at)>= %s")
+        params.append(start_date)
+    if end_date:
+        where.append("DATE(created_at)<= %s")
+        params.append(end_date)
 
     where_sql = "WHERE " + " AND ".join(where) if where else ""
 
-    # Total tâches
-    cur.execute(f"SELECT COUNT(*) n FROM tasks {where_sql}", params)
-    total = cur.fetchone()["n"]
+    c.execute(f"SELECT COUNT(*) n FROM tasks {where_sql}", params)
+    total = c.fetchone()["n"]
 
-    # Tâches clôturées
     if where_sql:
-        cur.execute(
-            f"SELECT COUNT(*) n FROM tasks {where_sql} AND status='cloturee'",
-            params
-        )
+        c.execute(f"SELECT COUNT(*) n FROM tasks {where_sql} AND status='cloturee'", params)
     else:
-        cur.execute(
-            "SELECT COUNT(*) n FROM tasks WHERE status='cloturee'"
-        )
-    done = cur.fetchone()["n"]
-
+        c.execute("SELECT COUNT(*) n FROM tasks WHERE status='cloturee'")
+    done = c.fetchone()["n"]
 
     taux = round(done * 100 / total) if total else 0
     color = "green" if taux >= 80 else "orange" if taux >= 60 else "red"
 
     if where_sql:
-        cur.execute(
-        f"SELECT COALESCE(SUM(points),0) s FROM tasks {where_sql} AND status='cloturee'",
-        params
-    )
+        c.execute(f"SELECT COALESCE(SUM(points),0) s FROM tasks {where_sql} AND status='cloturee'", params)
     else:
-        cur.execute(
-        "SELECT COALESCE(SUM(points),0) s FROM tasks WHERE status='cloturee'"
-    )
-    score = cur.fetchone()["s"]
+        c.execute("SELECT COALESCE(SUM(points),0) s FROM tasks WHERE status='cloturee'")
+    score = c.fetchone()["s"]
 
     db.close()
 
@@ -249,14 +245,20 @@ def get_global_kpis(filters=None):
     }
 
 # -------------------------------------------------------
-# ROUTES PUBLIQUES
+# ROUTES PUBLIQUES (LOGIQUE IDENTIQUE)
 # -------------------------------------------------------
 @app.route("/")
-@login_required()
 def index():
+    line       = (request.args.get("line") or "").strip()
+    machine    = (request.args.get("machine") or "").strip()
+    start_date = (request.args.get("start_date") or "").strip()
+    end_date   = (request.args.get("end_date") or "").strip()
+
     filters = {
-        "line": request.args.get("line",""),
-        "machine": request.args.get("machine","")
+        "line": line,
+        "machine": machine,
+        "start_date": start_date,
+        "end_date": end_date,
     }
 
     kpi = get_global_kpis(filters)
@@ -274,19 +276,21 @@ def index():
 @app.route("/login", methods=["GET","POST"])
 def login():
     if request.method == "POST":
-        username = request.form.get("username","")
+        username = request.form.get("username","").strip()
         password = request.form.get("password","")
 
         db = get_db()
-        cur = db.cursor()
-        cur.execute("SELECT * FROM users WHERE username=%s", (username,))
-        u = cur.fetchone()
+        c = db.cursor()
+        c.execute("SELECT * FROM users WHERE username=%s", (username,))
+        u = c.fetchone()
         db.close()
 
         if u and check_password_hash(u["password_hash"], password):
             session["user_id"] = u["id"]
             session["role"] = u["role"]
-            return redirect(url_for("index"))
+            return redirect(
+                url_for("admin_dashboard" if u["role"]=="admin" else "operator_dashboard")
+            )
 
         return render_template("login.html", error="Nom ou mot de passe incorrect")
 
@@ -296,8 +300,9 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
 # -------------------------------------------------------
-# ADMIN DASHBOARD
+# ADMIN : Tableau de bord principal
 # -------------------------------------------------------
 @app.route("/admin")
 @login_required(role="admin")
@@ -313,20 +318,69 @@ def admin_dashboard():
     )
 
 # -------------------------------------------------------
-# ADMIN : USERS
+# ADMIN : Création utilisateur
+# -------------------------------------------------------
+@app.route("/admin/user/create", methods=["POST"])
+@login_required(role="admin")
+def admin_create_user():
+    username = request.form.get("username","").strip()
+    password = request.form.get("password","").strip()
+    interv_choice = request.form.get("intervenant_type","").strip()
+    prod_line = request.form.get("prod_line","").strip()
+    machines = request.form.getlist("machine_assigned")
+    machines = [m.strip() for m in machines if m.strip()]
+    machine_assigned = "|".join(machines)
+
+    role = _role_from_intervenant(interv_choice)
+
+    if not username or not password or not prod_line or not machines:
+        flash("Remplissez bien tous les champs.", "err")
+        return redirect(url_for("admin_users"))
+
+    db = get_db()
+    try:
+        c = db.cursor()
+        c.execute("SELECT id FROM users WHERE username=%s", (username,))
+        if c.fetchone():
+            flash("Nom d'utilisateur déjà utilisé.", "err")
+            db.close()
+            return redirect(url_for("admin_users"))
+
+        c.execute("""
+            INSERT INTO users(username, password_hash, role, prod_line, machine_assigned)
+            VALUES (%s,%s,%s,%s,%s)
+        """, (username, generate_password_hash(password), role, prod_line, machine_assigned))
+        db.commit()
+        flash(f"Utilisateur {username} créé.", "ok")
+
+    except IntegrityError:
+        flash("Erreur SQL création utilisateur", "err")
+    finally:
+        db.close()
+
+    return redirect(url_for("admin_users"))
+
+@app.route("/documentation")
+def documentation():
+    docs_dir = os.path.join(app.root_path, "static\\images", "docs")
+    pdfs = [f for f in os.listdir(docs_dir) if f.lower().endswith(".pdf")] if os.path.exists(docs_dir) else []
+    return render_template("documentation.html", pdfs=pdfs)
+
+# -------------------------------------------------------
+# PAGE ADMIN : gestion utilisateurs
 # -------------------------------------------------------
 @app.route("/admin/users")
 @login_required(role="admin")
 def admin_users():
     db = get_db()
-    cur = db.cursor()
-    cur.execute("""
+    c = db.cursor()
+    c.execute("""
         SELECT id, username, role, prod_line, machine_assigned
         FROM users
         WHERE role!='admin'
         ORDER BY username
     """)
-    users = cur.fetchall()
+    users = c.fetchall()
     db.close()
 
     _, lignes, machines_pl, intervenants, frequences = load_task_templates()
@@ -342,29 +396,278 @@ def admin_users():
     )
 
 # -------------------------------------------------------
-# OPERATOR DASHBOARD
+# ADMIN : PAGE assignation automatique
+# -------------------------------------------------------
+@app.route("/admin/auto")
+@login_required(role="admin")
+def admin_auto_page():
+    _, lignes, machines_L, intervenants, frequences = load_task_templates()
+    return render_template(
+        "admin_auto_page.html",
+        lignes=lignes,
+        machines_par_ligne=machines_L,
+        intervenants=intervenants,
+        frequences=frequences,
+        current_year=datetime.now().year
+    )
+
+# -------------------------------------------------------
+# ROTATION AUTOMATIQUE
+# -------------------------------------------------------
+def _auto_assign_pmp(line: str, freq_prefix: str, offset=0):
+    records, _, _, _, _ = load_task_templates()
+    freq_prefix = freq_prefix.lower()
+
+    r_filtered = [r for r in records
+                  if r["Ligne"] == line
+                  and freq_prefix in str(r["Frequence"]).lower()]
+
+    if not r_filtered:
+        return 0
+
+    by_machine_role = {}
+    for r in r_filtered:
+        machine = r["Machine"]
+        role = _role_from_intervenant(r["Intervenant"])
+        by_machine_role.setdefault((machine, role), []).append(r)
+
+    db = get_db()
+    c = db.cursor()
+    created = 0
+    used_users = set()
+
+    for (machine, role), rows in by_machine_role.items():
+        c.execute("""
+            SELECT id, machine_assigned
+            FROM users
+            WHERE role=%s AND prod_line=%s
+        """, (role, line))
+        users = c.fetchall()
+
+        user_ids = []
+        for u in users:
+            mlist = (u["machine_assigned"] or "").split("|")
+            if machine in mlist:
+                user_ids.append(u["id"])
+
+        if not user_ids:
+            continue
+
+        candidate_ids = [u for u in user_ids if u not in used_users] or user_ids
+        chosen = candidate_ids[offset % len(candidate_ids)]
+        used_users.add(chosen)
+
+        now = datetime.now().isoformat()
+
+        for r in rows:
+            c.execute("""
+                INSERT INTO tasks(line, machine, description, assigned_to, status, points, frequency, documentation, created_at)
+                VALUES (%s,%s,%s,%s,'en_cours',%s,%s,%s,%s)
+            """, (line, machine, r["Description"], chosen, 3, r["Frequence"], r.get("Documentation"), now))
+            created += 1
+
+    db.commit()
+    db.close()
+    return created
+
+# -------------------------------------------------------
+# ROUTES assignation automatique
+# -------------------------------------------------------
+@app.route("/admin/auto_assign_hebdo", methods=["POST"])
+@login_required(role="admin")
+def admin_auto_assign_hebdo():
+    created = _auto_assign_pmp(request.form.get("line",""), "hebdo", 0)
+    flash(f"{created} tâches hebdo créées." if created else "Aucune tâche hebdo créée.", "ok" if created else "err")
+    return redirect(url_for("admin_auto_page"))
+
+@app.route("/admin/auto_assign_mensuel", methods=["POST"])
+@login_required(role="admin")
+def admin_auto_assign_mensuel():
+    created = _auto_assign_pmp(request.form.get("line",""), "mensu", 1)
+    flash(f"{created} tâches mensuelles créées." if created else "Aucune tâche mensuelle créée.", "ok" if created else "err")
+    return redirect(url_for("admin_auto_page"))
+
+# -------------------------------------------------------
+# PAGE : Ajout manuel tâche
+# -------------------------------------------------------
+@app.route("/admin/manual")
+@login_required(role="admin")
+def admin_manual_page():
+    _, lignes, machines_pl, intervenants, frequences = load_task_templates()
+
+    db = get_db()
+    c = db.cursor()
+    c.execute("""
+        SELECT id, username, role
+        FROM users
+        WHERE role!='admin'
+        ORDER BY username
+    """)
+    users = c.fetchall()
+    db.close()
+
+    return render_template(
+        "admin_manual_page.html",
+        lignes=lignes,
+        machines_par_ligne=machines_pl,
+        intervenants=intervenants,
+        frequences=frequences,
+        users=users,
+        current_year=datetime.now().year
+    )
+
+@app.route("/admin/manual/create", methods=["POST"])
+@login_required(role="admin")
+def admin_manual_create():
+    line = request.form["line"]
+    machine = request.form["machine"]
+    frequence = request.form["frequence"]
+    intervenant = request.form["intervenant_type"]
+    description = request.form["description"]
+    assigned_to = int(request.form["assigned_to"])
+    points = int(request.form["points"])
+
+    append_task_to_excel(line, machine, description, frequence, intervenant)
+
+    db = get_db()
+    c = db.cursor()
+    c.execute("""
+        INSERT INTO tasks(line, machine, description, assigned_to, status, points, frequency, created_at)
+        VALUES (%s,%s,%s,%s,'en_cours',%s,%s,%s)
+    """, (line, machine, description, assigned_to, points, frequence, datetime.now().isoformat()))
+    db.commit()
+    db.close()
+
+    flash("Tâche manuelle créée et ajoutée au plan PMP.", "ok")
+    return redirect(url_for("admin_manual_page"))
+# -------------------------------------------------------
+# PAGE : Tâches en cours (ADMIN)
+# -------------------------------------------------------
+@app.route("/admin/tasks/open")
+@login_required(role="admin")
+def admin_tasks_open():
+    line       = (request.args.get("line") or "").strip()
+    machine    = (request.args.get("machine") or "").strip()
+    start_date = (request.args.get("start_date") or "").strip()
+    end_date   = (request.args.get("end_date") or "").strip()
+
+    where = ["t.status='en_cours'"]
+    params = []
+
+    if line:
+        where.append("t.line=%s")
+        params.append(line)
+    if machine:
+        where.append("t.machine=%s")
+        params.append(machine)
+    if start_date:
+        where.append("DATE(t.created_at)>= %s")
+        params.append(start_date)
+    if end_date:
+        where.append("DATE(t.created_at)<= %s")
+        params.append(end_date)
+
+    where_sql = "WHERE " + " AND ".join(where)
+
+    db = get_db()
+    c = db.cursor()
+    c.execute(f"""
+        SELECT t.*, u.username
+        FROM tasks t
+        JOIN users u ON u.id = t.assigned_to
+        {where_sql}
+        ORDER BY t.created_at DESC
+    """, params)
+    tasks = c.fetchall()
+    db.close()
+
+    _, lignes, machines_par_ligne, _, _ = load_task_templates()
+
+    return render_template(
+        "admin_tasks_open.html",
+        tasks=tasks,
+        lignes=lignes,
+        machines_par_ligne=machines_par_ligne,
+        filters={"line":line,"machine":machine,"start_date":start_date,"end_date":end_date},
+        current_year=datetime.now().year
+    )
+
+# -------------------------------------------------------
+# PAGE : Tâches clôturées (ADMIN)
+# -------------------------------------------------------
+@app.route("/admin/tasks/closed")
+@login_required(role="admin")
+def admin_tasks_closed():
+    line       = (request.args.get("line") or "").strip()
+    machine    = (request.args.get("machine") or "").strip()
+    start_date = (request.args.get("start_date") or "").strip()
+    end_date   = (request.args.get("end_date") or "").strip()
+
+    where = ["t.status='cloturee'"]
+    params = []
+
+    if line:
+        where.append("t.line=%s")
+        params.append(line)
+    if machine:
+        where.append("t.machine=%s")
+        params.append(machine)
+    if start_date:
+        where.append("DATE(t.closed_at)>= %s")
+        params.append(start_date)
+    if end_date:
+        where.append("DATE(t.closed_at)<= %s")
+        params.append(end_date)
+
+    where_sql = "WHERE " + " AND ".join(where)
+
+    db = get_db()
+    c = db.cursor()
+    c.execute(f"""
+        SELECT t.*, u.username
+        FROM tasks t
+        JOIN users u ON u.id = t.assigned_to
+        {where_sql}
+        ORDER BY t.closed_at DESC
+    """, params)
+    tasks = c.fetchall()
+    db.close()
+
+    _, lignes, machines_par_ligne, _, _ = load_task_templates()
+
+    return render_template(
+        "admin_tasks_closed.html",
+        tasks=tasks,
+        lignes=lignes,
+        machines_par_ligne=machines_par_ligne,
+        filters={"line":line,"machine":machine,"start_date":start_date,"end_date":end_date},
+        current_year=datetime.now().year
+    )
+
+# -------------------------------------------------------
+# OPÉRATEUR : tableau de bord
 # -------------------------------------------------------
 @app.route("/me")
 @login_required()
 def operator_dashboard():
     user = current_user()
     db = get_db()
-    cur = db.cursor()
+    c = db.cursor()
 
-    cur.execute("""
+    c.execute("""
         SELECT *
         FROM tasks
         WHERE assigned_to=%s
         ORDER BY CASE status WHEN 'en_cours' THEN 0 ELSE 1 END, created_at DESC
     """, (user["id"],))
-    tasks = cur.fetchall()
+    tasks = c.fetchall()
 
-    cur.execute("""
-        SELECT COALESCE(SUM(points),0)
+    c.execute("""
+        SELECT COALESCE(SUM(points),0) AS score
         FROM tasks
         WHERE assigned_to=%s AND status='cloturee'
     """, (user["id"],))
-    score = cur.fetchone()["coalesce"]
+    score = c.fetchone()["score"]
 
     db.close()
 
@@ -376,24 +679,24 @@ def operator_dashboard():
     )
 
 # -------------------------------------------------------
-# CLOSE TASK
+# OPÉRATEUR : Clôturer une tâche
 # -------------------------------------------------------
 @app.route("/me/task/close/<int:task_id>", methods=["POST"])
 @login_required()
 def me_close_task(task_id):
     user = current_user()
     db = get_db()
-    cur = db.cursor()
+    c = db.cursor()
 
-    cur.execute("SELECT * FROM tasks WHERE id=%s", (task_id,))
-    task = cur.fetchone()
+    c.execute("SELECT * FROM tasks WHERE id=%s", (task_id,))
+    task = c.fetchone()
 
     if not task or task["assigned_to"] != user["id"]:
         flash("Action interdite.", "err")
         db.close()
         return redirect(url_for("operator_dashboard"))
 
-    cur.execute("""
+    c.execute("""
         UPDATE tasks
         SET status='cloturee', closed_at=%s
         WHERE id=%s
@@ -416,4 +719,4 @@ def inject_routes():
 # MAIN
 # -------------------------------------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run()
