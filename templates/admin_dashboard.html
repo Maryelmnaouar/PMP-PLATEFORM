@@ -232,9 +232,6 @@
         <div class="menu-title">Ajouter une tâche manuelle</div>
         <div class="menu-sub">Créer une tâche PMP à partir du plan Excel.</div>
       </a>
-    <a href="{{ url_for('admin_settings') }}" class="btn btn-secondary">
-    ⚙️ Paramètres
-    </a>
 
       <!-- 4. Liste des tâches en cours -->
       <a class="menu-card" href="{{ url_for('admin_tasks_open') }}">
@@ -242,6 +239,14 @@
         <div class="menu-title">Liste des tâches en cours</div>
         <div class="menu-sub">Suivi des actions ouvertes par ligne, machine et intervenant.</div>
       </a>
+      <a class="menu-card" href="{{ url_for('admin_settings') }}">
+        <i class="fa-solid fa-sliders"></i>
+        <div class="menu-title">Settings administrateur</div>
+        <div class="menu-sub">
+          Utilisateurs · Tâches · Ajustement KPI
+        </div>
+      </a>
+
 
       <!-- 5. Historique des tâches clôturées -->
       <a class="menu-card" href="{{ url_for('admin_tasks_closed') }}">
