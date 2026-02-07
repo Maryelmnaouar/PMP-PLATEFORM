@@ -924,28 +924,6 @@ def platform_redirect():
         return redirect(url_for("admin_dashboard"))
     else:
         return redirect(url_for("operator_dashboard"))
-
-@app.route("/me/task/feedback/<int:task_id>")
-@login_required()
-def me_task_feedback(task_id):
-    user = current_user()
-    conn = get_db()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT * FROM tasks
-        WHERE id=%s AND assigned_to=%s
-    """, (task_id, user["id"]))
-    task = cur.fetchone()
-
-    cur.close()
-    conn.close()
-
-    if not task:
-        flash("Tâche introuvable.", "err")
-        return redirect(url_for("operator_dashboard"))
-
-    return render_template("feedback_form.html", task=task)
  
 @app.route("/me/task/feedback/<int:task_id>", methods=["GET", "POST"])
 @login_required()
