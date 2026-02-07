@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Boîte à suggestions – Administration</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+
+<body>
+
+<header>
+  <div class="logo-box">
+    <img src="{{ url_for('static', filename='images/logo_cocacola.png') }}">
+    <img src="{{ url_for('static', filename='images/logo_cobomi.png') }}">
+  </div>
+  <div class="title-zone">
+    <i class="fa-solid fa-lightbulb"></i> Boîte à suggestions – Anomalies terrain
+  </div>
+  <a href="{{ url_for('admin_dashboard') }}" class="logout">⬅ Retour</a>
+</header>
+
+<div class="container">
+
+  {% if feedbacks %}
+  <div class="menu-grid">
+    {% for f in feedbacks %}
+    <div class="menu-card">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+
+      <div class="menu-title">
+        {{ f.username }} – {{ f.line }} / {{ f.machine }}
+      </div>
+
+      <div class="menu-sub">
+        {{ f.comment or "Aucun commentaire saisi" }}
+      </div>
+
+      <div class="menu-sub">
+        {{ f.created_at.strftime('%d/%m/%Y %H:%M') }}
+      </div>
+
+      <form method="post" action="{{ url_for('admin_treat_feedback', feedback_id=f.id) }}">
+        <button class="btn btn-warning">
+          ✔ Marquer comme traité
+        </button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+    <p style="text-align:center;color:#555;">
+      🎉 Aucune anomalie non traitée
+    </p>
+  {% endif %}
+
+</div>
+
+</body>
+</html>
