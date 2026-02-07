@@ -1,62 +1,213 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Settings – Coca-Cola x Cobomi</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+  /* 🔴 EXACTEMENT LE MÊME STYLE QUE admin_dashboard */
+  :root {
+    --red-dark: #b51212;
+    --red-light: #e41b13;
+    --bg-light: #fff6f6;
+    --card-bg: #fff3f3;
+    --text: #1a1a1a;
+    --muted: #555;
+    --shadow: 0 6px 25px rgba(0,0,0,0.12);
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(135deg, var(--bg-light), #ffe0e0);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(90deg, var(--muted), var(--red-light));
+    padding: 16px 28px;
+    box-shadow: var(--shadow);
+    color: #fff;
+  }
+
+  .logo-box {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .logo-box img {
+    height: 55px;
+  }
+
+  .title-zone {
+    font-size: 1.6rem;
+    font-weight: 800;
+  }
+
+  a.logout {
+    color: #fff;
+    text-decoration: none;
+    font-weight: bold;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 6px 14px;
+    border-radius: 8px;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 30px auto 50px;
+    padding: 100px;
+  }
+
+  .menu-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 26px;
+  }
+
+  @media (max-width: 900px) {
+    .menu-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .menu-card {
+    background: var(--card-bg);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 22px 18px;
+    border: 1.8px solid rgba(181,18,18,0.7);
+  }
+
+  .menu-card h3 {
+    margin-top: 0;
+    color: var(--red-dark);
+  }
+
+  .row-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px dashed rgba(0,0,0,0.15);
+  }
+
+  .row-item:last-child {
+    border-bottom: none;
+  }
+
+  button {
+    background: #b51212;
+    color: #fff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #e41b13;
+  }
+
+  input {
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+  }
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="logo-box">
+    <img src="{{ url_for('static', filename='images/logo_cocacola.png') }}">
+    <img src="{{ url_for('static', filename='images/logo_cobomi.png') }}">
+  </div>
+  <div class="title-zone">
+    <i class="fa-solid fa-sliders"></i> Paramètres administrateur
+  </div>
+  <a href="{{ url_for('logout') }}" class="logout">Déconnexion</a>
+</header>
+
 <div class="container">
 
-  <h2 class="section-title">
-    <i class="fa-solid fa-gear"></i> Paramètres administrateur
-  </h2>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for cat,msg in messages %}
+        <div style="
+          margin-bottom:10px;
+          padding:10px;
+          border-radius:10px;
+          background:{% if cat=='ok' %}#e4f8ea{% else %}#ffe5e5{% endif %};
+        ">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
 
-  <!-- UTILISATEURS -->
-  <div class="settings-card">
-    <h3><i class="fa-solid fa-users"></i> Gestion des utilisateurs</h3>
+  <div class="menu-grid">
 
-    {% for u in users %}
+    <!-- 👤 USERS -->
+    <div class="menu-card">
+      <h3><i class="fa-solid fa-users"></i> Utilisateurs</h3>
+      {% for u in users %}
       <div class="row-item">
-        <strong>{{ u.username }}</strong> ({{ u.role }})
-
-        <form method="post"
-              action="{{ url_for('admin_delete_user', user_id=u.id) }}"
-              onsubmit="return confirm('Supprimer cet utilisateur ?');">
-          <button class="btn-danger">
-            <i class="fa-solid fa-trash"></i>
-          </button>
+        <span>{{ u.username }} ({{ u.role }})</span>
+        <form method="post" action="{{ url_for('admin_delete_user', user_id=u.id) }}">
+          <button>Supprimer</button>
         </form>
       </div>
-    {% endfor %}
-  </div>
+      {% endfor %}
+    </div>
 
-  <!-- TACHES -->
-  <div class="settings-card">
-    <h3><i class="fa-solid fa-list"></i> Suppression des tâches</h3>
-
-    {% for t in tasks %}
+    <!-- 🛠 TASKS -->
+    <div class="menu-card">
+      <h3><i class="fa-solid fa-wrench"></i> Tâches</h3>
+      {% for t in tasks %}
       <div class="row-item">
-        {{ t.line }} – {{ t.machine }} – {{ t.description }}
-
-        <form method="post"
-              action="{{ url_for('admin_delete_task', task_id=t.id) }}"
-              onsubmit="return confirm('Supprimer cette tâche ?');">
-          <button class="btn-danger">
-            <i class="fa-solid fa-trash"></i>
-          </button>
+        <span>{{ t.description }}</span>
+        <form method="post" action="{{ url_for('admin_delete_task', task_id=t.id) }}">
+          <button>Supprimer</button>
         </form>
       </div>
-    {% endfor %}
+      {% endfor %}
+    </div>
+
+    <!-- 📊 KPI -->
+    <div class="menu-card">
+      <h3><i class="fa-solid fa-chart-line"></i> Ajustement KPI</h3>
+      <form method="post" action="{{ url_for('admin_update_kpi_settings') }}">
+        <div class="row-item">
+          <label>Taux offset (%)</label>
+          <input type="number" name="taux_offset" value="{{ kpi.taux_offset }}">
+        </div>
+        <div class="row-item">
+          <label>Score offset</label>
+          <input type="number" name="score_offset" value="{{ kpi.score_offset }}">
+        </div>
+        <button style="margin-top:12px;">Appliquer</button>
+      </form>
+    </div>
+
+    <!-- ⬅ BACK -->
+    <a class="menu-card" href="{{ url_for('admin_dashboard') }}" style="text-decoration:none;">
+      <h3><i class="fa-solid fa-arrow-left"></i> Retour Dashboard</h3>
+      <p style="color:var(--muted)">Revenir au menu principal admin</p>
+    </a>
+
   </div>
-
-  <!-- KPI -->
-  <div class="settings-card">
-    <h3><i class="fa-solid fa-chart-line"></i> Ajustement KPI</h3>
-
-    <form method="post" action="{{ url_for('admin_update_kpi_settings') }}">
-      <label>Taux offset (%)</label>
-      <input type="number" name="taux_offset" value="{{ kpi.taux_offset }}">
-
-      <label>Score offset</label>
-      <input type="number" name="score_offset" value="{{ kpi.score_offset }}">
-
-      <button class="btn-warning">
-        Appliquer les modifications
-      </button>
-    </form>
-  </div>
-
 </div>
+
+</body>
+</html>
