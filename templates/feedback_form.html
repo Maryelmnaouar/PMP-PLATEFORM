@@ -1,60 +1,54 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <title>Validation tâche</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
-  body {
-    font-family: 'Segoe UI', Arial;
-    background: linear-gradient(135deg, #fff5f5, #ffdada);
-    padding: 40px;
-  }
-  .card {
-    max-width: 600px;
-    margin: auto;
-    background: white;
-    padding: 30px;
-    border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0,0,0,.15);
-  }
-  textarea {
-    width: 100%;
-    min-height: 120px;
-    padding: 12px;
-    border-radius: 10px;
-    border: 1px solid #ccc;
-    resize: vertical;
-  }
-  .btn {
-    margin-top: 15px;
-    background: linear-gradient(180deg, #e41b13, #b51212);
-    color: white;
-    border: none;
-    padding: 10px 18px;
-    border-radius: 10px;
-    font-weight: bold;
-    cursor: pointer;
-  }
+body{
+  font-family:'Segoe UI',sans-serif;
+  background:#fff5f5;
+}
+.card{
+  max-width:600px;
+  margin:60px auto;
+  background:#fff;
+  padding:30px;
+  border-radius:16px;
+  box-shadow:0 10px 30px rgba(0,0,0,.15);
+}
+textarea{
+  width:100%;
+  min-height:120px;
+  border-radius:10px;
+  padding:10px;
+}
+button{
+  margin-top:15px;
+  background:#e41b13;
+  color:#fff;
+  border:none;
+  padding:10px 18px;
+  border-radius:10px;
+  font-weight:bold;
+}
 </style>
 </head>
-
 <body>
-  <div class="card">
-    <h2><i class="fa-solid fa-clipboard-check"></i> Validation de la tâche</h2>
 
-    <p><strong>Ligne :</strong> {{ task.line }}</p>
-    <p><strong>Machine :</strong> {{ task.machine }}</p>
-    <p><strong>Description :</strong> {{ task.description }}</p>
+<div class="card">
+  <h2>🛠 Validation de la tâche</h2>
+  <p><strong>{{ task.description }}</strong></p>
 
-    <form method="post">
-      <label>Commentaire (en cas d’anomalie)</label>
-      <textarea name="comment" placeholder="Décrire une anomalie si nécessaire..."></textarea>
+  <form method="post">
+    <label>Commentaire (en cas d’anomalie)</label>
+    <textarea name="comment" placeholder="Décrire l’anomalie si nécessaire…"></textarea>
 
-      <button class="btn" type="submit">
-        ✔ Valider la tâche
-      </button>
-    </form>
-  </div>
+    <button type="submit">
+      ✅ Valider la tâche
+    </button>
+  </form>
+</div>
+
 </body>
 </html>
