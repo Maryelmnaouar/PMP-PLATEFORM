@@ -973,7 +973,7 @@ def admin_treat_suggestion(fid):
     cur = conn.cursor()
 
     cur.execute("""
-        UPDATE task_feedback
+        UPDATE feedback_form
         SET treated = TRUE
         WHERE id = %s
     """, (fid,))
