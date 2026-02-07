@@ -1,117 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Settings</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            padding: 20px;
+        }
+        h2, h3 {
+            margin-top: 30px;
+        }
+        .card {
+            background: white;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+        }
+        form {
+            display: inline;
+        }
+        input {
+            padding: 4px;
+            margin: 3px;
+        }
+        button {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
+        }
+        .btn-warning {
+            background: #f39c12;
+            color: white;
+        }
+        .btn-secondary {
+            background: #7f8c8d;
+            color: white;
+        }
+        .flash-ok {
+            color: green;
+        }
+        .flash-err {
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+
 <h2>⚙️ Admin Settings</h2>
+
+<!-- FLASH MESSAGES -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for cat, msg in messages %}
+    <p class="flash-{{ cat }}">{{ msg }}</p>
+  {% endfor %}
+{% endwith %}
 
 <hr>
 
-<!-- ================= UTILISATEURS ================= -->
+<!-- ===================== UTILISATEURS ===================== -->
 <h3>👤 Utilisateurs</h3>
 
 {% if users %}
-<table class="table">
-    <tr>
-        <th>Nom</th>
-        <th>Rôle</th>
-        <th>Actions</th>
-    </tr>
-
     {% for u in users %}
-    <tr>
-        <td>{{ u.username }}</td>
-        <td>{{ u.role }}</td>
-        <td>
+    <div class="card">
+        <b>{{ u.username }}</b> ({{ u.role }})
 
-            <!-- SUPPRIMER UTILISATEUR -->
-            <form method="post"
-                  action="{{ url_for('admin_delete_user') }}"
-                  style="display:inline;"
-                  onsubmit="return confirm('Supprimer cet utilisateur ?');">
-                <input type="hidden" name="user_id" value="{{ u.id }}">
-                <button class="btn btn-danger btn-sm">Supprimer</button>
-            </form>
+        <!-- SUPPRIMER UTILISATEUR -->
+        <form method="post"
+              action="{{ url_for('admin_delete_user', user_id=u.id) }}">
+            <button class="btn-danger">Supprimer</button>
+        </form>
 
-            <!-- CHANGER MOT DE PASSE -->
-            <form method="post"
-                  action="{{ url_for('admin_change_user_password') }}"
-                  style="display:inline;">
-                <input type="hidden" name="user_id" value="{{ u.id }}">
-                <input type="password"
-                       name="new_password"
-                       placeholder="Nouveau MDP"
-                       required>
-                <button class="btn btn-secondary btn-sm">
-                    Changer MDP
-                </button>
-            </form>
-
-        </td>
-    </tr>
+        <!-- CHANGER MOT DE PASSE -->
+        <form method="post"
+              action="{{ url_for('admin_change_user_password') }}">
+            <input type="hidden" name="user_id" value="{{ u.id }}">
+            <input type="password"
+                   name="new_password"
+                   placeholder="Nouveau mot de passe"
+                   required>
+            <button class="btn-warning">Changer mot de passe</button>
+        </form>
+    </div>
     {% endfor %}
-</table>
 {% else %}
-<p>Aucun utilisateur.</p>
+    <p>Aucun utilisateur.</p>
 {% endif %}
 
 <hr>
 
-<!-- ================= TÂCHES ================= -->
+<!-- ===================== TÂCHES ===================== -->
 <h3>🛠️ Tâches</h3>
 
 {% if tasks %}
-<table class="table">
-    <tr>
-        <th>Ligne</th>
-        <th>Machine</th>
-        <th>Description</th>
-        <th>Assignée à</th>
-        <th>Action</th>
-    </tr>
-
     {% for t in tasks %}
-    <tr>
-        <td>{{ t.line }}</td>
-        <td>{{ t.machine }}</td>
-        <td>{{ t.description }}</td>
-        <td>{{ t.username }}</td>
-        <td>
-            <form method="post"
-                  action="{{ url_for('admin_delete_task') }}"
-                  onsubmit="return confirm('Supprimer cette tâche ?');">
-                <input type="hidden" name="task_id" value="{{ t.id }}">
-                <button class="btn btn-danger btn-sm">
-                    Supprimer
-                </button>
-            </form>
-        </td>
-    </tr>
+    <div class="card">
+        <b>{{ t.description }}</b><br>
+        Ligne : {{ t.line }} | Machine : {{ t.machine }}<br>
+        Affecté à : {{ t.username }}
+
+        <form method="post"
+              action="{{ url_for('admin_delete_task', task_id=t.id) }}">
+            <button class="btn-danger">Supprimer</button>
+        </form>
+    </div>
     {% endfor %}
-</table>
 {% else %}
-<p>Aucune tâche.</p>
+    <p>Aucune tâche.</p>
 {% endif %}
 
 <hr>
 
-<!-- ================= KPI ================= -->
-<h3>📊 KPI (Ajustement)</h3>
+<!-- ===================== KPI ===================== -->
+<h3>📊 KPI – Ajustement (Falsification contrôlée)</h3>
 
 <form method="post" action="{{ url_for('admin_update_kpi_settings') }}">
-    <div>
-        <label>Taux offset (%)</label>
+    <div class="card">
+        <label>Taux offset (%)</label><br>
         <input type="number"
                name="taux_offset"
                value="{{ kpi.taux_offset }}"
-               class="form-control">
-    </div>
+               required>
+        <br><br>
 
-    <div>
-        <label>Score offset</label>
+        <label>Score offset</label><br>
         <input type="number"
                name="score_offset"
                value="{{ kpi.score_offset }}"
-               class="form-control">
-    </div>
+               required>
+        <br><br>
 
-    <br>
-    <button class="btn btn-warning">
-        Appliquer
-    </button>
+        <button class="btn-warning">Appliquer</button>
+    </div>
 </form>
+
+<hr>
+
+<!-- RETOUR -->
+<a href="{{ url_for('admin_dashboard') }}">
+    <button class="btn-secondary">⬅ Retour Dashboard</button>
+</a>
+
+</body>
+</html>
