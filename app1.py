@@ -361,17 +361,10 @@ def login():
 @app.route("/admin/settings")
 @login_required(role="admin")
 def admin_settings():
-    db = get_db()
-    cur = db.cursor()
+    conn = get_db()
+    cur = conn.cursor()
 
-    cur.execute("SELECT taux_offset, score_offset FROM kpi_settings LIMIT 1")
-    kpi = cur.fetchone()
-
-    # sécurité si table vide
-    if not kpi:
-        kpi = {"taux_offset": 0, "score_offset": 0}
-
-    # utilisateurs
+    # utilisateurs (sauf admin)
     cur.execute("""
         SELECT id, username, role
         FROM users
@@ -382,7 +375,7 @@ def admin_settings():
 
     # tâches
     cur.execute("""
-        SELECT t.id, t.line, t.machine, t.description, u.username
+        SELECT t.id, t.description, t.line, t.machine, u.username
         FROM tasks t
         JOIN users u ON u.id = t.assigned_to
         ORDER BY t.created_at DESC
@@ -390,7 +383,16 @@ def admin_settings():
     """)
     tasks = cur.fetchall()
 
-    db.close()
+    # KPI settings
+    cur.execute("SELECT taux_offset, score_offset FROM kpi_settings LIMIT 1")
+    row = cur.fetchone()
+    kpi = {
+        "taux_offset": row[0] if row else 0,
+        "score_offset": row[1] if row else 0
+    }
+
+    cur.close()
+    conn.close()
 
     return render_template(
         "admin_settings.html",
@@ -410,7 +412,7 @@ def admin_delete_user(user_id):
     cur.execute("SELECT role FROM users WHERE id=%s", (user_id,))
     u = cur.fetchone()
 
-    if not u or u[0] == "admin":
+    if not u or u["role"] == "admin":
         flash("Action interdite.", "err")
     else:
         cur.execute("DELETE FROM tasks WHERE assigned_to=%s", (user_id,))
@@ -421,6 +423,8 @@ def admin_delete_user(user_id):
     cur.close()
     conn.close()
     return redirect(url_for("admin_settings"))
+
+
 @app.route("/admin/settings/kpi", methods=["POST"])
 @login_required(role="admin")
 def admin_update_kpi_settings():
