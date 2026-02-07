@@ -361,10 +361,45 @@ def login():
 @app.route("/admin/settings")
 @login_required(role="admin")
 def admin_settings():
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("SELECT taux_offset, score_offset FROM kpi_settings LIMIT 1")
+    kpi = cur.fetchone()
+
+    # sécurité si table vide
+    if not kpi:
+        kpi = {"taux_offset": 0, "score_offset": 0}
+
+    # utilisateurs
+    cur.execute("""
+        SELECT id, username, role
+        FROM users
+        WHERE role != 'admin'
+        ORDER BY username
+    """)
+    users = cur.fetchall()
+
+    # tâches
+    cur.execute("""
+        SELECT t.id, t.line, t.machine, t.description, u.username
+        FROM tasks t
+        JOIN users u ON u.id = t.assigned_to
+        ORDER BY t.created_at DESC
+        LIMIT 50
+    """)
+    tasks = cur.fetchall()
+
+    db.close()
+
     return render_template(
         "admin_settings.html",
+        users=users,
+        tasks=tasks,
+        kpi=kpi,
         current_year=datetime.now().year
     )
+
 @app.route("/admin/settings/user/delete/<int:user_id>", methods=["POST"])
 @login_required(role="admin")
 def admin_delete_user(user_id):
