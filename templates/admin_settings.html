@@ -1,0 +1,18 @@
+<h2>⚙️ Admin Settings</h2>
+
+<h3>👤 Utilisateurs</h3>
+<!-- liste users + delete + change password -->
+
+<h3>🛠️ Tâches</h3>
+<!-- liste tâches + delete -->
+
+<h3>📊 KPI (Ajustement)</h3>
+<form method="post" action="{{ url_for('admin_update_kpi_settings') }}">
+    <label>Taux offset (%)</label>
+    <input type="number" name="taux_offset">
+
+    <label>Score offset</label>
+    <input type="number" name="score_offset">
+
+    <button class="btn btn-warning">Appliquer</button>
+</form>
