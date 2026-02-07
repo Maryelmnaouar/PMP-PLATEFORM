@@ -972,7 +972,7 @@ def admin_suggestions():
     conn.close()
 
     return render_template(
-        "operator_suggestions.html",
+        "admin_suggestions.html",
         feedbacks=rows
     )
 @app.route("/admin/suggestions/treat/<int:fid>", methods=["POST"])
@@ -992,7 +992,7 @@ def admin_treat_suggestion(fid):
     conn.close()
 
     flash("Commentaire traité.", "ok")
-    return redirect(url_for("operator_suggestions"))
+    return redirect(url_for("admin_suggestions"))
 
 # -------------------------------------------------------
 # CONTEXT PROCESSOR
