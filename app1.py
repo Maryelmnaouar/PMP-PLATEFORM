@@ -364,7 +364,16 @@ def admin_settings():
     conn = get_db()
     cur = conn.cursor()
 
-    # utilisateurs (sauf admin)
+    # KPI settings
+    cur.execute("SELECT taux_offset, score_offset FROM kpi_settings LIMIT 1")
+    row = cur.fetchone()
+
+    kpi = {
+        "taux_offset": row["taux_offset"] if row else 0,
+        "score_offset": row["score_offset"] if row else 0
+    }
+
+    # users
     cur.execute("""
         SELECT id, username, role
         FROM users
@@ -373,23 +382,15 @@ def admin_settings():
     """)
     users = cur.fetchall()
 
-    # tâches
+    # tasks
     cur.execute("""
-        SELECT t.id, t.description, t.line, t.machine, u.username
+        SELECT t.id, t.line, t.machine, t.description, u.username
         FROM tasks t
         JOIN users u ON u.id = t.assigned_to
         ORDER BY t.created_at DESC
         LIMIT 50
     """)
     tasks = cur.fetchall()
-
-    # KPI settings
-    cur.execute("SELECT taux_offset, score_offset FROM kpi_settings LIMIT 1")
-    row = cur.fetchone()
-    kpi = {
-        "taux_offset": row[0] if row else 0,
-        "score_offset": row[1] if row else 0
-    }
 
     cur.close()
     conn.close()
@@ -401,6 +402,7 @@ def admin_settings():
         kpi=kpi,
         current_year=datetime.now().year
     )
+
 
 @app.route("/admin/settings/user/delete/<int:user_id>", methods=["POST"])
 @login_required(role="admin")
