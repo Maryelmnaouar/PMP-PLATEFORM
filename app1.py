@@ -951,7 +951,7 @@ def admin_suggestions():
 
     cur.execute("""
         SELECT f.id, u.username, t.line, t.machine, f.comment, f.created_at
-        FROM task_feedback f
+        FROM feedback_form f
         JOIN users u ON u.id = f.user_id
         JOIN tasks t ON t.id = f.task_id
         WHERE f.treated = FALSE
