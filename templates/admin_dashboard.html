@@ -248,12 +248,12 @@
       </a>
 
       <a class="menu-card" href="{{ url_for('index') }}">
-      <i class="fa-solid fa-house"></i>
-      <div class="menu-title">Accueil</div>
-      <div class="menu-sub">
-        Retour à la page d’accueil & KPIs globaux
-      </div>
-    </a>
+        <i class="fa-solid fa-house"></i>
+        <div class="menu-title">Accueil</div>
+        <div class="menu-sub">
+          Retour à la page d’accueil & KPIs globaux
+        </div>
+      </a>
 
 
       <!-- 5. Historique des tâches clôturées -->
@@ -264,11 +264,14 @@
       </a>
 
       <!-- 6. Boîte à suggestions -->
-      <a class="menu-card" href="#">
+      <a class="menu-card" href="{{ url_for('admin_suggestions') }}">
         <i class="fa-solid fa-lightbulb"></i>
         <div class="menu-title">Boîte à suggestions</div>
-        <div class="menu-sub">Idées d'amélioration, Kaizen & retours des équipes.</div>
+        <div class="menu-sub">
+          Anomalies & retours terrain
+        </div>
       </a>
+
     </div>
   </div>
 
