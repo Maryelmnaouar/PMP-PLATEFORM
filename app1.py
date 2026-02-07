@@ -71,7 +71,7 @@ def init_db():
     """)
     
     cur.execute("""
-    CREATE TABLE IF NOT EXISTS task_feedback (
+    CREATE TABLE IF NOT EXISTS feedback_form (
         id SERIAL PRIMARY KEY,
         task_id INTEGER NOT NULL,
         user_id INTEGER NOT NULL,
