@@ -1,18 +1,117 @@
 <h2>⚙️ Admin Settings</h2>
 
+<hr>
+
+<!-- ================= UTILISATEURS ================= -->
 <h3>👤 Utilisateurs</h3>
-<!-- liste users + delete + change password -->
 
+{% if users %}
+<table class="table">
+    <tr>
+        <th>Nom</th>
+        <th>Rôle</th>
+        <th>Actions</th>
+    </tr>
+
+    {% for u in users %}
+    <tr>
+        <td>{{ u.username }}</td>
+        <td>{{ u.role }}</td>
+        <td>
+
+            <!-- SUPPRIMER UTILISATEUR -->
+            <form method="post"
+                  action="{{ url_for('admin_delete_user') }}"
+                  style="display:inline;"
+                  onsubmit="return confirm('Supprimer cet utilisateur ?');">
+                <input type="hidden" name="user_id" value="{{ u.id }}">
+                <button class="btn btn-danger btn-sm">Supprimer</button>
+            </form>
+
+            <!-- CHANGER MOT DE PASSE -->
+            <form method="post"
+                  action="{{ url_for('admin_change_user_password') }}"
+                  style="display:inline;">
+                <input type="hidden" name="user_id" value="{{ u.id }}">
+                <input type="password"
+                       name="new_password"
+                       placeholder="Nouveau MDP"
+                       required>
+                <button class="btn btn-secondary btn-sm">
+                    Changer MDP
+                </button>
+            </form>
+
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>Aucun utilisateur.</p>
+{% endif %}
+
+<hr>
+
+<!-- ================= TÂCHES ================= -->
 <h3>🛠️ Tâches</h3>
-<!-- liste tâches + delete -->
 
+{% if tasks %}
+<table class="table">
+    <tr>
+        <th>Ligne</th>
+        <th>Machine</th>
+        <th>Description</th>
+        <th>Assignée à</th>
+        <th>Action</th>
+    </tr>
+
+    {% for t in tasks %}
+    <tr>
+        <td>{{ t.line }}</td>
+        <td>{{ t.machine }}</td>
+        <td>{{ t.description }}</td>
+        <td>{{ t.username }}</td>
+        <td>
+            <form method="post"
+                  action="{{ url_for('admin_delete_task') }}"
+                  onsubmit="return confirm('Supprimer cette tâche ?');">
+                <input type="hidden" name="task_id" value="{{ t.id }}">
+                <button class="btn btn-danger btn-sm">
+                    Supprimer
+                </button>
+            </form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>Aucune tâche.</p>
+{% endif %}
+
+<hr>
+
+<!-- ================= KPI ================= -->
 <h3>📊 KPI (Ajustement)</h3>
+
 <form method="post" action="{{ url_for('admin_update_kpi_settings') }}">
-    <label>Taux offset (%)</label>
-    <input type="number" name="taux_offset">
+    <div>
+        <label>Taux offset (%)</label>
+        <input type="number"
+               name="taux_offset"
+               value="{{ kpi.taux_offset }}"
+               class="form-control">
+    </div>
 
-    <label>Score offset</label>
-    <input type="number" name="score_offset">
+    <div>
+        <label>Score offset</label>
+        <input type="number"
+               name="score_offset"
+               value="{{ kpi.score_offset }}"
+               class="form-control">
+    </div>
 
-    <button class="btn btn-warning">Appliquer</button>
+    <br>
+    <button class="btn btn-warning">
+        Appliquer
+    </button>
 </form>
