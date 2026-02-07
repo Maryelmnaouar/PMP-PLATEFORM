@@ -80,3 +80,60 @@ button:hover {
     display: block;
     margin-bottom: 10px;
 }
+.section-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  margin-bottom: 30px;
+  color: var(--red-dark);
+}
+
+.settings-card {
+  background: var(--card-bg);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 22px 26px;
+  margin-bottom: 30px;
+  border: 1.6px solid rgba(181,18,18,0.6);
+}
+
+.settings-card h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  color: var(--red-dark);
+}
+
+.row-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px dashed rgba(0,0,0,0.1);
+}
+
+.row-item:last-child {
+  border-bottom: none;
+}
+
+.btn-danger {
+  background: #b51212;
+  color: #fff;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btn-danger:hover {
+  background: #e41b13;
+}
+
+.btn-warning {
+  margin-top: 12px;
+  background: #e41b13;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+}
