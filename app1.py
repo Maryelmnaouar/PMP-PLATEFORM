@@ -879,37 +879,6 @@ def operator_dashboard():
         tasks=tasks,
         score_total=score
     )
-
-# -------------------------------------------------------
-# OPÉRATEUR : Clôturer une tâche
-# -------------------------------------------------------
-@app.route("/me/task/close/<int:task_id>", methods=["POST"])
-@login_required()
-def me_close_task(task_id):
-    user = current_user()
-    db = get_db()
-    c = db.cursor()
-
-    c.execute("SELECT * FROM tasks WHERE id=%s", (task_id,))
-    task = c.fetchone()
-
-    if not task or task["assigned_to"] != user["id"]:
-        flash("Action interdite.", "err")
-        db.close()
-        return redirect(url_for("operator_dashboard"))
-
-    c.execute("""
-        UPDATE tasks
-        SET status='cloturee', closed_at=%s
-        WHERE id=%s
-    """, (datetime.now().isoformat(), task_id))
-
-    db.commit()
-    db.close()
-
-    flash("Tâche validée, bravo !", "ok")
-    return redirect(url_for("me_task_feedback", task_id=task_id))
-
 # -------------------------------------------------------
 # REDIRECTION PLATEFORME SELON UTILISATEUR
 # -------------------------------------------------------
