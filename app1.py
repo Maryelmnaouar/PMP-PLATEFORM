@@ -947,36 +947,6 @@ def me_task_feedback(task_id):
 
     return render_template("feedback_form.html", task=task)
  
-@app.route("/me/task/feedback/<int:task_id>", methods=["POST"])
-@login_required()
-def me_task_feedback_submit(task_id):
-    user = current_user()
-    comment = request.form.get("comment", "").strip()
-
-    conn = get_db()
-    cur = conn.cursor()
-
-    # clôturer tâche
-    cur.execute("""
-        UPDATE tasks
-        SET status='cloturee', closed_at=NOW()
-        WHERE id=%s AND assigned_to=%s
-    """, (task_id, user["id"]))
-
-    # enregistrer commentaire si existant
-    if comment:
-        cur.execute("""
-            INSERT INTO task_feedback(task_id, user_id, comment)
-            VALUES (%s, %s, %s)
-        """, (task_id, user["id"], comment))
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    flash("Tâche validée.", "ok")
-    return redirect(url_for("operator_dashboard"))
-
 @app.route("/me/task/feedback/<int:task_id>", methods=["GET", "POST"])
 @login_required()
 def me_task_feedback(task_id):
