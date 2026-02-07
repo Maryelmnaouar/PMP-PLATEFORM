@@ -28,10 +28,11 @@ def get_db():
     )
 
 def init_db():
-    db = get_db()
-    c = db.cursor()
+    conn = get_db()
+    cur = conn.cursor()
 
-    c.execute("""
+    # ---------- USERS ----------
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS users(
         id SERIAL PRIMARY KEY,
         username TEXT UNIQUE NOT NULL,
@@ -42,32 +43,44 @@ def init_db():
     )
     """)
 
-    c.execute("""
+    # ---------- TASKS ----------
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS tasks(
         id SERIAL PRIMARY KEY,
         line TEXT NOT NULL,
         machine TEXT NOT NULL,
         description TEXT NOT NULL,
-        assigned_to INTEGER NOT NULL,
+        assigned_to INTEGER REFERENCES users(id),
         status TEXT NOT NULL CHECK(status IN ('en_cours','cloturee')) DEFAULT 'en_cours',
         documentation TEXT,
         points INTEGER NOT NULL DEFAULT 1,
         frequency TEXT,
-        created_at TEXT NOT NULL,
-        closed_at TEXT,
-        FOREIGN KEY(assigned_to) REFERENCES users(id)
+        created_at TIMESTAMP NOT NULL,
+        closed_at TIMESTAMP
     )
     """)
 
-    c.execute("SELECT COUNT(*) AS n FROM users")
-    if c.fetchone()["n"] == 0:
-        c.execute("""
-            INSERT INTO users(username,password_hash,role,prod_line,machine_assigned)
-            VALUES (%s,%s,%s,%s,%s)
-        """, ("admin", generate_password_hash("1234"), "admin", None, None))
+    # ---------- KPI SETTINGS ----------
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS kpi_settings (
+        id SERIAL PRIMARY KEY,
+        taux_offset INTEGER DEFAULT 0,
+        score_offset INTEGER DEFAULT 0
+    )
+    """)
 
-    db.commit()
-    db.close()
+    # Insérer une ligne par défaut SI VIDE
+    cur.execute("SELECT COUNT(*) FROM kpi_settings")
+    if cur.fetchone()[0] == 0:
+        cur.execute("""
+            INSERT INTO kpi_settings(taux_offset, score_offset)
+            VALUES (0, 0)
+        """)
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
 
 # IMPORTANT pour Render
 init_db()
@@ -216,23 +229,57 @@ def get_global_kpis(filters=None):
 
     where_sql = "WHERE " + " AND ".join(where) if where else ""
 
+    # -------- TOTAL TÂCHES ----------
     c.execute(f"SELECT COUNT(*) n FROM tasks {where_sql}", params)
     total = c.fetchone()["n"]
 
+    # -------- TÂCHES CLÔTURÉES ----------
     if where_sql:
-        c.execute(f"SELECT COUNT(*) n FROM tasks {where_sql} AND status='cloturee'", params)
+        c.execute(f"""
+            SELECT COUNT(*) n
+            FROM tasks {where_sql} AND status='cloturee'
+        """, params)
     else:
         c.execute("SELECT COUNT(*) n FROM tasks WHERE status='cloturee'")
     done = c.fetchone()["n"]
 
+    # -------- TAUX RÉEL ----------
     taux = round(done * 100 / total) if total else 0
-    color = "green" if taux >= 80 else "orange" if taux >= 60 else "red"
 
+    # -------- SCORE RÉEL ----------
     if where_sql:
-        c.execute(f"SELECT COALESCE(SUM(points),0) s FROM tasks {where_sql} AND status='cloturee'", params)
+        c.execute(f"""
+            SELECT COALESCE(SUM(points),0) s
+            FROM tasks {where_sql} AND status='cloturee'
+        """, params)
     else:
-        c.execute("SELECT COALESCE(SUM(points),0) s FROM tasks WHERE status='cloturee'")
+        c.execute("""
+            SELECT COALESCE(SUM(points),0) s
+            FROM tasks WHERE status='cloturee'
+        """)
     score = c.fetchone()["s"]
+
+    # ====================================================
+    # 🔧 AJUSTEMENT KPI (ADMIN)
+    # ====================================================
+    c.execute("""
+        SELECT taux_offset, score_offset
+        FROM kpi_settings
+        LIMIT 1
+    """)
+    cfg = c.fetchone()
+
+    if cfg:
+        taux = max(0, min(100, taux + cfg["taux_offset"]))
+        score = score + cfg["score_offset"]
+
+    # -------- COULEUR SELON TAUX FINAL ----------
+    if taux >= 80:
+        color = "green"
+    elif taux >= 60:
+        color = "orange"
+    else:
+        color = "red"
 
     db.close()
 
@@ -243,6 +290,7 @@ def get_global_kpis(filters=None):
         "taux_couleur": color,
         "score_global": score
     }
+
 
 # -------------------------------------------------------
 # ROUTES PUBLIQUES (LOGIQUE IDENTIQUE)
@@ -306,6 +354,90 @@ def login():
         return render_template("login.html", error="Nom ou mot de passe incorrect")
 
     return render_template("login.html")
+
+@app.route("/admin/settings")
+@login_required(role="admin")
+def admin_settings():
+    return render_template(
+        "admin_settings.html",
+        current_year=datetime.now().year
+    )
+@app.route("/admin/settings/user/delete/<int:user_id>", methods=["POST"])
+@login_required(role="admin")
+def admin_delete_user(user_id):
+    conn = get_db()
+    cur = conn.cursor()
+
+    # empêcher suppression admin
+    cur.execute("SELECT role FROM users WHERE id=%s", (user_id,))
+    u = cur.fetchone()
+
+    if not u or u[0] == "admin":
+        flash("Action interdite.", "err")
+    else:
+        cur.execute("DELETE FROM tasks WHERE assigned_to=%s", (user_id,))
+        cur.execute("DELETE FROM users WHERE id=%s", (user_id,))
+        conn.commit()
+        flash("Utilisateur supprimé.", "ok")
+
+    cur.close()
+    conn.close()
+    return redirect(url_for("admin_settings"))
+@app.route("/admin/settings/kpi", methods=["POST"])
+@login_required(role="admin")
+def admin_update_kpi_settings():
+    taux_offset = int(request.form["taux_offset"])
+    score_offset = int(request.form["score_offset"])
+
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE kpi_settings
+        SET taux_offset=%s, score_offset=%s
+    """, (taux_offset, score_offset))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    flash("Paramètres KPI mis à jour.", "ok")
+    return redirect(url_for("admin_settings"))
+
+
+@app.route("/admin/settings/user/password", methods=["POST"])
+@login_required(role="admin")
+def admin_change_user_password():
+    user_id = request.form["user_id"]
+    new_password = request.form["new_password"]
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE users
+        SET password_hash=%s
+        WHERE id=%s
+    """, (generate_password_hash(new_password), user_id))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    flash("Mot de passe modifié.", "ok")
+    return redirect(url_for("admin_settings"))
+@app.route("/admin/settings/task/delete/<int:task_id>", methods=["POST"])
+@login_required(role="admin")
+def admin_delete_task(task_id):
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("DELETE FROM tasks WHERE id=%s", (task_id,))
+    conn.commit()
+
+    cur.close()
+    conn.close()
+    flash("Tâche supprimée.", "ok")
+    return redirect(url_for("admin_settings"))
 
 
 
