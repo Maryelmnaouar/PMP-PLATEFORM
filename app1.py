@@ -60,12 +60,26 @@ def init_db():
     )
     """)
 
+
     # ---------- KPI SETTINGS ----------
     cur.execute("""
     CREATE TABLE IF NOT EXISTS kpi_settings (
         id SERIAL PRIMARY KEY,
         taux_offset INTEGER DEFAULT 0,
         score_offset INTEGER DEFAULT 0
+    )
+    """)
+    
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS task_feedback (
+        id SERIAL PRIMARY KEY,
+        task_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        comment TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        treated BOOLEAN DEFAULT FALSE,
+        FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
     """)
 
@@ -391,7 +405,6 @@ def admin_settings():
         LIMIT 50
     """)
     tasks = cur.fetchall()
-
     cur.close()
     conn.close()
 
@@ -895,7 +908,7 @@ def me_close_task(task_id):
     db.close()
 
     flash("Tâche validée, bravo !", "ok")
-    return redirect(url_for("operator_dashboard"))
+    return redirect(url_for("me_task_feedback", task_id=task_id))
 
 # -------------------------------------------------------
 # REDIRECTION PLATEFORME SELON UTILISATEUR
@@ -912,6 +925,74 @@ def platform_redirect():
     else:
         return redirect(url_for("operator_dashboard"))
 
+@app.route("/me/task/feedback/<int:task_id>", methods=["GET", "POST"])
+@login_required()
+def me_task_feedback(task_id):
+    user = current_user()
+    conn = get_db()
+    cur = conn.cursor()
+
+    if request.method == "POST":
+        comment = request.form.get("comment", "").strip()
+
+        if comment:
+            cur.execute("""
+                INSERT INTO task_feedback (task_id, user_id, comment)
+                VALUES (%s, %s, %s)
+            """, (task_id, user["id"], comment))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        flash("Tâche validée.", "ok")
+        return redirect(url_for("operator_dashboard"))
+
+    return render_template(
+        "operator_feedback.html",
+        task_id=task_id
+    )
+@app.route("/admin/suggestions")
+@login_required(role="admin")
+def admin_suggestions():
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT f.id, u.username, t.line, t.machine, f.comment, f.created_at
+        FROM task_feedback f
+        JOIN users u ON u.id = f.user_id
+        JOIN tasks t ON t.id = f.task_id
+        WHERE f.treated = FALSE
+        ORDER BY f.created_at DESC
+    """)
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template(
+        "operator_suggestions.html",
+        feedbacks=rows
+    )
+@app.route("/admin/suggestions/treat/<int:fid>", methods=["POST"])
+@login_required(role="admin")
+def admin_treat_suggestion(fid):
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE task_feedback
+        SET treated = TRUE
+        WHERE id = %s
+    """, (fid,))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    flash("Commentaire traité.", "ok")
+    return redirect(url_for("operator_suggestions"))
 
 # -------------------------------------------------------
 # CONTEXT PROCESSOR
