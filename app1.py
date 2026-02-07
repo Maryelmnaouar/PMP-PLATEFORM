@@ -70,12 +70,15 @@ def init_db():
     """)
 
     # Insérer une ligne par défaut SI VIDE
-    cur.execute("SELECT COUNT(*) FROM kpi_settings")
-    if cur.fetchone()[0] == 0:
+    cur.execute("SELECT COUNT(*) AS n FROM kpi_settings")
+    row = cur.fetchone()
+
+    if row["n"] == 0:
         cur.execute("""
-            INSERT INTO kpi_settings(taux_offset, score_offset)
-            VALUES (0, 0)
-        """)
+        INSERT INTO kpi_settings(taux_offset, score_offset)
+        VALUES (0, 0)
+    """)
+
 
     conn.commit()
     cur.close()
