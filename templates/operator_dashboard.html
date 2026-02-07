@@ -277,8 +277,9 @@
           <td><span class="tag">{{ 'En cours' if t.status=='en_cours' else 'Clôturée' }}</span></td>
           <td class="right">
             {% if t.status == 'en_cours' %}
-            <form action="{{ url_for('me_close_task', task_id=t.id) }}" method="POST" style="display:inline">
-              <button class="btn" type="submit"><i class="fa-solid fa-check"></i> Valider</button>
+              <a href="{{ url_for('me_task_feedback', task_id=task.id) }}" class="btn btn-success">
+                Valider
+              </a>
             </form>
             {% else %}-{% endif %}
           </td>

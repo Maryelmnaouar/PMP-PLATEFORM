@@ -925,33 +925,74 @@ def platform_redirect():
     else:
         return redirect(url_for("operator_dashboard"))
 
-@app.route("/me/task/feedback/<int:task_id>", methods=["GET", "POST"])
+@app.route("/me/task/feedback/<int:task_id>", methods=["GET"])
 @login_required()
 def me_task_feedback(task_id):
     user = current_user()
     conn = get_db()
     cur = conn.cursor()
 
-    if request.method == "POST":
-        comment = request.form.get("comment", "").strip()
+    cur.execute("""
+        SELECT id, description
+        FROM tasks
+        WHERE id=%s AND assigned_to=%s AND status='en_cours'
+    """, (task_id, user["id"]))
 
-        if comment:
-            cur.execute("""
-                INSERT INTO task_feedback (task_id, user_id, comment)
-                VALUES (%s, %s, %s)
-            """, (task_id, user["id"], comment))
+    task = cur.fetchone()
+    cur.close()
+    conn.close()
 
-        conn.commit()
-        cur.close()
-        conn.close()
-
-        flash("Tâche validée.", "ok")
+    if not task:
+        flash("Tâche introuvable.", "err")
         return redirect(url_for("operator_dashboard"))
 
     return render_template(
-        "operator_feedback.html",
-        task_id=task_id
+        "task_feedback.html",
+        task=task
     )
+@app.route("/me/task/feedback/<int:task_id>", methods=["POST"])
+@login_required()
+def me_task_feedback_submit(task_id):
+    user = current_user()
+    comment = request.form.get("comment", "").strip()
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # vérifier tâche
+    cur.execute("""
+        SELECT id
+        FROM tasks
+        WHERE id=%s AND assigned_to=%s AND status='en_cours'
+    """, (task_id, user["id"]))
+    task = cur.fetchone()
+
+    if not task:
+        conn.close()
+        flash("Action interdite.", "err")
+        return redirect(url_for("operator_dashboard"))
+
+    # fermer tâche
+    cur.execute("""
+        UPDATE tasks
+        SET status='cloturee', closed_at=NOW()
+        WHERE id=%s
+    """, (task_id,))
+
+    # enregistrer commentaire si existant
+    if comment:
+        cur.execute("""
+            INSERT INTO task_feedback(task_id, user_id, comment)
+            VALUES (%s, %s, %s)
+        """, (task_id, user["id"], comment))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    flash("Tâche validée.", "ok")
+    return redirect(url_for("operator_dashboard"))
+
 @app.route("/admin/suggestions")
 @login_required(role="admin")
 def admin_suggestions():
