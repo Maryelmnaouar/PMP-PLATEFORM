@@ -12,9 +12,9 @@
 <ul style="margin-top:20px;">
     {% for pdf in pdfs %}
         <li style="margin-bottom:10px;">
-            <a href="{{ url_for('static', filename='images/docs/' + pdf) }}"
+            <a href="{{ url_for('static', filename='https://drive.google.com/drive/folders/1U63hfsDj6t-jR95i7XvLvzYnxt4_J6NG?usp=drive_link' ) }}"
                target="_blank">
-               📄 {{ pdf.replace('_', ' ').replace('.pdf', '') }}
+               📄
             </a>
         </li>
     {% else %}
