@@ -3,27 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <title>Documentation PMP</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body {
+            font-family: "Segoe UI", Arial, sans-serif;
+            background: #fff5f5;
+            padding: 40px;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 6px 25px rgba(0,0,0,0.12);
+            max-width: 700px;
+            margin: auto;
+        }
+
+        .btn {
+            display: inline-block;
+            background: #e41b13;
+            color: white;
+            padding: 12px 18px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: .3s;
+        }
+
+        .btn:hover {
+            background: #b51212;
+            transform: translateY(-2px);
+        }
+
+        .back {
+            margin-top: 25px;
+            display: block;
+            color: #555;
+            text-decoration: none;
+        }
+    </style>
 </head>
 <body>
 
-<h2>📚 Documentation PMP – Machines</h2>
+<div class="card">
+    <h2>📚 Documentation PMP – Machines</h2>
 
-<ul style="margin-top:20px;">
-    {% for pdf in pdfs %}
-        <li style="margin-bottom:10px;">
-            <a href="{{ url_for('static', filename='https://drive.google.com/drive/folders/1U63hfsDj6t-jR95i7XvLvzYnxt4_J6NG?usp=drive_link' ) }}"
-               target="_blank">
-               📄
-            </a>
-        </li>
-    {% else %}
-        <li>Aucune documentation disponible.</li>
-    {% endfor %}
-</ul>
+    <p>
+        Toute la documentation PMP est disponible dans le dossier suivant :
+    </p>
 
-<br>
-<a href="/me" class="btn btn-secondary">⬅ Retour au tableau de bord</a>
+    <a
+      class="btn"
+      href="https://drive.google.com/drive/folders/1U63hfsDj6t-jR95i7XvLvzYnxt4_J6NG?usp=drive_link"
+      target="_blank">
+      📂 Ouvrir la documentation PMP
+    </a>
+
+    <a href="/me" class="back">⬅ Retour au tableau de bord</a>
+</div>
 
 </body>
 </html>
