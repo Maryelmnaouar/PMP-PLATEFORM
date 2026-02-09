@@ -39,7 +39,7 @@
         {{ f.created_at.strftime('%d/%m/%Y %H:%M') }}
       </div>
 
-      <form method="post" action="{{ url_for('admin_treat_feedback', feedback_id=f.id) }}">
+      <form method="post" action="{{ url_for('me_task_feedback', feedback_id=f.id) }}">
         <button class="btn btn-warning">
           ✔ Marquer comme traité
         </button>
