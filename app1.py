@@ -909,19 +909,22 @@ def me_task_feedback(task_id):
     task = cur.fetchone()
 
     if not task:
+        cur.close()
+        conn.close()
         flash("Action interdite.", "err")
         return redirect(url_for("operator_dashboard"))
 
     if request.method == "POST":
         comment = request.form.get("comment", "").strip()
 
-        # Enregistrer feedback (même vide)
-        cur.execute("""
-            INSERT INTO feedback_form(task_id, user_id, comment)
-            VALUES (%s, %s, %s)
-        """, (task_id, user["id"], comment))
+        # 👉 Insérer feedback UNIQUEMENT si commentaire non vide
+        if comment:
+            cur.execute("""
+                INSERT INTO feedback_form (task_id, user_id, comment)
+                VALUES (%s, %s, %s)
+            """, (task_id, user["id"], comment))
 
-        # Clôturer la tâche
+        # 👉 Clôturer la tâche (TOUJOURS)
         cur.execute("""
             UPDATE tasks
             SET status='cloturee', closed_at=NOW()
@@ -943,6 +946,7 @@ def me_task_feedback(task_id):
         task=task
     )
 
+
 @app.route("/admin/suggestions")
 @login_required(role="admin")
 def admin_suggestions():
@@ -950,11 +954,19 @@ def admin_suggestions():
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT f.id, u.username, t.line, t.machine, f.comment, f.created_at
+        SELECT 
+            f.id,
+            u.username,
+            t.line,
+            t.machine,
+            f.comment,
+            f.created_at
         FROM feedback_form f
         JOIN users u ON u.id = f.user_id
         JOIN tasks t ON t.id = f.task_id
         WHERE f.treated = FALSE
+          AND f.comment IS NOT NULL
+          AND TRIM(f.comment) <> ''
         ORDER BY f.created_at DESC
     """)
     rows = cur.fetchall()
@@ -984,6 +996,7 @@ def admin_treat_suggestion(fid):
 
     flash("Commentaire traité.", "ok")
     return redirect(url_for("admin_suggestions"))
+
 
 # -------------------------------------------------------
 # CONTEXT PROCESSOR

@@ -2,8 +2,120 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>Boîte à suggestions – Administration</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boîte à suggestions – Administration PMP</title>
+
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+  :root {
+    --red-dark: #b51212;
+    --red-light: #e41b13;
+    --bg-light: #fff6f6;
+    --card-bg: #fff3f3;
+    --text: #1a1a1a;
+    --muted: #555;
+    --shadow: 0 6px 25px rgba(0,0,0,0.12);
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(135deg, var(--bg-light), #ffe0e0);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(90deg, var(--muted), var(--red-light));
+    padding: 16px 28px;
+    box-shadow: var(--shadow);
+    color: #fff;
+  }
+
+  .logo-box {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .logo-box img {
+    height: 55px;
+  }
+
+  .title-zone {
+    font-size: 1.5rem;
+    font-weight: 800;
+  }
+
+  a.logout {
+    color: #fff;
+    text-decoration: none;
+    font-weight: bold;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 6px 14px;
+    border-radius: 8px;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 40px auto;
+    padding: 0 20px;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 22px 26px;
+    margin-bottom: 30px;
+    border: 1.6px solid rgba(181,18,18,0.5);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+  }
+
+  th, td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  th {
+    text-align: left;
+    color: var(--muted);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+  }
+
+  .btn {
+    background: linear-gradient(180deg, var(--red-light), var(--red-dark));
+    border: none;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.25s;
+  }
+
+  .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(255,0,0,0.4);
+  }
+
+  .footer {
+    text-align: center;
+    color: var(--muted);
+    margin: 30px 0 15px;
+    font-size: 0.85rem;
+  }
+</style>
 </head>
 
 <body>
@@ -14,45 +126,91 @@
     <img src="{{ url_for('static', filename='images/logo_cobomi.png') }}">
   </div>
   <div class="title-zone">
-    <i class="fa-solid fa-lightbulb"></i> Boîte à suggestions – Anomalies terrain
+    <i class="fa-solid fa-lightbulb"></i> Boîte à suggestions – PMP
   </div>
-  <a href="{{ url_for('admin_dashboard') }}" class="logout">⬅ Retour</a>
+  <a href="{{ url_for('logout') }}" class="logout">Déconnexion</a>
 </header>
 
 <div class="container">
 
-  {% if feedbacks %}
-  <div class="menu-grid">
-    {% for f in feedbacks %}
-    <div class="menu-card">
-      <i class="fa-solid fa-triangle-exclamation"></i>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for cat,msg in messages %}
+        <div class="card" style="
+          background: {% if cat=='ok' %}#e4f8ea{% else %}#ffe5e5{% endif %};
+          border-color: {% if cat=='ok' %}#53b46b{% else %}#e15b5b{% endif %};
+          color: {% if cat=='ok' %}#145a1f{% else %}#7b1515{% endif %};
+        ">
+          {{ msg }}
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
 
-      <div class="menu-title">
-        {{ f.username }} – {{ f.line }} / {{ f.machine }}
-      </div>
-
-      <div class="menu-sub">
-        {{ f.comment or "Aucun commentaire saisi" }}
-      </div>
-
-      <div class="menu-sub">
-        {{ f.created_at.strftime('%d/%m/%Y %H:%M') }}
-      </div>
-
-      <form method="post" action="{{ url_for('admin_treat_suggestion', fid=f.id) }}">
-        <button class="btn btn-warning">
-          ✔ Marquer comme traité
-        </button>
-      </form>
-    </div>
-    {% endfor %}
-  </div>
-  {% else %}
-    <p style="text-align:center;color:#555;">
-      🎉 Aucune anomalie non traitée
+  {% if not feedbacks %}
+  <!-- ✅ BONUS : aucune anomalie -->
+  <div class="card" style="
+      background: linear-gradient(135deg, #fff6f6, #ffecec);
+      border: 2px dashed rgba(181,18,18,0.4);
+      text-align: center;
+      padding: 40px 30px;
+  ">
+    <div style="font-size:3rem;color:#2e7d32;margin-bottom:15px;">✅</div>
+    <h2 style="margin:0 0 10px;color:#2e7d32;">Aucune anomalie signalée</h2>
+    <p style="color:#555;">
+      Tous les opérateurs ont validé leurs tâches<br>
+      sans commentaire d’anomalie.
     </p>
+  </div>
   {% endif %}
 
+  {% if feedbacks %}
+  <div class="card">
+    <h2 style="margin-top:0;">
+      <i class="fa-solid fa-comments"></i> Commentaires opérateurs
+    </h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Opérateur</th>
+          <th>Ligne</th>
+          <th>Machine</th>
+          <th>Commentaire</th>
+          <th>Date</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in feedbacks %}
+        <tr>
+          <td>{{ f.username }}</td>
+          <td>{{ f.line }}</td>
+          <td>{{ f.machine }}</td>
+          <td>{{ f.comment }}</td>
+          <td>{{ f.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+          <td>
+            <form method="post" action="{{ url_for('admin_treat_suggestion', fid=f.id) }}">
+              <button class="btn">Traiter</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <div style="text-align:center;">
+    <a href="{{ url_for('admin_dashboard') }}" class="btn">
+      ← Retour au dashboard admin
+    </a>
+  </div>
+
+</div>
+
+<div class="footer">
+  © {{ current_year or 2025 }} Coca-Cola x Cobomi Maintenance System • Made with ❤️ by Maryam
 </div>
 
 </body>
