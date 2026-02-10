@@ -622,6 +622,10 @@ from collections import defaultdict
 from datetime import datetime
 from collections import defaultdict
 
+from datetime import datetime
+from collections import defaultdict
+from psycopg2.extras import RealDictCursor
+
 def _auto_assign_pmp(line: str, freq_prefix: str):
     try:
         print(">>> AUTO ASSIGN PMP STARTED:", line, freq_prefix)
@@ -647,7 +651,7 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
             by_machine_role[(r.get("Machine"), role)].append(r)
 
         db = get_db()
-        c = db.cursor(dictionary=True)
+        c = db.cursor(cursor_factory=RealDictCursor)  # ✅ POSTGRESQL
 
         c.execute("""
             SELECT id, role, prod_line, machine_assigned
@@ -664,7 +668,7 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
         users_by_machine_role = defaultdict(list)
         for u in users:
             machines = []
-            if u.get("machine_assigned"):
+            if u["machine_assigned"]:
                 machines = u["machine_assigned"].split("|")
 
             for m in machines:
@@ -689,12 +693,13 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
                         line, machine, description, assigned_to,
                         status, points, frequency, documentation, created_at
                     )
-                    VALUES (%s,%s,%s,%s,'en_cours',%s,%s,%s,%s)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (
                     line,
                     machine,
                     r.get("Description"),
                     chosen,
+                    "en_cours",
                     3,
                     r.get("Frequence"),
                     r.get("Documentation"),
