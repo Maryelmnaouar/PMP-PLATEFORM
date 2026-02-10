@@ -616,61 +616,94 @@ def admin_auto_page():
 # -------------------------------------------------------
 # ROTATION AUTOMATIQUE
 # -------------------------------------------------------
-def _auto_assign_pmp(line: str, freq_prefix: str, offset=0):
+from datetime import datetime
+from collections import defaultdict
+
+def _auto_assign_pmp(line: str, freq_prefix: str):
     records, _, _, _, _ = load_task_templates()
     freq_prefix = freq_prefix.lower()
 
-    r_filtered = [r for r in records
-                  if r["Ligne"] == line
-                  and freq_prefix in str(r["Frequence"]).lower()]
+    # 1️⃣ Filtrage
+    r_filtered = [
+        r for r in records
+        if r["Ligne"] == line
+        and freq_prefix in str(r["Frequence"]).lower()
+    ]
 
     if not r_filtered:
         return 0
 
-    by_machine_role = {}
+    # 2️⃣ Groupement par machine + rôle
+    by_machine_role = defaultdict(list)
     for r in r_filtered:
         machine = r["Machine"]
         role = _role_from_intervenant(r["Intervenant"])
-        by_machine_role.setdefault((machine, role), []).append(r)
+        by_machine_role[(machine, role)].append(r)
 
     db = get_db()
     c = db.cursor()
+
+    # 3️⃣ Récupération des opérateurs par machine
+    c.execute("""
+        SELECT id, role, prod_line, machine_assigned
+        FROM users
+        WHERE prod_line=%s
+    """, (line,))
+    users = c.fetchall()
+
+    users_by_machine_role = defaultdict(list)
+    for u in users:
+        machines = (u["machine_assigned"] or "").split("|")
+        for m in machines:
+            users_by_machine_role[(m, u["role"])].append(u["id"])
+
+    # 4️⃣ Compteur global d’équilibrage
+    task_count = defaultdict(int)
     created = 0
-    used_users = set()
+    now = datetime.now().isoformat()
 
-    for (machine, role), rows in by_machine_role.items():
-        c.execute("""
-            SELECT id, machine_assigned
-            FROM users
-            WHERE role=%s AND prod_line=%s
-        """, (role, line))
-        users = c.fetchall()
-
-        user_ids = []
-        for u in users:
-            mlist = (u["machine_assigned"] or "").split("|")
-            if machine in mlist:
-                user_ids.append(u["id"])
+    # 5️⃣ Assignation intelligente
+    for (machine, role), tasks in by_machine_role.items():
+        user_ids = users_by_machine_role.get((machine, role), [])
 
         if not user_ids:
             continue
 
-        candidate_ids = [u for u in user_ids if u not in used_users] or user_ids
-        chosen = candidate_ids[offset % len(candidate_ids)]
-        used_users.add(chosen)
+        # 🔹 Cas 1 : plusieurs machines → 1 machine / opérateur
+        if len(by_machine_role) >= len(user_ids):
+            # on choisit l’opérateur le moins chargé
+            chosen = min(user_ids, key=lambda u: task_count[u])
+            for r in tasks:
+                c.execute("""
+                    INSERT INTO tasks(line, machine, description, assigned_to,
+                                      status, points, frequency, documentation, created_at)
+                    VALUES (%s,%s,%s,%s,'en_cours',%s,%s,%s,%s)
+                """, (
+                    line, machine, r["Description"], chosen,
+                    3, r["Frequence"], r.get("Documentation"), now
+                ))
+                task_count[chosen] += 1
+                created += 1
 
-        now = datetime.now().isoformat()
-
-        for r in rows:
-            c.execute("""
-                INSERT INTO tasks(line, machine, description, assigned_to, status, points, frequency, documentation, created_at)
-                VALUES (%s,%s,%s,%s,'en_cours',%s,%s,%s,%s)
-            """, (line, machine, r["Description"], chosen, 3, r["Frequence"], r.get("Documentation"), now))
-            created += 1
+        # 🔹 Cas 2 : 1 machine → partage équitable des tâches
+        else:
+            for r in tasks:
+                chosen = min(user_ids, key=lambda u: task_count[u])
+                c.execute("""
+                    INSERT INTO tasks(line, machine, description, assigned_to,
+                                      status, points, frequency, documentation, created_at)
+                    VALUES (%s,%s,%s,%s,'en_cours',%s,%s,%s,%s)
+                """, (
+                    line, machine, r["Description"], chosen,
+                    3, r["Frequence"], r.get("Documentation"), now
+                ))
+                task_count[chosen] += 1
+                created += 1
 
     db.commit()
     db.close()
     return created
+
 
 # -------------------------------------------------------
 # ROUTES assignation automatique
