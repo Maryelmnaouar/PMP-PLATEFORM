@@ -469,7 +469,7 @@ def admin_update_kpi_settings():
     flash("Paramètres KPI mis à jour.", "ok")
     return redirect(url_for("admin_settings"))
 
-@app.route("/me/report-anomaly", methods=["GET","POST"])
+@app.route("/me/report", methods=["GET","POST"])
 @login_required()
 def report_anomaly():
     user = current_user()
