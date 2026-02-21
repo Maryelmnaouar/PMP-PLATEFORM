@@ -251,7 +251,12 @@
     <a href="/documentation" class="btn btn-danger">
         📚 Documentation PMP
     </a>
-</div>
+  </div>
+  <div style="display:flex; gap:10px; margin-bottom:15px;">
+    <a href="{{ url_for('report_anomaly') }}" class="btn">
+       ⚠️ Signaler anomalie
+    </a>
+  </div>
     <table>
       <thead>
         <tr>
@@ -283,9 +288,6 @@
           {% if t.status == 'en_cours' %}
             <a href="{{ url_for('me_task_feedback', task_id=t.id) }}" class="btn btn-success">
               Valider
-            </a>
-            <a href="{{ url_for('report_anomaly') }}" class="btn">
-              ⚠️ Signaler anomalie
             </a>
           {% else %}
             -
