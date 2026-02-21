@@ -469,21 +469,27 @@ def admin_update_kpi_settings():
     flash("Paramètres KPI mis à jour.", "ok")
     return redirect(url_for("admin_settings"))
 
-@app.route("/me/report", methods=["GET","POST"])
+@app.route("/me/report-anomaly", methods=["GET","POST"])
 @login_required()
 def report_anomaly():
     user = current_user()
     conn = get_db()
     cur = conn.cursor()
 
+    import pandas as pd
+    df = pd.read_excel("pmp.xlsx")   # chemin Excel actuel
+    lines = sorted(df["line"].dropna().unique())
+    machines = sorted(df["machine"].dropna().unique())
+
     if request.method == "POST":
+        line = request.form["line"]
         machine = request.form["machine"]
-        desc = request.form["description"]
+        description = request.form["description"]
 
         cur.execute("""
-            INSERT INTO machine_anomalies(user_id, machine, description)
-            VALUES(%s,%s,%s)
-        """,(user["id"],machine,desc))
+            INSERT INTO machine_anomalies(user_id,line,machine,description)
+            VALUES (%s,%s,%s,%s)
+        """, (user["id"], line, machine, description))
 
         conn.commit()
         cur.close()
@@ -494,7 +500,12 @@ def report_anomaly():
 
     cur.close()
     conn.close()
-    return render_template("report_anomaly.html")
+
+    return render_template(
+        "report_anomaly.html",
+        lines=lines,
+        machines=machines
+    )
 
 
 @app.route("/admin/settings/user/password", methods=["POST"])

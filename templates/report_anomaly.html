@@ -1,14 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Signaler anomalie</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+:root{
+--red-dark:#474242ff;
+--red-light:#e41b13;
+--bg-light:#fff5f5;
+--card-bg:rgba(255,255,255,.9);
+--text:#1a1a1a;
+--muted:#555;
+--shadow:0 8px 30px rgba(0,0,0,.15);
+}
+
+body{
+margin:0;
+font-family:'Segoe UI',Roboto;
+background:linear-gradient(135deg,var(--bg-light),#ffdada);
+}
+
+.container{
+max-width:600px;
+margin:60px auto;
+}
+
+.card{
+background:var(--card-bg);
+padding:30px;
+border-radius:18px;
+box-shadow:var(--shadow);
+}
+
+h2{
+margin-top:0;
+color:var(--red-dark);
+}
+
+label{
+font-weight:600;
+}
+
+select, textarea{
+width:100%;
+padding:10px;
+margin-top:5px;
+margin-bottom:18px;
+border-radius:10px;
+border:1px solid #ddd;
+font-family:inherit;
+}
+
+.btn{
+background:linear-gradient(180deg,var(--red-light),var(--red-dark));
+border:none;
+color:white;
+padding:10px 18px;
+border-radius:10px;
+font-weight:bold;
+cursor:pointer;
+}
+
+.btn:hover{
+transform:translateY(-2px);
+}
+
+.back{
+display:inline-block;
+margin-top:15px;
+color:#444;
+text-decoration:none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
 <div class="card">
-<h2>⚠️ Signaler une anomalie machine</h2>
+
+<h2><i class="fa-solid fa-triangle-exclamation"></i> Signaler une anomalie</h2>
 
 <form method="post">
 
-<label>Machine</label>
-<input name="machine" required>
+<label>Ligne</label>
+<select name="line" required>
+{% for l in lines %}
+<option value="{{ l }}">{{ l }}</option>
+{% endfor %}
+</select>
 
-<label>Description</label>
-<textarea name="description" required></textarea>
+<label>Machine</label>
+<select name="machine" required>
+{% for m in machines %}
+<option value="{{ m }}">{{ m }}</option>
+{% endfor %}
+</select>
+
+<label>Description anomalie</label>
+<textarea name="description" rows="4" required></textarea>
 
 <button class="btn">Envoyer</button>
+
 </form>
+
+<a href="{{ url_for('operator_dashboard') }}" class="back">
+⬅ Retour
+</a>
+
 </div>
+</div>
+
+</body>
+</html>
