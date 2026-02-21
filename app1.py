@@ -477,7 +477,7 @@ def report_anomaly():
     cur = conn.cursor()
 
     import pandas as pd
-    df = pd.read_excel("pmp.xlsx")   # chemin Excel actuel
+    df = pd.read_excel("plan_pmp.xlsx")   # chemin Excel actuel
     lines = sorted(df["line"].dropna().unique())
     machines = sorted(df["machine"].dropna().unique())
 
