@@ -190,8 +190,9 @@
           <td>{{ f.comment }}</td>
           <td>{{ f.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
           <td>
-            <form method="post" action="{{ url_for('admin_treat_suggestion', fid=f.id) }}">
-              <button class="btn">Traiter</button>
+            <form method="post"
+              action="{{ url_for('admin_treat_suggestion', type=f.source, fid=f.id) }}">
+              <button class="btn-danger">Traiter</button>
             </form>
           </td>
         </tr>
@@ -210,7 +211,7 @@
 </div>
 
 <div class="footer">
-  © {{ current_year or 2025 }} Coca-Cola x Cobomi Maintenance System • Made with ❤️ by Maryam
+  © {{ current_year or 2025 }} Coca-Cola x Cobomi Maintenance System •
 </div>
 
 </body>

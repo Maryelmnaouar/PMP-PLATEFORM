@@ -82,7 +82,16 @@ def init_db():
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
     """)
-
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS machine_anomalies(
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER,
+    machine TEXT,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    treated BOOLEAN DEFAULT FALSE
+    )
+    """)
     # Insérer une ligne par défaut SI VIDE
     cur.execute("SELECT COUNT(*) AS n FROM kpi_settings")
     row = cur.fetchone()
@@ -459,6 +468,33 @@ def admin_update_kpi_settings():
 
     flash("Paramètres KPI mis à jour.", "ok")
     return redirect(url_for("admin_settings"))
+
+@app.route("/me/report", methods=["GET","POST"])
+@login_required()
+def report_anomaly():
+    user = current_user()
+    conn = get_db()
+    cur = conn.cursor()
+
+    if request.method == "POST":
+        machine = request.form["machine"]
+        desc = request.form["description"]
+
+        cur.execute("""
+            INSERT INTO machine_anomalies(user_id, machine, description)
+            VALUES(%s,%s,%s)
+        """,(user["id"],machine,desc))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        flash("Anomalie envoyée.", "ok")
+        return redirect(url_for("operator_dashboard"))
+
+    cur.close()
+    conn.close()
+    return render_template("report_anomaly.html")
 
 
 @app.route("/admin/settings/user/password", methods=["POST"])
@@ -1027,23 +1063,24 @@ def me_task_feedback(task_id):
 def admin_suggestions():
     conn = get_db()
     cur = conn.cursor()
-
     cur.execute("""
-        SELECT 
-            f.id,
-            u.username,
-            t.line,
-            t.machine,
-            f.comment,
-            f.created_at
+    SELECT id, username, line, machine, comment, created_at, 'task' AS source
+        FROM (
+        SELECT f.id,u.username,t.line,t.machine,f.comment,f.created_at
         FROM feedback_form f
-        JOIN users u ON u.id = f.user_id
-        JOIN tasks t ON t.id = f.task_id
-        WHERE f.treated = FALSE
-          AND f.comment IS NOT NULL
-          AND TRIM(f.comment) <> ''
-        ORDER BY f.created_at DESC
-    """)
+        JOIN users u ON u.id=f.user_id
+        JOIN tasks t ON t.id=f.task_id
+        WHERE f.treated=FALSE AND f.comment <> ''
+
+        UNION ALL
+
+        SELECT m.id,u.username,NULL,m.machine,m.description,m.created_at
+        FROM machine_anomalies m
+        JOIN users u ON u.id=m.user_id
+        WHERE m.treated=FALSE
+    ) x
+    ORDER BY created_at DESC
+    """)    
     rows = cur.fetchall()
 
     cur.close()
@@ -1053,23 +1090,25 @@ def admin_suggestions():
         "admin_suggestions.html",
         feedbacks=rows
     )
-@app.route("/admin/suggestions/treat/<int:fid>", methods=["POST"])
+@app.route("/admin/suggestions/treat/<string:type>/<int:fid>", methods=["POST"])
 @login_required(role="admin")
-def admin_treat_suggestion(fid):
+def admin_treat_suggestion(type, fid):
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("""
-        UPDATE feedback_form
+    table = "feedback_form" if type=="task" else "machine_anomalies"
+
+    cur.execute(f"""
+        UPDATE {table}
         SET treated = TRUE
         WHERE id = %s
-    """, (fid,))
+    """,(fid,))
 
     conn.commit()
     cur.close()
     conn.close()
 
-    flash("Commentaire traité.", "ok")
+    flash("Signalement traité.", "ok")
     return redirect(url_for("admin_suggestions"))
 
 
