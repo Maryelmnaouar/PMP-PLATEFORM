@@ -1111,15 +1111,6 @@ def admin_suggestions():
         "admin_suggestions.html",
         feedbacks=rows
     ) 
-    rows = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    return render_template(
-        "admin_suggestions.html",
-        feedbacks=rows
-    )
 @app.route("/admin/suggestions/treat/<string:type>/<int:fid>", methods=["POST"])
 @login_required(role="admin")
 def admin_treat_suggestion(type, fid):
