@@ -1063,24 +1063,54 @@ def me_task_feedback(task_id):
 def admin_suggestions():
     conn = get_db()
     cur = conn.cursor()
+
     cur.execute("""
-    SELECT id, username, line, machine, comment, created_at, 'task' AS source
+        SELECT *
         FROM (
-        SELECT f.id,u.username,t.line,t.machine,f.comment,f.created_at
-        FROM feedback_form f
-        JOIN users u ON u.id=f.user_id
-        JOIN tasks t ON t.id=f.task_id
-        WHERE f.treated=FALSE AND f.comment <> ''
+            SELECT
+                f.id,
+                u.username,
+                t.line,
+                t.machine,
+                f.comment,
+                f.created_at,
+                'task'::text AS source
+            FROM feedback_form f
+            JOIN users u ON u.id = f.user_id
+            JOIN tasks t ON t.id = f.task_id
+            WHERE f.treated = FALSE
+              AND f.comment IS NOT NULL
+              AND TRIM(f.comment) <> ''
 
-        UNION ALL
+            UNION ALL
 
-        SELECT m.id,u.username,NULL,m.machine,m.description,m.created_at
-        FROM machine_anomalies m
-        JOIN users u ON u.id=m.user_id
-        WHERE m.treated=FALSE
-    ) x
-    ORDER BY created_at DESC
-    """)    
+            SELECT
+                m.id,
+                u.username,
+                NULL::text AS line,
+                m.machine,
+                m.description,
+                m.created_at,
+                'machine'::text AS source
+            FROM machine_anomalies m
+            JOIN users u ON u.id = m.user_id
+            WHERE m.treated = FALSE
+              AND m.description IS NOT NULL
+              AND TRIM(m.description) <> ''
+        ) s
+        ORDER BY created_at DESC
+        LIMIT 200
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template(
+        "admin_suggestions.html",
+        feedbacks=rows
+    ) 
     rows = cur.fetchall()
 
     cur.close()
