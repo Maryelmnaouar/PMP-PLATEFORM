@@ -856,7 +856,7 @@ def admin_manual_create():
     assigned_to = request.form.get("assigned_to")
     if not assigned_to:
         flash("Sélectionnez un utilisateur", "err")
-        return redirect(url_for("admin_manual_page"))
+        return redirect("/admin/manual")
 
     assigned_to = int(assigned_to)
     points = int(request.form.get("points") or 1)
@@ -873,7 +873,7 @@ def admin_manual_create():
     db.close()
 
     flash("Tâche manuelle créée et ajoutée au plan PMP.", "ok")
-    return redirect(url_for("admin_manual_page"))
+    return redirect("/admin/manual")
 # -------------------------------------------------------
 # PAGE : Tâches en cours (ADMIN)
 # -------------------------------------------------------
