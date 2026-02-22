@@ -478,12 +478,12 @@ def report_anomaly():
 
     import pandas as pd
     df = pd.read_excel("data/plan_pmp.xlsx")   # chemin Excel actuel
-    lines = sorted(df["line"].dropna().unique())
-    machines = sorted(df["machine"].dropna().unique())
+    lines = sorted(df["Line"].dropna().unique())
+    machines = sorted(df["EQUIPEMENT"].dropna().unique())
 
     if request.method == "POST":
-        line = request.form["line"]
-        machine = request.form["machine"]
+        line = request.form["Line"]
+        machine = request.form["EQUIPEMENT"]
         description = request.form["description"]
 
         cur.execute("""
