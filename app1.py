@@ -121,6 +121,8 @@ def load_task_templates():
 
     df = pd.read_excel(EXCEL_PATH, sheet_name=EXCEL_SHEET)
 
+    df.columns = df.columns.str.strip()
+
     df = df.rename(columns={
         "Line": "Ligne",
         "EQUIPEMENT": "Machine",
@@ -128,13 +130,13 @@ def load_task_templates():
         "FREQUENCE": "Frequence",
         "INTERVENANT": "Intervenant",
         "Emplacement Documentation": "Documentation",
-        "Lien vers PDF": "LienPDF"  
+        "Lien vers PDF": "LienPDF"
     })
 
-    # nettoyage colonnes texte
-    for col in ["Ligne", "Machine", "Description", "Frequence", "Intervenant", "Documentation", "LienPDF"]:
-        if col in df.columns:
-            df[col] = df[col].astype(str).str.strip()
+    for col in ["Ligne","Machine","Description","Frequence","Intervenant","Documentation","LienPDF"]:
+        if col not in df.columns:
+            df[col] = ""
+        df[col] = df[col].astype(str).str.strip()
 
     records = df.to_dict(orient="records")
 
@@ -146,8 +148,8 @@ def load_task_templates():
             machines_par_ligne.setdefault(r["Ligne"], set()).add(r["Machine"])
 
     machines_par_ligne = {k: sorted(v) for k, v in machines_par_ligne.items()}
-    intervenants = sorted({r["Intervenant"] for r in records})
-    frequences = sorted({r["Frequence"] for r in records})
+    intervenants = sorted({r["Intervenant"] for r in records if r["Intervenant"]})
+    frequences = sorted({r["Frequence"] for r in records if r["Frequence"]})
 
     return records, lignes, machines_par_ligne, intervenants, frequences
 
