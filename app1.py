@@ -53,7 +53,7 @@ def init_db():
         assigned_to INTEGER REFERENCES users(id),
         status TEXT NOT NULL CHECK(status IN ('en_cours','cloturee')) DEFAULT 'en_cours',
         documentation TEXT,
-        lien_pdf TEXT,
+        LienPDF TEXT,
         points INTEGER NOT NULL DEFAULT 1,
         frequency TEXT,
         created_at TIMESTAMP NOT NULL,
@@ -65,9 +65,9 @@ def init_db():
     BEGIN
         IF NOT EXISTS (
             SELECT 1 FROM information_schema.columns
-            WHERE table_name='tasks' AND column_name='lien_pdf'
+            WHERE table_name='tasks' AND column_name='LienPDF'
         ) THEN
-            ALTER TABLE tasks ADD COLUMN lien_pdf TEXT;
+            ALTER TABLE tasks ADD COLUMN LienPDF TEXT;
         END IF;
     END$$;
     """)
