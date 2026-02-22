@@ -53,11 +53,23 @@ def init_db():
         assigned_to INTEGER REFERENCES users(id),
         status TEXT NOT NULL CHECK(status IN ('en_cours','cloturee')) DEFAULT 'en_cours',
         documentation TEXT,
+        lien_pdf TEXT,
         points INTEGER NOT NULL DEFAULT 1,
         frequency TEXT,
         created_at TIMESTAMP NOT NULL,
         closed_at TIMESTAMP
     )
+    """)
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name='tasks' AND column_name='lien_pdf'
+        ) THEN
+            ALTER TABLE tasks ADD COLUMN lien_pdf TEXT;
+        END IF;
+    END$$;
     """)
 
 
@@ -744,7 +756,7 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
                 c.execute("""
                     INSERT INTO tasks (
                         line, machine, description, assigned_to,
-                        status, points, frequency, documentation, created_at, lien_pdf
+                        status, points, frequency, documentation, lien_pdf, created_at
                     )
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (
