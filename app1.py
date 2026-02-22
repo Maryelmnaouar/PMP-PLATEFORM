@@ -86,6 +86,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS machine_anomalies(
     id SERIAL PRIMARY KEY,
     user_id INTEGER,
+    line TEXT,
     machine TEXT,
     description TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -480,7 +481,7 @@ def report_anomaly():
     cur = conn.cursor()
 
     import pandas as pd
-    df = pd.read_excel("data/plan_pmp.xlsx")   # chemin Excel actuel
+    df = pd.read_excel(EXCEL_PATH)   # chemin Excel actuel
     lines = sorted(df["Line"].dropna().unique())
     machines = sorted(df["EQUIPEMENT"].dropna().unique())
 
@@ -741,9 +742,9 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
                 c.execute("""
                     INSERT INTO tasks (
                         line, machine, description, assigned_to,
-                        status, points, frequency, documentation, created_at
+                        status, points, frequency, documentation, created_at, lien_pdf
                     )
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (
                     line,
                     machine,
@@ -753,6 +754,7 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
                     3,
                     r.get("Frequence"),
                     r.get("Documentation"),
+                    r.get("LienPDF"),
                     now
                 ))
 
