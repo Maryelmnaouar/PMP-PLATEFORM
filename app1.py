@@ -127,7 +127,7 @@ def load_task_templates():
         "FREQUENCE": "Frequence",
         "INTERVENANT": "Intervenant",
         "Emplacement Documentation": "Documentation",
-        "Lien vers PDF": "LienPDF"   # ✅ AJOUT
+        "Lien vers PDF": "LienPDF"  
     })
 
     # nettoyage colonnes texte
