@@ -848,31 +848,43 @@ def admin_manual_page():
 @app.route("/admin/manual/create", methods=["POST"])
 @login_required(role="admin")
 def admin_manual_create():
-    line = request.form["line"]
-    machine = request.form["machine"]
-    frequence = request.form["frequence"]
-    intervenant = request.form["intervenant_type"]
-    description = request.form["description"]
-    assigned_to = request.form.get("assigned_to")
-    if not assigned_to:
-        flash("Sélectionnez un utilisateur", "err")
-        return redirect("/admin/manual")
+    try:
+        line = request.form.get("line")
+        machine = request.form.get("machine")
+        frequence = request.form.get("frequence")
+        intervenant = request.form.get("intervenant_type")
+        description = request.form.get("description")
 
-    assigned_to = int(assigned_to)
-    points = int(request.form.get("points") or 1)
+        assigned_to = request.form.get("assigned_to")
+        if not assigned_to:
+            flash("Utilisateur requis", "err")
+            return redirect("/admin/manual")
+        assigned_to = int(assigned_to)
 
-    append_task_to_excel(line, machine, description, frequence, intervenant)
+        points = int(request.form.get("points") or 1)
 
-    db = get_db()
-    c = db.cursor()
-    c.execute("""
-        INSERT INTO tasks(line, machine, description, assigned_to, status, points, frequency, created_at)
-        VALUES (%s,%s,%s,%s,'en_cours',%s,%s,%s)
-    """, (line, machine, description, assigned_to, points, frequence, datetime.now().isoformat()))
-    db.commit()
-    db.close()
+        try:
+            append_task_to_excel(line, machine, description, frequence, intervenant)
+        except Exception as e:
+            print("Excel error:", e)
 
-    flash("Tâche manuelle créée et ajoutée au plan PMP.", "ok")
+        db = get_db()
+        c = db.cursor()
+        c.execute("""
+            INSERT INTO tasks(line, machine, description, assigned_to, status, points, frequency, created_at)
+            VALUES (%s,%s,%s,%s,'en_cours',%s,%s,%s)
+        """, (line, machine, description, assigned_to, points, frequence, datetime.now().isoformat()))
+        db.commit()
+        db.close()
+
+        flash("Tâche créée avec succès.", "ok")
+
+    except Exception as e:
+        import traceback
+        print("CREATE TASK ERROR:", e)
+        print(traceback.format_exc())
+        flash("Erreur interne.", "err")
+
     return redirect("/admin/manual")
 # -------------------------------------------------------
 # PAGE : Tâches en cours (ADMIN)
