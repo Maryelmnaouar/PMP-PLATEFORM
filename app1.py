@@ -853,7 +853,12 @@ def admin_manual_create():
     frequence = request.form["frequence"]
     intervenant = request.form["intervenant_type"]
     description = request.form["description"]
-    assigned_to = int(request.form["assigned_to"])
+    assigned_to = request.form.get("assigned_to")
+    if not assigned_to:
+        flash("Sélectionnez un utilisateur", "err")
+        return redirect(url_for("admin_manual_page"))
+
+    assigned_to = int(assigned_to)
     points = int(request.form.get("points") or 1)
 
     append_task_to_excel(line, machine, description, frequence, intervenant)
