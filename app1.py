@@ -854,7 +854,7 @@ def admin_manual_create():
     intervenant = request.form["intervenant_type"]
     description = request.form["description"]
     assigned_to = int(request.form["assigned_to"])
-    points = int(request.form["points"])
+    points = int(request.form.get("points") or 1)
 
     append_task_to_excel(line, machine, description, frequence, intervenant)
 
