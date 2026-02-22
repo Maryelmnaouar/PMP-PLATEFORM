@@ -249,7 +249,7 @@
     <h1><i class="fa-solid fa-list-check"></i> Mes tâches à effectuer</h1>
     <div style="display:flex; justify-content:flex-end; margin-bottom:15px;">
     <a href="/documentation" class="btn btn-danger">
-        📚 Documentation PMP
+        📚 Documentation 
     </a>
   </div>
   <div style="display:flex; gap:5px; margin-bottom:15px;">
@@ -278,6 +278,13 @@
         <td>{{ t.machine }}</td>
         <td>{{ t.description }}</td>
         <td>{{ t.documentation }}</td>
+        <td>
+        {% if t.LienPDF %}
+        <a href="{{ t.LienPDF }}" target="_blank" class="btn">📄 PDF</a>
+        {% else %}
+        -
+        {% endif %}
+        </td>
         <td>{{ t.points }}</td>
         <td>
           <span class="tag">

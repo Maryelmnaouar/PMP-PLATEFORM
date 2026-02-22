@@ -126,14 +126,17 @@ def load_task_templates():
         "TÂCHE": "Description",
         "FREQUENCE": "Frequence",
         "INTERVENANT": "Intervenant",
-        "Emplacement Documentation": "Documentation"
+        "Emplacement Documentation": "Documentation",
+        "Lien vers PDF": "LienPDF"   # ✅ AJOUT
     })
 
-    for col in ["Ligne", "Machine", "Description", "Frequence", "Intervenant","Documentation"]:
+    # nettoyage colonnes texte
+    for col in ["Ligne", "Machine", "Description", "Frequence", "Intervenant", "Documentation", "LienPDF"]:
         if col in df.columns:
             df[col] = df[col].astype(str).str.strip()
 
     records = df.to_dict(orient="records")
+
     lignes = sorted({r["Ligne"] for r in records if r["Ligne"]})
 
     machines_par_ligne = {}
