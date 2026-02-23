@@ -61,19 +61,6 @@ def init_db():
         closed_at TIMESTAMP
     )
     """)
-    cur.execute("""
-    DO $$
-    BEGIN
-        IF NOT EXISTS (
-            SELECT 1 FROM information_schema.columns
-            WHERE table_name='tasks' AND column_name='LienPDF'
-        ) THEN
-            ALTER TABLE tasks ADD COLUMN LienPDF TEXT;
-        END IF;
-    END$$;
-    """)
-
-
     # ---------- KPI SETTINGS ----------
     cur.execute("""
     CREATE TABLE IF NOT EXISTS kpi_settings (
