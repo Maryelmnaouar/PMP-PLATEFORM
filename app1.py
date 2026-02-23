@@ -50,6 +50,7 @@ def init_db():
         line TEXT NOT NULL,
         machine TEXT NOT NULL,
         description TEXT NOT NULL,
+        Mode_fonctionnement TEXT,
         assigned_to INTEGER REFERENCES users(id),
         status TEXT NOT NULL CHECK(status IN ('en_cours','cloturee')) DEFAULT 'en_cours',
         documentation TEXT,
@@ -139,13 +140,14 @@ def load_task_templates():
         "Line": "Ligne",
         "EQUIPEMENT": "Machine",
         "TÂCHE": "Description",
+        "Mode_fonctionnement":"Mode_fonctionnement",
         "FREQUENCE": "Frequence",
         "INTERVENANT": "Intervenant",
         "Emplacement Documentation": "Documentation",
         "Lien vers PDF": "LienPDF"
     })
 
-    for col in ["Ligne","Machine","Description","Frequence","Intervenant","Documentation","LienPDF"]:
+    for col in ["Ligne","Machine","Description","Mode_fonctionnement","Frequence","Intervenant","Documentation","LienPDF"]:
         if col not in df.columns:
             df[col] = ""
         df[col] = df[col].astype(str).str.strip()
@@ -755,10 +757,10 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
 
                 c.execute("""
                     INSERT INTO tasks (
-                        line, machine, description, assigned_to,
+                        line, machine, description, Mode_fonctionnement, assigned_to,
                         status, points, frequency, documentation, lien_pdf, created_at
                     )
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (
                     line,
                     machine,
@@ -766,6 +768,7 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
                     chosen,
                     "en_cours",
                     3,
+                    r.get("Mode_fonctionnement"),
                     r.get("Frequence"),
                     r.get("Documentation"),
                     r.get("LienPDF"),
