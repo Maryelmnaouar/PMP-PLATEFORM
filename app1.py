@@ -412,7 +412,19 @@ def login():
         return render_template("login.html", error="Nom ou mot de passe incorrect")
 
     return render_template("login.html")
-
+@app.route("/admin/check-columns")
+@login_required(role="admin")
+def check_columns():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_name='tasks'
+    """)
+    cols = cur.fetchall()
+    conn.close()
+    return str(cols)
 @app.route("/admin/settings")
 @login_required(role="admin")
 def admin_settings():
