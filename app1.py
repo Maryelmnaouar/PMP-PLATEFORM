@@ -111,7 +111,32 @@ def init_db():
 
 # IMPORTANT pour Render
 init_db()
+def migrate_db():
+    conn = get_db()
+    cur = conn.cursor()
 
+    try:
+        # Ajouter colonne Mode_fonctionnement si elle n'existe pas
+        cur.execute("""
+            ALTER TABLE tasks
+            ADD COLUMN IF NOT EXISTS Mode_fonctionnement TEXT;
+        """)
+
+        # Ajouter colonne LienPDF si elle n'existe pas
+        cur.execute("""
+            ALTER TABLE tasks
+            ADD COLUMN IF NOT EXISTS LienPDF TEXT;
+        """)
+
+        conn.commit()
+        print("✅ Migration DB OK")
+
+    except Exception as e:
+        print("❌ ERREUR MIGRATION:", e)
+
+    finally:
+        cur.close()
+        conn.close()
 # -------------------------------------------------------
 # LECTURE EXCEL (INCHANGÉE)
 # -------------------------------------------------------
