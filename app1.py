@@ -781,7 +781,7 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
 
                 c.execute("""
                     INSERT INTO tasks (
-                        line, machine, description, Mode_fonctionnement, assigned_to,
+                        line, machine, description, mode_fonctionnement, assigned_to,
                         status, points, frequency, documentation, lien_pdf, created_at
                     )
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
