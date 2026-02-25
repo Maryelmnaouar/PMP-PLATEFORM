@@ -702,7 +702,6 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
             if r.get("Ligne") == line
             and freq_prefix in str(r.get("Frequence", "")).lower()
         ]
-
         if not r_filtered:
             print("⚠️ Aucun template PMP trouvé")
             return 0
@@ -790,6 +789,7 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
 # ROUTES assignation automatique
 # -------------------------------------------------------
 @app.route("/admin/auto-assign/hebdo", methods=["POST"])
+@login_required(role="admin")
 def admin_auto_assign_hebdo():
     try:
         print(">>> AUTO ASSIGN HEBDO")
@@ -797,7 +797,7 @@ def admin_auto_assign_hebdo():
         line = request.form.get("line")
         if not line:
             flash("Veuillez sélectionner une ligne", "warning")
-            return redirect(url_for("admin_assign_page"))
+            return redirect(url_for("admin_auto_page"))
 
         created = _auto_assign_pmp(line, "hebdo")
 
@@ -817,7 +817,7 @@ def admin_auto_assign_mensuel():
         line = request.form.get("line")
         if not line:
             flash("Veuillez sélectionner une ligne", "warning")
-            return redirect(url_for("admin_assign_page"))
+            return redirect(url_for("admin_auto_page"))
 
         created = _auto_assign_pmp(line, "mensuel")
 
