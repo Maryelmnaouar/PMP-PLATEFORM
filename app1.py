@@ -50,7 +50,6 @@ def init_db():
         line TEXT NOT NULL,
         machine TEXT NOT NULL,
         description TEXT NOT NULL,
-        mode_fonctionnement TEXT,
         assigned_to INTEGER REFERENCES users(id),
         status TEXT NOT NULL CHECK(status IN ('en_cours','cloturee')) DEFAULT 'en_cours',
         documentation TEXT,
@@ -111,32 +110,7 @@ def init_db():
 
 # IMPORTANT pour Render
 init_db()
-def migrate_db():
-    conn = get_db()
-    cur = conn.cursor()
 
-    try:
-        # Ajouter colonne Mode_fonctionnement si elle n'existe pas
-        cur.execute("""
-            ALTER TABLE tasks
-            ADD COLUMN IF NOT EXISTS mode_fonctionnement TEXT;
-        """)
-
-        # Ajouter colonne LienPDF si elle n'existe pas
-        cur.execute("""
-            ALTER TABLE tasks
-            ADD COLUMN IF NOT EXISTS LienPDF TEXT;
-        """)
-
-        conn.commit()
-        print("✅ Migration DB OK")
-
-    except Exception as e:
-        print("❌ ERREUR MIGRATION:", e)
-
-    finally:
-        cur.close()
-        conn.close()
 # -------------------------------------------------------
 # LECTURE EXCEL (INCHANGÉE)
 # -------------------------------------------------------
@@ -152,14 +126,13 @@ def load_task_templates():
         "Line": "Ligne",
         "EQUIPEMENT": "Machine",
         "TÂCHE": "Description",
-        "mode_fonctionnement":"mode_fonctionnement",
         "FREQUENCE": "Frequence",
         "INTERVENANT": "Intervenant",
         "Emplacement Documentation": "Documentation",
         "Lien vers PDF": "LienPDF"
     })
 
-    for col in ["Ligne","Machine","Description","mode_fonctionnement","Frequence","Intervenant","Documentation","LienPDF"]:
+    for col in ["Ligne","Machine","Description","Frequence","Intervenant","Documentation","LienPDF"]:
         if col not in df.columns:
             df[col] = ""
         df[col] = df[col].astype(str).str.strip()
@@ -781,15 +754,14 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
 
                 c.execute("""
                     INSERT INTO tasks (
-                        line, machine, description, mode_fonctionnement, assigned_to,
+                        line, machine, description, assigned_to,
                         status, points, frequency, documentation, lien_pdf, created_at
                     )
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (
                     line,
                     machine,
                     r.get("Description"),
-                    r.get("mode_fonctionnement"),
                     chosen,
                     "en_cours",
                     3,
