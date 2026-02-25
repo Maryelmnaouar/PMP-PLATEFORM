@@ -537,9 +537,6 @@ def documentation():
     docs_dir = os.path.join(app.root_path, "static\\images", "docs")
     pdfs = [f for f in os.listdir(docs_dir) if f.lower().endswith(".pdf")] if os.path.exists(docs_dir) else []
     return render_template("documentation.html", pdfs=pdfs)
-# -------------------------------------------------------
-# PAGE ADMIN : gestion utilisateurs
-# -------------------------------------------------------
 @app.route("/admin/users")
 @login_required(role="admin")
 def admin_users():
@@ -553,7 +550,9 @@ def admin_users():
     """)
     users = c.fetchall()
     db.close()
-        _, lignes, machines_pl, intervenants, frequences = load_task_templates()
+
+    _, lignes, machines_pl, intervenants, frequences = load_task_templates()
+
     return render_template(
         "admin_users.html",
         users=users,
@@ -570,14 +569,15 @@ def admin_users():
 @login_required(role="admin")
 def admin_auto_page():
     _, lignes, machines_L, intervenants, frequences = load_task_templates()
-return render_template(
-    "admin_auto_page.html",
-    lignes=lignes,
-    machines_par_ligne=machines_L,
-    intervenants=intervenants,
-    frequences=frequences,
-    current_year=datetime.now().year
-)
+
+    return render_template(
+        "admin_auto_page.html",
+        lignes=lignes,
+        machines_par_ligne=machines_L,
+        intervenants=intervenants,
+        frequences=frequences,
+        current_year=datetime.now().year
+    )
 from datetime import datetime
 from collections import defaultdict
 from datetime import datetime
@@ -586,95 +586,110 @@ from datetime import datetime
 from collections import defaultdict
 from psycopg2.extras import RealDictCursor
 def _auto_assign_pmp(line: str, freq_prefix: str):
-try:
-    print(">>> AUTO ASSIGN PMP STARTED:", line, freq_prefix)
-    records, _, _, _, _ = load_task_templates()
-    freq_prefix = freq_prefix.lower()
-    r_filtered = [
-        r for r in records
-        if r.get("Ligne") == line
-        and freq_prefix in str(r.get("Frequence", "")).lower()
-    ]
-    if not r_filtered:
-        print("⚠️ Aucun template PMP trouvé")
-        return 0
-    by_machine_role = defaultdict(list)
-    for r in r_filtered:
-        role = _role_from_intervenant(r.get("Intervenant"))
-        if not role:
-            continue
-        by_machine_role[(r.get("Machine"), role)].append(r)
-    db = get_db()
-    c = db.cursor(cursor_factory=RealDictCursor)  # ✅ POSTGRESQL
-    c.execute("""
-        SELECT id, role, prod_line, machine_assigned
-        FROM users
-        WHERE prod_line=%s
-    """, (line,))
-    users = c.fetchall()
-    if not users:
-        print("⚠️ Aucun utilisateur pour la ligne", line)
-        db.close()
-        return 0
-    users_by_machine_role = defaultdict(list)
-    for u in users:
-        machines = []
-        if u["machine_assigned"]:
-            machines = u["machine_assigned"].split("|")
-        for m in machines:
-            users_by_machine_role[(m, u["role"])].append(u["id"])
-    task_count = defaultdict(int)
-    created = 0
-    now = datetime.now().isoformat()
-    for (machine, role), tasks in by_machine_role.items():
-        user_ids = users_by_machine_role.get((machine, role), [])
-        if not user_ids:
-            print(f"⚠️ Aucun opérateur pour {machine} ({role})")
-            continue
-        for r in tasks:
-            chosen = min(user_ids, key=lambda u: task_count[u])
-            c.execute("""
-                INSERT INTO tasks (
-                    line, machine, description, assigned_to,
-                    status, points, frequency, documentation, created_at
-                )
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            """, (
-                line,
-                machine,
-                r.get("Description"),
-                chosen,
-                "en_cours",
-                3,
-                r.get("Frequence"),
-                r.get("Documentation"),
-                now
-            ))
-            task_count[chosen] += 1
-            created += 1
-    db.commit()
-    db.close()
-    print("✅ AUTO ASSIGN PMP DONE:", created)
-    return created
-except Exception as e:
-    print("❌ ERROR IN _auto_assign_pmp:", repr(e))
-    raise
-@app.route("/admin/auto-assign/hebdo", methods=["POST"])
-def admin_auto_assign_hebdo():
-try:
-    print(">>> AUTO ASSIGN HEBDO")
-    line = request.form.get("line")
-    if not line:
-        flash("Veuillez sélectionner une ligne", "warning")
-        return redirect(url_for("admin_assign_page"))
-    created = _auto_assign_pmp(line, "hebdo")
-    flash(f"{created} tâches PMP hebdomadaires assignées", "success")
-    return redirect(url_for("admin_dashboard"))
-    
-except Exception as e:
+    try:
+        print(">>> AUTO ASSIGN PMP STARTED:", line, freq_prefix)
 
-    print("❌ ERROR AUTO ASSIGN HEBDO:", repr(e))
-    raise
+        records, _, _, _, _ = load_task_templates()
+        freq_prefix = freq_prefix.lower()
+
+        r_filtered = [
+            r for r in records
+            if r.get("Ligne") == line
+            and freq_prefix in str(r.get("Frequence", "")).lower()
+        ]
+
+        if not r_filtered:
+            print("⚠️ Aucun template PMP trouvé")
+            return 0
+
+        by_machine_role = defaultdict(list)
+        for r in r_filtered:
+            role = _role_from_intervenant(r.get("Intervenant"))
+            if not role:
+                continue
+            by_machine_role[(r.get("Machine"), role)].append(r)
+
+        db = get_db()
+        c = db.cursor(cursor_factory=RealDictCursor)
+
+        c.execute("""
+            SELECT id, role, prod_line, machine_assigned
+            FROM users
+            WHERE prod_line=%s
+        """, (line,))
+        users = c.fetchall()
+
+        if not users:
+            db.close()
+            return 0
+
+        users_by_machine_role = defaultdict(list)
+
+        for u in users:
+            machines = u["machine_assigned"].split("|") if u["machine_assigned"] else []
+            for m in machines:
+                users_by_machine_role[(m, u["role"])].append(u["id"])
+
+        task_count = defaultdict(int)
+        created = 0
+        now = datetime.now().isoformat()
+
+        for (machine, role), tasks in by_machine_role.items():
+            user_ids = users_by_machine_role.get((machine, role), [])
+
+            if not user_ids:
+                continue
+
+            for r in tasks:
+                chosen = min(user_ids, key=lambda u: task_count[u])
+
+                c.execute("""
+                    INSERT INTO tasks (
+                        line, machine, description, assigned_to,
+                        status, points, frequency, documentation, created_at
+                    )
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                """, (
+                    line,
+                    machine,
+                    r.get("Description"),
+                    chosen,
+                    "en_cours",
+                    3,
+                    r.get("Frequence"),
+                    r.get("Documentation"),
+                    now
+                ))
+
+                task_count[chosen] += 1
+                created += 1
+
+        db.commit()
+        db.close()
+
+        return created
+
+    except Exception as e:
+        print("❌ ERROR IN _auto_assign_pmp:", repr(e))
+        raise
+@app.route("/admin/auto-assign/hebdo", methods=["POST"])
+@login_required(role="admin")
+def admin_auto_assign_hebdo():
+    try:
+        line = request.form.get("line")
+
+        if not line:
+            flash("Veuillez sélectionner une ligne", "warning")
+            return redirect(url_for("admin_auto_page"))
+
+        created = _auto_assign_pmp(line, "hebdo")
+
+        flash(f"{created} tâches PMP hebdomadaires assignées", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    except Exception as e:
+        print("❌ ERROR AUTO ASSIGN HEBDO:", repr(e))
+        raise
 @app.route("/admin/auto-assign/mensuel", methods=["POST"])
 def admin_auto_assign_mensuel():
 try:
