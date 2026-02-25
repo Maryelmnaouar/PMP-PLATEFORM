@@ -664,9 +664,7 @@ def admin_users():
 # -------------------------------------------------------
 # ADMIN : PAGE assignation automatique
 # -------------------------------------------------------
-ADMIN : PAGE assignation automatique
 
--------------------------------------------------------
 
 @app.route("/admin/auto")
 
