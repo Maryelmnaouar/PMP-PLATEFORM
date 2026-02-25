@@ -7,7 +7,6 @@ import os
 from datetime import datetime
 import pandas as pd
 from openpyxl import load_workbook
-
 # -------------------------------------------------------
 # CONFIG
 # -------------------------------------------------------
@@ -17,7 +16,6 @@ EXCEL_SHEET = "CSD PET3"
 
 app = Flask(__name__)
 app.secret_key = "change-this-secret-please"
-
 # -------------------------------------------------------
 # DB HELPERS (POSTGRESQL)
 # -------------------------------------------------------
@@ -26,7 +24,6 @@ def get_db():
         os.environ["DATABASE_URL"],
         cursor_factory=psycopg2.extras.RealDictCursor
     )
-
 def init_db():
     conn = get_db()
     cur = conn.cursor()
@@ -42,7 +39,6 @@ def init_db():
         machine_assigned TEXT
     )
     """)
-
     # ---------- TASKS ----------
     cur.execute("""
     CREATE TABLE IF NOT EXISTS tasks(
@@ -101,16 +97,11 @@ def init_db():
         INSERT INTO kpi_settings(taux_offset, score_offset)
         VALUES (0, 0)
     """)
-
-
     conn.commit()
     cur.close()
     conn.close()
-
-
 # IMPORTANT pour Render
 init_db()
-
 # -------------------------------------------------------
 # LECTURE EXCEL (INCHANGÉE)
 # -------------------------------------------------------
@@ -119,9 +110,7 @@ def load_task_templates():
         return [], [], {}, [], []
 
     df = pd.read_excel(EXCEL_PATH, sheet_name=EXCEL_SHEET)
-
     df.columns = df.columns.str.strip()
-
     df = df.rename(columns={
         "Line": "Ligne",
         "EQUIPEMENT": "Machine",
@@ -131,27 +120,20 @@ def load_task_templates():
         "Emplacement Documentation": "Documentation",
         "Lien vers PDF": "LienPDF"
     })
-
     for col in ["Ligne","Machine","Description","Frequence","Intervenant","Documentation","LienPDF"]:
         if col not in df.columns:
             df[col] = ""
         df[col] = df[col].astype(str).str.strip()
-
     records = df.to_dict(orient="records")
-
     lignes = sorted({r["Ligne"] for r in records if r["Ligne"]})
-
     machines_par_ligne = {}
     for r in records:
         if r["Ligne"] and r["Machine"]:
             machines_par_ligne.setdefault(r["Ligne"], set()).add(r["Machine"])
-
     machines_par_ligne = {k: sorted(v) for k, v in machines_par_ligne.items()}
     intervenants = sorted({r["Intervenant"] for r in records if r["Intervenant"]})
     frequences = sorted({r["Frequence"] for r in records if r["Frequence"]})
-
     return records, lignes, machines_par_ligne, intervenants, frequences
-
 # -------------------------------------------------------
 # AUTH HELPERS (LOGIQUE IDENTIQUE)
 # -------------------------------------------------------
@@ -164,7 +146,6 @@ def current_user():
     u = c.fetchone()
     db.close()
     return u
-
 def login_required(role=None):
     def decorator(f):
         from functools import wraps
@@ -180,31 +161,24 @@ def login_required(role=None):
             return f(*args, **kwargs)
         return wrapper
     return decorator
-
 # -------------------------------------------------------
 # EXCEL : Ajout d’une ligne (INCHANGÉ)
 # -------------------------------------------------------
 def append_task_to_excel(line, machine, description, frequence, intervenant):
     if not os.path.exists(EXCEL_PATH):
         return
-
     wb = load_workbook(EXCEL_PATH)
     ws = wb[EXCEL_SHEET]
-
     headers = {}
     for idx, cell in enumerate(ws[1], 1):
         title = str(cell.value).strip().upper() if cell.value else ""
         headers[title] = idx
-
     new_row = [None] * len(ws[1])
-
     def set_col(title, value):
         col = headers.get(title)
         if col:
             new_row[col - 1] = value
-
     task_header = "TÂCHE" if "TÂCHE" in headers else ("TACHE" if "TACHE" in headers else None)
-
     set_col("LINE", line)
     set_col("EQUIPEMENT", machine)
     if task_header:
@@ -215,7 +189,6 @@ def append_task_to_excel(line, machine, description, frequence, intervenant):
     ws.append(new_row)
     wb.save(EXCEL_PATH)
     wb.close()
-
 # -------------------------------------------------------
 # MAPPING INTERVENANT → rôle (INCHANGÉ)
 # -------------------------------------------------------
@@ -226,25 +199,20 @@ def _role_from_intervenant(x):
     if "mec" in x or "élec" in x or "elec" in x:
         return "technician"
     return "operator"
-
 # -------------------------------------------------------
 # KPI (LOGIQUE IDENTIQUE)
 # -------------------------------------------------------
 def get_global_kpis(filters=None):
     if filters is None:
         filters = {}
-
     line       = (filters.get("line") or "").strip()
     machine    = (filters.get("machine") or "").strip()
     start_date = (filters.get("start_date") or "").strip()
     end_date   = (filters.get("end_date") or "").strip()
-
     db = get_db()
     c = db.cursor()
-
     where = []
     params = []
-
     if line:
         where.append("line=%s")
         params.append(line)
@@ -257,13 +225,10 @@ def get_global_kpis(filters=None):
     if end_date:
         where.append("DATE(created_at)<= %s")
         params.append(end_date)
-
     where_sql = "WHERE " + " AND ".join(where) if where else ""
-
     # -------- TOTAL TÂCHES ----------
     c.execute(f"SELECT COUNT(*) n FROM tasks {where_sql}", params)
     total = c.fetchone()["n"]
-
     # -------- TÂCHES CLÔTURÉES ----------
     if where_sql:
         c.execute(f"""
@@ -276,7 +241,6 @@ def get_global_kpis(filters=None):
 
     # -------- TAUX RÉEL ----------
     taux = round(done * 100 / total) if total else 0
-
     # -------- SCORE RÉEL ----------
     if where_sql:
         c.execute(f"""
@@ -299,11 +263,9 @@ def get_global_kpis(filters=None):
         LIMIT 1
     """)
     cfg = c.fetchone()
-
     if cfg:
         taux = max(0, min(100, taux + cfg["taux_offset"]))
         score = score + cfg["score_offset"]
-
     # -------- COULEUR SELON TAUX FINAL ----------
     if taux >= 80:
         color = "green"
@@ -311,9 +273,7 @@ def get_global_kpis(filters=None):
         color = "orange"
     else:
         color = "red"
-
     db.close()
-
     return {
         "total_taches": total,
         "taches_realisees": done,
@@ -321,8 +281,6 @@ def get_global_kpis(filters=None):
         "taux_couleur": color,
         "score_global": score
     }
-
-
 # -------------------------------------------------------
 # ROUTES PUBLIQUES (LOGIQUE IDENTIQUE)
 # -------------------------------------------------------
@@ -346,7 +304,6 @@ def index():
 
     kpi = get_global_kpis(filters)
     _, lignes, machines_par_ligne, _, _ = load_task_templates()
-
     return render_template(
         "index.html",
         **kpi,
@@ -355,35 +312,26 @@ def index():
         filters=filters,
         current_year=datetime.now().year
     )
-
-
 from psycopg2.extras import RealDictCursor
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-
         conn = get_db()
         cur = conn.cursor(cursor_factory=RealDictCursor)
-
         cur.execute(
             "SELECT * FROM users WHERE username = %s",
             (username,)
         )
         u = cur.fetchone()
-
         cur.close()
         conn.close()
-
         if u and check_password_hash(u["password_hash"], password):
             session["user_id"] = u["id"]
             session["role"] = u["role"]
             return redirect(url_for("index"))
-
         return render_template("login.html", error="Nom ou mot de passe incorrect")
-
     return render_template("login.html")
 @app.route("/admin/check-columns")
 @login_required(role="admin")
@@ -403,7 +351,6 @@ def check_columns():
 def admin_settings():
     conn = get_db()
     cur = conn.cursor()
-
     # KPI settings
     cur.execute("SELECT taux_offset, score_offset FROM kpi_settings LIMIT 1")
     row = cur.fetchone()
@@ -412,7 +359,6 @@ def admin_settings():
         "taux_offset": row["taux_offset"] if row else 0,
         "score_offset": row["score_offset"] if row else 0
     }
-
     # users
     cur.execute("""
         SELECT id, username, role
@@ -421,7 +367,6 @@ def admin_settings():
         ORDER BY username
     """)
     users = cur.fetchall()
-
     # tasks
     cur.execute("""
         SELECT t.id, t.line, t.machine, t.description, u.username
@@ -433,7 +378,6 @@ def admin_settings():
     tasks = cur.fetchall()
     cur.close()
     conn.close()
-
     return render_template(
         "admin_settings.html",
         users=users,
@@ -441,18 +385,14 @@ def admin_settings():
         kpi=kpi,
         current_year=datetime.now().year
     )
-
-
 @app.route("/admin/settings/user/delete/<int:user_id>", methods=["POST"])
 @login_required(role="admin")
 def admin_delete_user(user_id):
     conn = get_db()
     cur = conn.cursor()
-
     # empêcher suppression admin
     cur.execute("SELECT role FROM users WHERE id=%s", (user_id,))
     u = cur.fetchone()
-
     if not u or u["role"] == "admin":
         flash("Action interdite.", "err")
     else:
@@ -460,90 +400,70 @@ def admin_delete_user(user_id):
         cur.execute("DELETE FROM users WHERE id=%s", (user_id,))
         conn.commit()
         flash("Utilisateur supprimé.", "ok")
-
     cur.close()
     conn.close()
     return redirect(url_for("admin_settings"))
-
-
 @app.route("/admin/settings/kpi", methods=["POST"])
 @login_required(role="admin")
 def admin_update_kpi_settings():
     taux_offset = int(request.form["taux_offset"])
     score_offset = int(request.form["score_offset"])
-
     conn = get_db()
     cur = conn.cursor()
     cur.execute("""
         UPDATE kpi_settings
         SET taux_offset=%s, score_offset=%s
     """, (taux_offset, score_offset))
-
     conn.commit()
     cur.close()
     conn.close()
-
     flash("Paramètres KPI mis à jour.", "ok")
     return redirect(url_for("admin_settings"))
-
 @app.route("/me/report", methods=["GET","POST"])
 @login_required()
 def report_anomaly():
     user = current_user()
     conn = get_db()
     cur = conn.cursor()
-
     import pandas as pd
     df = pd.read_excel(EXCEL_PATH)   # chemin Excel actuel
     lines = sorted(df["Line"].dropna().unique())
     machines = sorted(df["EQUIPEMENT"].dropna().unique())
-
     if request.method == "POST":
         line = request.form["Line"]
         machine = request.form["EQUIPEMENT"]
         description = request.form["description"]
-
         cur.execute("""
             INSERT INTO machine_anomalies(user_id,line,machine,description)
             VALUES (%s,%s,%s,%s)
         """, (user["id"], line, machine, description))
-
         conn.commit()
         cur.close()
         conn.close()
-
         flash("Anomalie envoyée.", "ok")
         return redirect(url_for("operator_dashboard"))
-
     cur.close()
     conn.close()
-
     return render_template(
         "report_anomaly.html",
         lines=lines,
         machines=machines
     )
-
-
 @app.route("/admin/settings/user/password", methods=["POST"])
 @login_required(role="admin")
 def admin_change_user_password():
     user_id = request.form["user_id"]
     new_password = request.form["new_password"]
-
     conn = get_db()
     cur = conn.cursor()
-
     cur.execute("""
         UPDATE users
         SET password_hash=%s
         WHERE id=%s
     """, (generate_password_hash(new_password), user_id))
-
     conn.commit()
     cur.close()
     conn.close()
-
     flash("Mot de passe modifié.", "ok")
     return redirect(url_for("admin_settings"))
 @app.route("/admin/settings/task/delete/<int:task_id>", methods=["POST"])
@@ -551,22 +471,16 @@ def admin_change_user_password():
 def admin_delete_task(task_id):
     conn = get_db()
     cur = conn.cursor()
-
     cur.execute("DELETE FROM tasks WHERE id=%s", (task_id,))
     conn.commit()
-
     cur.close()
     conn.close()
     flash("Tâche supprimée.", "ok")
     return redirect(url_for("admin_settings"))
-
-
-
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("login"))
-
 # -------------------------------------------------------
 # ADMIN : Tableau de bord principal
 # -------------------------------------------------------
@@ -582,7 +496,6 @@ def admin_dashboard():
         frequences=frequences,
         current_year=datetime.now().year
     )
-
 # -------------------------------------------------------
 # ADMIN : Création utilisateur
 # -------------------------------------------------------
@@ -596,13 +509,10 @@ def admin_create_user():
     machines = request.form.getlist("machine_assigned")
     machines = [m.strip() for m in machines if m.strip()]
     machine_assigned = "|".join(machines)
-
     role = _role_from_intervenant(interv_choice)
-
     if not username or not password or not prod_line or not machines:
         flash("Remplissez bien tous les champs.", "err")
         return redirect(url_for("admin_users"))
-
     db = get_db()
     try:
         c = db.cursor()
@@ -611,27 +521,22 @@ def admin_create_user():
             flash("Nom d'utilisateur déjà utilisé.", "err")
             db.close()
             return redirect(url_for("admin_users"))
-
         c.execute("""
             INSERT INTO users(username, password_hash, role, prod_line, machine_assigned)
             VALUES (%s,%s,%s,%s,%s)
         """, (username, generate_password_hash(password), role, prod_line, machine_assigned))
         db.commit()
         flash(f"Utilisateur {username} créé.", "ok")
-
     except IntegrityError:
         flash("Erreur SQL création utilisateur", "err")
     finally:
         db.close()
-
     return redirect(url_for("admin_users"))
-
 @app.route("/documentation")
 def documentation():
     docs_dir = os.path.join(app.root_path, "static\\images", "docs")
     pdfs = [f for f in os.listdir(docs_dir) if f.lower().endswith(".pdf")] if os.path.exists(docs_dir) else []
     return render_template("documentation.html", pdfs=pdfs)
-
 # -------------------------------------------------------
 # PAGE ADMIN : gestion utilisateurs
 # -------------------------------------------------------
@@ -648,9 +553,7 @@ def admin_users():
     """)
     users = c.fetchall()
     db.close()
-
-    _, lignes, machines_pl, intervenants, frequences = load_task_templates()
-
+        _, lignes, machines_pl, intervenants, frequences = load_task_templates()
     return render_template(
         "admin_users.html",
         users=users,
@@ -660,316 +563,131 @@ def admin_users():
         frequences=frequences,
         current_year=datetime.now().year
     )
-
 # -------------------------------------------------------
 # ADMIN : PAGE assignation automatique
 # -------------------------------------------------------
-
-
 @app.route("/admin/auto")
-
 @login_required(role="admin")
-
 def admin_auto_page():
-
-_, lignes, machines_L, intervenants, frequences = load_task_templates()
-
+    _, lignes, machines_L, intervenants, frequences = load_task_templates()
 return render_template(
-
     "admin_auto_page.html",
-
     lignes=lignes,
-
     machines_par_ligne=machines_L,
-
     intervenants=intervenants,
-
     frequences=frequences,
-
     current_year=datetime.now().year
-
 )
-
--------------------------------------------------------
-
-ROTATION AUTOMATIQUE
-
--------------------------------------------------------
-
 from datetime import datetime
-
 from collections import defaultdict
-
 from datetime import datetime
-
 from collections import defaultdict
-
 from datetime import datetime
-
 from collections import defaultdict
-
 from psycopg2.extras import RealDictCursor
-
 def _auto_assign_pmp(line: str, freq_prefix: str):
-
 try:
-
     print(">>> AUTO ASSIGN PMP STARTED:", line, freq_prefix)
-
-
-
     records, _, _, _, _ = load_task_templates()
-
     freq_prefix = freq_prefix.lower()
-
-
-
     r_filtered = [
-
         r for r in records
-
         if r.get("Ligne") == line
-
         and freq_prefix in str(r.get("Frequence", "")).lower()
-
     ]
-
-
-
     if not r_filtered:
-
         print("⚠️ Aucun template PMP trouvé")
-
         return 0
-
-
-
     by_machine_role = defaultdict(list)
-
     for r in r_filtered:
-
         role = _role_from_intervenant(r.get("Intervenant"))
-
         if not role:
-
             continue
-
         by_machine_role[(r.get("Machine"), role)].append(r)
-
-
-
     db = get_db()
-
     c = db.cursor(cursor_factory=RealDictCursor)  # ✅ POSTGRESQL
-
-
-
     c.execute("""
-
         SELECT id, role, prod_line, machine_assigned
-
         FROM users
-
         WHERE prod_line=%s
-
     """, (line,))
-
     users = c.fetchall()
-
-
-
     if not users:
-
         print("⚠️ Aucun utilisateur pour la ligne", line)
-
         db.close()
-
         return 0
-
-
-
     users_by_machine_role = defaultdict(list)
-
     for u in users:
-
         machines = []
-
         if u["machine_assigned"]:
-
             machines = u["machine_assigned"].split("|")
-
-
-
         for m in machines:
-
             users_by_machine_role[(m, u["role"])].append(u["id"])
-
-
-
     task_count = defaultdict(int)
-
     created = 0
-
     now = datetime.now().isoformat()
-
-
-
     for (machine, role), tasks in by_machine_role.items():
-
         user_ids = users_by_machine_role.get((machine, role), [])
-
-
-
         if not user_ids:
-
             print(f"⚠️ Aucun opérateur pour {machine} ({role})")
-
             continue
-
-
-
         for r in tasks:
-
             chosen = min(user_ids, key=lambda u: task_count[u])
-
-
-
             c.execute("""
-
                 INSERT INTO tasks (
-
                     line, machine, description, assigned_to,
-
                     status, points, frequency, documentation, created_at
-
                 )
-
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
-
             """, (
-
                 line,
-
                 machine,
-
                 r.get("Description"),
-
                 chosen,
-
                 "en_cours",
-
                 3,
-
                 r.get("Frequence"),
-
                 r.get("Documentation"),
-
                 now
-
             ))
-
-
-
             task_count[chosen] += 1
-
             created += 1
-
-
-
     db.commit()
-
     db.close()
-
-
-
     print("✅ AUTO ASSIGN PMP DONE:", created)
-
     return created
-
-
-
 except Exception as e:
-
     print("❌ ERROR IN _auto_assign_pmp:", repr(e))
-
     raise
-
--------------------------------------------------------
-
-ROUTES assignation automatique
-
--------------------------------------------------------
-
 @app.route("/admin/auto-assign/hebdo", methods=["POST"])
-
 def admin_auto_assign_hebdo():
-
 try:
-
     print(">>> AUTO ASSIGN HEBDO")
-
-
-
     line = request.form.get("line")
-
     if not line:
-
         flash("Veuillez sélectionner une ligne", "warning")
-
         return redirect(url_for("admin_assign_page"))
-
-
-
     created = _auto_assign_pmp(line, "hebdo")
-
-
-
     flash(f"{created} tâches PMP hebdomadaires assignées", "success")
-
     return redirect(url_for("admin_dashboard"))
-
-
-
+    
 except Exception as e:
 
     print("❌ ERROR AUTO ASSIGN HEBDO:", repr(e))
-
     raise
-
 @app.route("/admin/auto-assign/mensuel", methods=["POST"])
-
 def admin_auto_assign_mensuel():
-
 try:
-
     print(">>> AUTO ASSIGN MENSUEL")
-
-
-
     line = request.form.get("line")
-
     if not line:
-
         flash("Veuillez sélectionner une ligne", "warning")
-
         return redirect(url_for("admin_assign_page"))
-
-
-
     created = _auto_assign_pmp(line, "mensuel")
-
-
-
     flash(f"{created} tâches PMP mensuelles assignées", "success")
-
     return redirect(url_for("admin_dashboard"))
-
-
-
 except Exception as e:
-
     print("❌ ERROR AUTO ASSIGN MENSUEL:", repr(e))
-
     raise
 # -------------------------------------------------------
 # PAGE : Ajout manuel tâche
@@ -1244,8 +962,6 @@ def me_task_feedback(task_id):
         "feedback_form.html",
         task=task
     )
-
-
 @app.route("/admin/suggestions")
 @login_required(role="admin")
 def admin_suggestions():
