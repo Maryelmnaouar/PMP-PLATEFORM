@@ -959,7 +959,7 @@ def admin_tasks_closed():
 def operator_dashboard():
     user = current_user()
     db = get_db()
-    c = db.cursor()
+    c = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
 
     c.execute("""
         SELECT *
@@ -974,7 +974,8 @@ def operator_dashboard():
         FROM tasks
         WHERE assigned_to=%s AND status='cloturee'
     """, (user["id"],))
-    score = c.fetchone()["score"]
+    row = c.fetchone()
+    score = row["score"] if row else 0
 
     db.close()
 
