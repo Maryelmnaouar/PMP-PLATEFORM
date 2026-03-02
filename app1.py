@@ -509,7 +509,49 @@ def admin_dashboard():
         frequences=frequences,
         current_year=datetime.now().year
     )
+from flask import send_file
+import io
 
+@app.route("/admin/export/tasks")
+@login_required(role="admin")
+def export_tasks_excel():
+    db = get_db()
+    cur = db.cursor()
+
+    cur.execute("""
+        SELECT 
+            id,
+            line,
+            machine,
+            description,
+            assigned_to,
+            status,
+            documentation,
+            frequency,
+            points,
+            created_at,
+            closed_at
+        FROM tasks
+        ORDER BY created_at DESC
+    """)
+
+    rows = cur.fetchall()
+    db.close()
+
+    # Convertir en DataFrame
+    df = pd.DataFrame(rows)
+
+    # Convertir en fichier Excel en mémoire
+    output = io.BytesIO()
+    df.to_excel(output, index=False, engine='openpyxl')
+    output.seek(0)
+
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name="export_pmp_tasks.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 # -------------------------------------------------------
 # ADMIN : Création utilisateur
 # -------------------------------------------------------
