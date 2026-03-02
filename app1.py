@@ -361,11 +361,7 @@ def login():
         if u and check_password_hash(u["password_hash"], password):
             session["user_id"] = u["id"]
             session["role"] = u["role"]
-
-            if u["role"] == "admin":
-                return redirect(url_for("admin_dashboard"))
-            else:
-                return redirect(url_for("operator_dashboard"))
+            return redirect(url_for("index"))
 
         return render_template("login.html", error="Nom ou mot de passe incorrect")
 
