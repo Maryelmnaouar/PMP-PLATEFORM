@@ -999,58 +999,6 @@ def platform_redirect():
     else:
         return redirect(url_for("operator_dashboard"))
  
-@app.route("/me/task/feedback/<int:task_id>", methods=["GET", "POST"])
-@login_required()
-def me_task_feedback(task_id):
-    user = current_user()
-    conn = get_db()
-    cur = conn.cursor()
-
-    # Vérifier que la tâche appartient bien à l'utilisateur
-    cur.execute(
-        "SELECT * FROM tasks WHERE id=%s AND assigned_to=%s",
-        (task_id, user["id"])
-    )
-    task = cur.fetchone()
-
-    if not task:
-        cur.close()
-        conn.close()
-        flash("Action interdite.", "err")
-        return redirect(url_for("operator_dashboard"))
-
-    if request.method == "POST":
-        comment = request.form.get("comment", "").strip()
-
-        # 👉 Insérer feedback UNIQUEMENT si commentaire non vide
-        if comment:
-            cur.execute("""
-                INSERT INTO feedback_form (task_id, user_id, comment)
-                VALUES (%s, %s, %s)
-            """, (task_id, user["id"], comment))
-
-        # 👉 Clôturer la tâche (TOUJOURS)
-        cur.execute("""
-            UPDATE tasks
-            SET status='cloturee', closed_at=NOW()
-            WHERE id=%s
-        """, (task_id,))
-
-        conn.commit()
-        cur.close()
-        conn.close()
-
-        flash("Tâche validée avec succès.", "ok")
-        return redirect(url_for("operator_dashboard"))
-
-    cur.close()
-    conn.close()
-
-    return render_template(
-        "feedback_form.html",
-        task=task
-    )
-
 @app.route("/admin/suggestions")
 @login_required(role="admin")
 def admin_suggestions():
