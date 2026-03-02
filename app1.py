@@ -53,12 +53,25 @@ def init_db():
         assigned_to INTEGER REFERENCES users(id),
         status TEXT NOT NULL CHECK(status IN ('en_cours','cloturee')) DEFAULT 'en_cours',
         documentation TEXT,
+        lien_pdf TEXT,
         points INTEGER NOT NULL DEFAULT 1,
         frequency TEXT,
         created_at TIMESTAMP NOT NULL,
         closed_at TIMESTAMP
     )
     """)
+    cur.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name='tasks' AND column_name='lien_pdf'
+        ) THEN
+            ALTER TABLE tasks ADD COLUMN lien_pdf TEXT;
+        END IF;
+    END$$;
+    """)
+
 
     # ---------- KPI SETTINGS ----------
     cur.execute("""
@@ -81,7 +94,17 @@ def init_db():
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
     """)
-
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS machine_anomalies(
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER,
+    line TEXT,
+    machine TEXT,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    treated BOOLEAN DEFAULT FALSE
+    )
+    """)
     # Insérer une ligne par défaut SI VIDE
     cur.execute("SELECT COUNT(*) AS n FROM kpi_settings")
     row = cur.fetchone()
@@ -92,9 +115,11 @@ def init_db():
         VALUES (0, 0)
     """)
 
+
     conn.commit()
     cur.close()
     conn.close()
+
 
 # IMPORTANT pour Render
 init_db()
@@ -108,20 +133,25 @@ def load_task_templates():
 
     df = pd.read_excel(EXCEL_PATH, sheet_name=EXCEL_SHEET)
 
+    df.columns = df.columns.str.strip()
+
     df = df.rename(columns={
         "Line": "Ligne",
         "EQUIPEMENT": "Machine",
         "TÂCHE": "Description",
         "FREQUENCE": "Frequence",
         "INTERVENANT": "Intervenant",
-        "Emplacement Documentation": "Documentation"
+        "Emplacement Documentation": "Documentation",
+        "Lien vers PDF": "LienPDF"
     })
 
-    for col in ["Ligne", "Machine", "Description", "Frequence", "Intervenant","Documentation"]:
-        if col in df.columns:
-            df[col] = df[col].astype(str).str.strip()
+    for col in ["Ligne","Machine","Description","Frequence","Intervenant","Documentation","LienPDF"]:
+        if col not in df.columns:
+            df[col] = ""
+        df[col] = df[col].astype(str).str.strip()
 
     records = df.to_dict(orient="records")
+
     lignes = sorted({r["Ligne"] for r in records if r["Ligne"]})
 
     machines_par_ligne = {}
@@ -130,8 +160,8 @@ def load_task_templates():
             machines_par_ligne.setdefault(r["Ligne"], set()).add(r["Machine"])
 
     machines_par_ligne = {k: sorted(v) for k, v in machines_par_ligne.items()}
-    intervenants = sorted({r["Intervenant"] for r in records})
-    frequences = sorted({r["Frequence"] for r in records})
+    intervenants = sorted({r["Intervenant"] for r in records if r["Intervenant"]})
+    frequences = sorted({r["Frequence"] for r in records if r["Frequence"]})
 
     return records, lignes, machines_par_ligne, intervenants, frequences
 
@@ -305,6 +335,7 @@ def get_global_kpis(filters=None):
         "score_global": score
     }
 
+
 # -------------------------------------------------------
 # ROUTES PUBLIQUES (LOGIQUE IDENTIQUE)
 # -------------------------------------------------------
@@ -337,6 +368,7 @@ def index():
         filters=filters,
         current_year=datetime.now().year
     )
+
 
 from psycopg2.extras import RealDictCursor
 
@@ -411,6 +443,7 @@ def admin_settings():
         current_year=datetime.now().year
     )
 
+
 @app.route("/admin/settings/user/delete/<int:user_id>", methods=["POST"])
 @login_required(role="admin")
 def admin_delete_user(user_id):
@@ -433,6 +466,7 @@ def admin_delete_user(user_id):
     conn.close()
     return redirect(url_for("admin_settings"))
 
+
 @app.route("/admin/settings/kpi", methods=["POST"])
 @login_required(role="admin")
 def admin_update_kpi_settings():
@@ -452,6 +486,45 @@ def admin_update_kpi_settings():
 
     flash("Paramètres KPI mis à jour.", "ok")
     return redirect(url_for("admin_settings"))
+
+@app.route("/me/report", methods=["GET","POST"])
+@login_required()
+def report_anomaly():
+    user = current_user()
+    conn = get_db()
+    cur = conn.cursor()
+
+    import pandas as pd
+    df = pd.read_excel(EXCEL_PATH)   # chemin Excel actuel
+    lines = sorted(df["Line"].dropna().unique())
+    machines = sorted(df["EQUIPEMENT"].dropna().unique())
+
+    if request.method == "POST":
+        line = request.form["Line"]
+        machine = request.form["EQUIPEMENT"]
+        description = request.form["description"]
+
+        cur.execute("""
+            INSERT INTO machine_anomalies(user_id,line,machine,description)
+            VALUES (%s,%s,%s,%s)
+        """, (user["id"], line, machine, description))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        flash("Anomalie envoyée.", "ok")
+        return redirect(url_for("operator_dashboard"))
+
+    cur.close()
+    conn.close()
+
+    return render_template(
+        "report_anomaly.html",
+        lines=lines,
+        machines=machines
+    )
+
 
 @app.route("/admin/settings/user/password", methods=["POST"])
 @login_required(role="admin")
@@ -489,6 +562,7 @@ def admin_delete_task(task_id):
     return redirect(url_for("admin_settings"))
 
 
+
 @app.route("/logout")
 def logout():
     session.clear()
@@ -509,49 +583,7 @@ def admin_dashboard():
         frequences=frequences,
         current_year=datetime.now().year
     )
-from flask import send_file
-import io
 
-@app.route("/admin/export/tasks")
-@login_required(role="admin")
-def export_tasks_excel():
-    db = get_db()
-    cur = db.cursor()
-
-    cur.execute("""
-        SELECT 
-            id,
-            line,
-            machine,
-            description,
-            assigned_to,
-            status,
-            documentation,
-            frequency,
-            points,
-            created_at,
-            closed_at
-        FROM tasks
-        ORDER BY created_at DESC
-    """)
-
-    rows = cur.fetchall()
-    db.close()
-
-    # Convertir en DataFrame
-    df = pd.DataFrame(rows)
-
-    # Convertir en fichier Excel en mémoire
-    output = io.BytesIO()
-    df.to_excel(output, index=False, engine='openpyxl')
-    output.seek(0)
-
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name="export_pmp_tasks.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
 # -------------------------------------------------------
 # ADMIN : Création utilisateur
 # -------------------------------------------------------
@@ -724,9 +756,9 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
                 c.execute("""
                     INSERT INTO tasks (
                         line, machine, description, assigned_to,
-                        status, points, frequency, documentation, created_at
+                        status, points, frequency, documentation, lien_pdf, created_at
                     )
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (
                     line,
                     machine,
@@ -736,6 +768,7 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
                     3,
                     r.get("Frequence"),
                     r.get("Documentation"),
+                    r.get("LienPDF"),
                     now
                 ))
 
@@ -751,6 +784,7 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
     except Exception as e:
         print("❌ ERROR IN _auto_assign_pmp:", repr(e))
         raise
+
 
 
 # -------------------------------------------------------
@@ -775,6 +809,7 @@ def admin_auto_assign_hebdo():
         print("❌ ERROR AUTO ASSIGN HEBDO:", repr(e))
         raise
 
+
 @app.route("/admin/auto-assign/mensuel", methods=["POST"])
 def admin_auto_assign_mensuel():
     try:
@@ -793,6 +828,7 @@ def admin_auto_assign_mensuel():
     except Exception as e:
         print("❌ ERROR AUTO ASSIGN MENSUEL:", repr(e))
         raise
+
 
 # -------------------------------------------------------
 # PAGE : Ajout manuel tâche
@@ -826,27 +862,44 @@ def admin_manual_page():
 @app.route("/admin/manual/create", methods=["POST"])
 @login_required(role="admin")
 def admin_manual_create():
-    line = request.form["line"]
-    machine = request.form["machine"]
-    frequence = request.form["frequence"]
-    intervenant = request.form["intervenant_type"]
-    description = request.form["description"]
-    assigned_to = int(request.form["assigned_to"])
-    points = int(request.form["points"])
+    try:
+        line = request.form.get("line")
+        machine = request.form.get("machine")
+        frequence = request.form.get("frequence")
+        intervenant = request.form.get("intervenant_type")
+        description = request.form.get("description")
 
-    append_task_to_excel(line, machine, description, frequence, intervenant)
+        assigned_to = request.form.get("assigned_to")
+        if not assigned_to:
+            flash("Utilisateur requis", "err")
+            return redirect("/admin/manual")
+        assigned_to = int(assigned_to)
 
-    db = get_db()
-    c = db.cursor()
-    c.execute("""
-        INSERT INTO tasks(line, machine, description, assigned_to, status, points, frequency, created_at)
-        VALUES (%s,%s,%s,%s,'en_cours',%s,%s,%s)
-    """, (line, machine, description, assigned_to, points, frequence, datetime.now().isoformat()))
-    db.commit()
-    db.close()
+        points = int(request.form.get("points") or 1)
 
-    flash("Tâche manuelle créée et ajoutée au plan PMP.", "ok")
-    return redirect(url_for("admin_manual_page"))
+        try:
+            append_task_to_excel(line, machine, description, frequence, intervenant)
+        except Exception as e:
+            print("Excel error:", e)
+
+        db = get_db()
+        c = db.cursor()
+        c.execute("""
+            INSERT INTO tasks(line, machine, description, assigned_to, status, points, frequency, created_at)
+            VALUES (%s,%s,%s,%s,'en_cours',%s,%s,%s)
+        """, (line, machine, description, assigned_to, points, frequence, datetime.now().isoformat()))
+        db.commit()
+        db.close()
+
+        flash("Tâche créée avec succès.", "ok")
+
+    except Exception as e:
+        import traceback
+        print("CREATE TASK ERROR:", e)
+        print(traceback.format_exc())
+        flash("Erreur interne.", "err")
+
+    return redirect("/admin/manual")
 # -------------------------------------------------------
 # PAGE : Tâches en cours (ADMIN)
 # -------------------------------------------------------
@@ -959,7 +1012,7 @@ def admin_tasks_closed():
 def operator_dashboard():
     user = current_user()
     db = get_db()
-    c = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    c = db.cursor()
 
     c.execute("""
         SELECT *
@@ -974,8 +1027,7 @@ def operator_dashboard():
         FROM tasks
         WHERE assigned_to=%s AND status='cloturee'
     """, (user["id"],))
-    row = c.fetchone()
-    score = row["score"] if row else 0
+    score = c.fetchone()["score"]
 
     db.close()
 
@@ -1000,6 +1052,59 @@ def platform_redirect():
     else:
         return redirect(url_for("operator_dashboard"))
  
+@app.route("/me/task/feedback/<int:task_id>", methods=["GET", "POST"])
+@login_required()
+def me_task_feedback(task_id):
+    user = current_user()
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Vérifier que la tâche appartient bien à l'utilisateur
+    cur.execute(
+        "SELECT * FROM tasks WHERE id=%s AND assigned_to=%s",
+        (task_id, user["id"])
+    )
+    task = cur.fetchone()
+
+    if not task:
+        cur.close()
+        conn.close()
+        flash("Action interdite.", "err")
+        return redirect(url_for("operator_dashboard"))
+
+    if request.method == "POST":
+        comment = request.form.get("comment", "").strip()
+
+        # 👉 Insérer feedback UNIQUEMENT si commentaire non vide
+        if comment:
+            cur.execute("""
+                INSERT INTO feedback_form (task_id, user_id, comment)
+                VALUES (%s, %s, %s)
+            """, (task_id, user["id"], comment))
+
+        # 👉 Clôturer la tâche (TOUJOURS)
+        cur.execute("""
+            UPDATE tasks
+            SET status='cloturee', closed_at=NOW()
+            WHERE id=%s
+        """, (task_id,))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        flash("Tâche validée avec succès.", "ok")
+        return redirect(url_for("operator_dashboard"))
+
+    cur.close()
+    conn.close()
+
+    return render_template(
+        "feedback_form.html",
+        task=task
+    )
+
+
 @app.route("/admin/suggestions")
 @login_required(role="admin")
 def admin_suggestions():
@@ -1007,21 +1112,43 @@ def admin_suggestions():
     cur = conn.cursor()
 
     cur.execute("""
-        SELECT 
-            f.id,
-            u.username,
-            t.line,
-            t.machine,
-            f.comment,
-            f.created_at
-        FROM feedback_form f
-        JOIN users u ON u.id = f.user_id
-        JOIN tasks t ON t.id = f.task_id
-        WHERE f.treated = FALSE
-          AND f.comment IS NOT NULL
-          AND TRIM(f.comment) <> ''
-        ORDER BY f.created_at DESC
+        SELECT *
+        FROM (
+            SELECT
+                f.id,
+                u.username,
+                t.line,
+                t.machine,
+                f.comment,
+                f.created_at,
+                'task'::text AS source
+            FROM feedback_form f
+            JOIN users u ON u.id = f.user_id
+            JOIN tasks t ON t.id = f.task_id
+            WHERE f.treated = FALSE
+              AND f.comment IS NOT NULL
+              AND TRIM(f.comment) <> ''
+
+            UNION ALL
+
+            SELECT
+                m.id,
+                u.username,
+                NULL::text AS line,
+                m.machine,
+                m.description,
+                m.created_at,
+                'machine'::text AS source
+            FROM machine_anomalies m
+            JOIN users u ON u.id = m.user_id
+            WHERE m.treated = FALSE
+              AND m.description IS NOT NULL
+              AND TRIM(m.description) <> ''
+        ) s
+        ORDER BY created_at DESC
+        LIMIT 200
     """)
+
     rows = cur.fetchall()
 
     cur.close()
@@ -1030,25 +1157,28 @@ def admin_suggestions():
     return render_template(
         "admin_suggestions.html",
         feedbacks=rows
-    )
-@app.route("/admin/suggestions/treat/<int:fid>", methods=["POST"])
+    ) 
+@app.route("/admin/suggestions/treat/<string:type>/<int:fid>", methods=["POST"])
 @login_required(role="admin")
-def admin_treat_suggestion(fid):
+def admin_treat_suggestion(type, fid):
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("""
-        UPDATE feedback_form
+    table = "feedback_form" if type=="task" else "machine_anomalies"
+
+    cur.execute(f"""
+        UPDATE {table}
         SET treated = TRUE
         WHERE id = %s
-    """, (fid,))
+    """,(fid,))
 
     conn.commit()
     cur.close()
     conn.close()
 
-    flash("Commentaire traité.", "ok")
+    flash("Signalement traité.", "ok")
     return redirect(url_for("admin_suggestions"))
+
 
 # -------------------------------------------------------
 # CONTEXT PROCESSOR
@@ -1062,5 +1192,3 @@ def inject_routes():
 # -------------------------------------------------------
 if __name__ == "__main__":
     app.run()
-
-
