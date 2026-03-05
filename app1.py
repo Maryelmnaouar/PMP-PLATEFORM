@@ -53,23 +53,11 @@ def init_db():
         assigned_to INTEGER REFERENCES users(id),
         status TEXT NOT NULL CHECK(status IN ('en_cours','cloturee')) DEFAULT 'en_cours',
         documentation TEXT,
-        lien_pdf TEXT,
         points INTEGER NOT NULL DEFAULT 1,
         frequency TEXT,
         created_at TIMESTAMP NOT NULL,
         closed_at TIMESTAMP
     )
-    """)
-    cur.execute("""
-    DO $$
-    BEGIN
-        IF NOT EXISTS (
-            SELECT 1 FROM information_schema.columns
-            WHERE table_name='tasks' AND column_name='lien_pdf'
-        ) THEN
-            ALTER TABLE tasks ADD COLUMN lien_pdf TEXT;
-        END IF;
-    END$$;
     """)
 
 
@@ -133,8 +121,6 @@ def load_task_templates():
 
     df = pd.read_excel(EXCEL_PATH, sheet_name=EXCEL_SHEET)
 
-    df.columns = df.columns.str.strip()
-
     df = df.rename(columns={
         "Line": "Ligne",
         "EQUIPEMENT": "Machine",
@@ -142,13 +128,13 @@ def load_task_templates():
         "FREQUENCE": "Frequence",
         "INTERVENANT": "Intervenant",
         "Emplacement Documentation": "Documentation",
-        "Lien vers PDF": "LienPDF"
+        "Lien vers PDF": "LienPDF"  
     })
 
-    for col in ["Ligne","Machine","Description","Frequence","Intervenant","Documentation","LienPDF"]:
-        if col not in df.columns:
-            df[col] = ""
-        df[col] = df[col].astype(str).str.strip()
+    # nettoyage colonnes texte
+    for col in ["Ligne", "Machine", "Description", "Frequence", "Intervenant", "Documentation", "LienPDF"]:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.strip()
 
     records = df.to_dict(orient="records")
 
@@ -160,8 +146,8 @@ def load_task_templates():
             machines_par_ligne.setdefault(r["Ligne"], set()).add(r["Machine"])
 
     machines_par_ligne = {k: sorted(v) for k, v in machines_par_ligne.items()}
-    intervenants = sorted({r["Intervenant"] for r in records if r["Intervenant"]})
-    frequences = sorted({r["Frequence"] for r in records if r["Frequence"]})
+    intervenants = sorted({r["Intervenant"] for r in records})
+    frequences = sorted({r["Frequence"] for r in records})
 
     return records, lignes, machines_par_ligne, intervenants, frequences
 
@@ -756,7 +742,7 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
                 c.execute("""
                     INSERT INTO tasks (
                         line, machine, description, assigned_to,
-                        status, points, frequency, documentation, lien_pdf, created_at
+                        status, points, frequency, documentation, created_at, lien_pdf
                     )
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (
