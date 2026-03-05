@@ -128,11 +128,10 @@ def load_task_templates():
         "FREQUENCE": "Frequence",
         "INTERVENANT": "Intervenant",
         "Emplacement Documentation": "Documentation",
-        "Lien vers PDF": "LienPDF"  
     })
 
     # nettoyage colonnes texte
-    for col in ["Ligne", "Machine", "Description", "Frequence", "Intervenant", "Documentation", "LienPDF"]:
+    for col in ["Ligne", "Machine", "Description", "Frequence", "Intervenant", "Documentation"]:
         if col in df.columns:
             df[col] = df[col].astype(str).str.strip()
 
@@ -742,7 +741,7 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
                 c.execute("""
                     INSERT INTO tasks (
                         line, machine, description, assigned_to,
-                        status, points, frequency, documentation, created_at, lien_pdf
+                        status, points, frequency, documentation, created_at
                     )
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (
@@ -754,7 +753,6 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
                     3,
                     r.get("Frequence"),
                     r.get("Documentation"),
-                    r.get("LienPDF"),
                     now
                 ))
 
