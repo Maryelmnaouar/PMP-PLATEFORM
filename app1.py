@@ -583,6 +583,62 @@ def admin_dashboard():
         current_year=datetime.now().year
     )
 
+@app.route("/admin/teams")
+@login_required(role="admin")
+def admin_teams():
+
+    db = get_db()
+    c = db.cursor()
+
+    # chefs d'équipe
+    c.execute("""
+        SELECT id, username
+        FROM users
+        WHERE role='team_leader'
+        ORDER BY username
+    """)
+    leaders = c.fetchall()
+
+    # opérateurs
+    c.execute("""
+        SELECT id, username, team_leader_id
+        FROM users
+        WHERE role='operator'
+        ORDER BY username
+    """)
+    operators = c.fetchall()
+
+    db.close()
+
+    return render_template(
+        "admin_teams.html",
+        leaders=leaders,
+        operators=operators
+    )
+@app.route("/admin/teams/assign", methods=["POST"])
+@login_required(role="admin")
+def admin_assign_team():
+
+    leader_id = request.form.get("leader_id")
+    operators = request.form.getlist("operators")
+
+    db = get_db()
+    c = db.cursor()
+
+    for op in operators:
+
+        c.execute("""
+            UPDATE users
+            SET team_leader_id=%s
+            WHERE id=%s
+        """,(leader_id, op))
+
+    db.commit()
+    db.close()
+
+    flash("Equipe mise à jour", "ok")
+
+    return redirect(url_for("admin_teams"))
 # -------------------------------------------------------
 # ADMIN : Création utilisateur
 # -------------------------------------------------------
