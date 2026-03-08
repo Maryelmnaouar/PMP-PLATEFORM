@@ -34,15 +34,25 @@ def init_db():
     # ---------- USERS ----------
     cur.execute("""
     CREATE TABLE IF NOT EXISTS users(
-        id SERIAL PRIMARY KEY,
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        role TEXT NOT NULL CHECK(role IN ('admin','operator','technician','chief')),
-        prod_line TEXT,
-        machine_assigned TEXT
-    )
+    id SERIAL PRIMARY KEY,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN (
+        'admin',
+        'operator',
+        'technician',
+        'team_leader',
+        'production_manager'
+    )),
+    prod_line TEXT,
+    machine_assigned TEXT,
+    team_leader_id INTEGER
+)
     """)
-
+    cur.execute("""
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS team_leader_id INTEGER
+    """)
     # ---------- TASKS ----------
     cur.execute("""
     CREATE TABLE IF NOT EXISTS tasks(
@@ -60,6 +70,10 @@ def init_db():
     )
     """)
 
+    cur.execute("""
+    ALTER TABLE tasks
+    ADD COLUMN IF NOT EXISTS validated_by_leader BOOLEAN DEFAULT FALSE
+    """)
 
     # ---------- KPI SETTINGS ----------
     cur.execute("""
@@ -577,11 +591,20 @@ def admin_dashboard():
 def admin_create_user():
     username = request.form.get("username","").strip()
     password = request.form.get("password","").strip()
-    interv_choice = request.form.get("intervenant_type","").strip()
+    role = request.form.get("role","").strip()
     prod_line = request.form.get("prod_line","").strip()
+
     machines = request.form.getlist("machine_assigned")
-    machines = [m.strip() for m in machines if m.strip()]
-    machine_assigned = "|".join(machines)
+
+    if role in ["operator","technician"]:
+        machines = [m.strip() for m in machines if m.strip()]
+        machine_assigned = "|".join(machines)
+
+        if not machines:
+            flash("Veuillez sélectionner au moins une machine.","err")
+            return redirect(url_for("admin_users"))
+    else:
+        machine_assigned = None
 
     role = _role_from_intervenant(interv_choice)
 
@@ -1026,6 +1049,7 @@ def operator_dashboard():
 # -------------------------------------------------------
 @app.route("/platform")
 def platform_redirect():
+
     if "user_id" not in session:
         return redirect(url_for("login"))
 
@@ -1033,6 +1057,13 @@ def platform_redirect():
 
     if role == "admin":
         return redirect(url_for("admin_dashboard"))
+
+    elif role == "team_leader":
+        return redirect(url_for("team_leader_dashboard"))
+
+    elif role == "production_manager":
+        return redirect(url_for("production_dashboard"))
+
     else:
         return redirect(url_for("operator_dashboard"))
  
@@ -1088,7 +1119,36 @@ def me_task_feedback(task_id):
         task=task
     )
 
+@app.route("/leader")
+@login_required()
+def team_leader_dashboard():
 
+    user = current_user()
+
+    if user["role"] != "team_leader":
+        return redirect(url_for("index"))
+
+    db = get_db()
+    c = db.cursor()
+
+    c.execute("""
+        SELECT t.*, u.username
+        FROM tasks t
+        JOIN users u ON u.id = t.assigned_to
+        WHERE u.team_leader_id = %s
+        AND t.status='cloturee'
+        AND t.validated_by_leader = FALSE
+        ORDER BY t.closed_at DESC
+    """,(user["id"],))
+
+    tasks = c.fetchall()
+
+    db.close()
+
+    return render_template(
+        "team_leader_dashboard.html",
+        tasks=tasks
+    )
 @app.route("/admin/suggestions")
 @login_required(role="admin")
 def admin_suggestions():
@@ -1142,6 +1202,59 @@ def admin_suggestions():
         "admin_suggestions.html",
         feedbacks=rows
     ) 
+@app.route("/leader/validate/<int:task_id>", methods=["POST"])
+@login_required()
+def leader_validate_task(task_id):
+
+    user = current_user()
+
+    if user["role"] != "team_leader":
+        return redirect(url_for("index"))
+
+    db = get_db()
+    c = db.cursor()
+
+    c.execute("""
+        UPDATE tasks
+        SET validated_by_leader = TRUE
+        WHERE id=%s
+    """,(task_id,))
+
+    db.commit()
+    db.close()
+
+    flash("Tâche confirmée","ok")
+
+    return redirect(url_for("team_leader_dashboard"))
+@app.route("/production")
+@login_required()
+def production_dashboard():
+
+    user = current_user()
+
+    if user["role"] != "production_manager":
+        return redirect(url_for("index"))
+
+    kpi = get_global_kpis()
+
+    db = get_db()
+    c = db.cursor()
+
+    c.execute("""
+        SELECT *
+        FROM tasks
+        ORDER BY created_at DESC
+    """)
+
+    tasks = c.fetchall()
+
+    db.close()
+
+    return render_template(
+        "production_dashboard.html",
+        tasks=tasks,
+        **kpi
+    )
 @app.route("/admin/suggestions/treat/<string:type>/<int:fid>", methods=["POST"])
 @login_required(role="admin")
 def admin_treat_suggestion(type, fid):
