@@ -1,0 +1,45 @@
+<h1>Gestion des équipes</h1>
+
+<form method="POST" action="/admin/teams/assign">
+
+<h3>Choisir Chef d'équipe</h3>
+
+<select name="leader_id">
+
+{% for l in leaders %}
+
+<option value="{{l.id}}">
+{{l.username}}
+</option>
+
+{% endfor %}
+
+</select>
+
+
+<h3>Choisir les opérateurs de son équipe</h3>
+
+{% for o in operators %}
+
+<label>
+
+<input type="checkbox" name="operators" value="{{o.id}}">
+
+{{o.username}}
+
+</label>
+
+<br>
+
+{% endfor %}
+
+
+<br><br>
+
+<button type="submit">
+
+Affecter équipe
+
+</button>
+
+</form>
