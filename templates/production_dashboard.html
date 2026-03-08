@@ -1,0 +1,31 @@
+<h1>Dashboard Production</h1>
+
+<h2>KPI</h2>
+
+<p>Total tâches : {{total_taches}}</p>
+<p>Tâches réalisées : {{taches_realisees}}</p>
+<p>Taux : {{taux_realisation}} %</p>
+
+<h2>Toutes les tâches</h2>
+
+<table border="1">
+
+<tr>
+<th>Ligne</th>
+<th>Machine</th>
+<th>Description</th>
+<th>Status</th>
+</tr>
+
+{% for t in tasks %}
+
+<tr>
+<td>{{t.line}}</td>
+<td>{{t.machine}}</td>
+<td>{{t.description}}</td>
+<td>{{t.status}}</td>
+</tr>
+
+{% endfor %}
+
+</table>
