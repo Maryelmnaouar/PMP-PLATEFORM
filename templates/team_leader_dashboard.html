@@ -1,0 +1,37 @@
+<h2>Tâches à confirmer</h2>
+
+<table border="1">
+
+<tr>
+<th>Machine</th>
+<th>Description</th>
+<th>Opérateur</th>
+<th>Date</th>
+<th>Action</th>
+</tr>
+
+{% for t in tasks %}
+
+<tr>
+<td>{{t.machine}}</td>
+<td>{{t.description}}</td>
+<td>{{t.username}}</td>
+<td>{{t.closed_at}}</td>
+
+<td>
+
+<form method="POST" action="/leader/validate/{{t.id}}">
+
+<button type="submit">
+Confirmer
+</button>
+
+</form>
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</table>
