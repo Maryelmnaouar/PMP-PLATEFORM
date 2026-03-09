@@ -648,32 +648,25 @@ def admin_create_user():
 
     username = request.form.get("username","").strip()
     password = request.form.get("password","").strip()
-    role = request.form.get("user_type")   # ← nouveau champ HTML
+    role = request.form.get("role","").strip()
     prod_line = request.form.get("prod_line","").strip()
 
     machines = request.form.getlist("machine_assigned")
-    machines = [m.strip() for m in machines if m.strip()]
-    machine_assigned = "|".join(machines)
 
-    # règles selon rôle
+    # machines uniquement pour opérateur et technicien
     if role in ["operator","technician"]:
+        machines = [m.strip() for m in machines if m.strip()]
+        machine_assigned = "|".join(machines)
 
-        if not username or not password or not prod_line or not machines:
-            flash("Remplir tous les champs.", "err")
+        if not machines:
+            flash("Veuillez sélectionner au moins une machine.","err")
             return redirect(url_for("admin_users"))
-
-    elif role == "chief":
-
-        if not username or not password or not prod_line:
-            flash("Chef d'équipe doit avoir une ligne.", "err")
-            return redirect(url_for("admin_users"))
-
+    else:
         machine_assigned = None
 
-    elif role == "production_manager":
-
-        prod_line = None
-        machine_assigned = None
+    if not username or not password:
+        flash("Nom utilisateur ou mot de passe manquant.","err")
+        return redirect(url_for("admin_users"))
 
     db = get_db()
 
@@ -681,23 +674,16 @@ def admin_create_user():
 
         c = db.cursor()
 
-        c.execute(
-            "SELECT id FROM users WHERE username=%s",
-            (username,)
-        )
-
-        if c.fetchone():
-
-            flash("Nom utilisateur déjà utilisé.", "err")
-            db.close()
-            return redirect(url_for("admin_users"))
-
         c.execute("""
-            INSERT INTO users
-            (username,password_hash,role,prod_line,machine_assigned)
-            VALUES (%s,%s,%s,%s,%s)
-        """,
-        (
+        INSERT INTO users(
+            username,
+            password_hash,
+            role,
+            prod_line,
+            machine_assigned
+        )
+        VALUES (%s,%s,%s,%s,%s)
+        """,(
             username,
             generate_password_hash(password),
             role,
@@ -707,15 +693,14 @@ def admin_create_user():
 
         db.commit()
 
-        flash(f"Utilisateur {username} créé.", "ok")
+        flash("Utilisateur créé avec succès","ok")
 
     except Exception as e:
 
-        print("ERROR CREATE USER:",e)
-        flash("Erreur création utilisateur.", "err")
+        print("CREATE USER ERROR:",e)
+        flash("Erreur création utilisateur.","err")
 
     finally:
-
         db.close()
 
     return redirect(url_for("admin_users"))
