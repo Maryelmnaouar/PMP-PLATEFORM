@@ -53,6 +53,23 @@ def init_db():
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS team_leader_id INTEGER
     """)
+
+    cur.execute("""
+    ALTER TABLE users
+    DROP CONSTRAINT IF EXISTS users_role_check
+    """)
+    
+    cur.execute("""
+    ALTER TABLE users
+    ADD CONSTRAINT users_role_check CHECK (
+    role IN (
+    'admin',
+    'operator',
+    'technician',
+    'team_leader',
+    'production_manager'
+    ))
+    """)
     # ---------- TASKS ----------
     cur.execute("""
     CREATE TABLE IF NOT EXISTS tasks(
@@ -697,8 +714,11 @@ def admin_create_user():
 
     except Exception as e:
 
-        print("CREATE USER ERROR:",e)
-        flash("Erreur création utilisateur.","err")
+        import traceback
+        print("CREATE USER ERROR:", e)
+        print(traceback.format_exc())
+    
+        flash(str(e), "err")
 
     finally:
         db.close()
