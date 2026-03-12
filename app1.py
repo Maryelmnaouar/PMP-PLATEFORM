@@ -999,7 +999,7 @@ def admin_manual_create():
 # -------------------------------------------------------
 # PAGE : Tâches en cours (ADMIN)
 # -------------------------------------------------------
-@app.route("/admin/tasks/open")
+@app.route("/admin/tasks/open","/production/tasks/open")
 @login_required(role=["admin", "production_manager"])
 def admin_tasks_open():
     line       = (request.args.get("line") or "").strip()
@@ -1051,7 +1051,7 @@ def admin_tasks_open():
 # -------------------------------------------------------
 # PAGE : Tâches clôturées (ADMIN)
 # -------------------------------------------------------
-@app.route("/admin/tasks/closed")
+@app.route("/admin/tasks/closed","/production/tasks/closed")
 @login_required(role=["admin", "production_manager"])
 def admin_tasks_closed():
     line       = (request.args.get("line") or "").strip()
