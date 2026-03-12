@@ -1,31 +1,248 @@
-<h1>Dashboard Production</h1>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin – Coca-Cola x Cobomi Maintenance</title>
 
-<h2>KPI</h2>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
-<p>Total tâches : {{total_taches}}</p>
-<p>Tâches réalisées : {{taches_realisees}}</p>
-<p>Taux : {{taux_realisation}} %</p>
+<style>
+  :root {
+    --red-dark: #b51212;
+    --red-light: #e41b13;
+    --bg-light: #fff6f6;
+    --card-bg: #fff3f3;
+    --text: #1a1a1a;
+    --muted: #555;
+    --shadow: 0 6px 25px rgba(0,0,0,0.12);
+  }
 
-<h2>Toutes les tâches</h2>
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(135deg, var(--bg-light), #ffe0e0);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
 
-<table border="1">
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(90deg, var(--muted), var(--red-light));
+    padding: 16px 28px;
+    box-shadow: var(--shadow);
+    color: #fff;
+  }
 
-<tr>
-<th>Ligne</th>
-<th>Machine</th>
-<th>Description</th>
-<th>Status</th>
-</tr>
+  .logo-box {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
 
-{% for t in tasks %}
+  .logo-box img {
+    height: 55px;
+    transition: transform 0.4s ease;
+  }
 
-<tr>
-<td>{{t.line}}</td>
-<td>{{t.machine}}</td>
-<td>{{t.description}}</td>
-<td>{{t.status}}</td>
-</tr>
+  .logo-box img:hover {
+    transform: scale(1.05);
+  }
 
-{% endfor %}
+  .title-zone {
+    font-size: 1.6rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-align: center;
+  }
 
-</table>
+  a.logout {
+    color: #fff;
+    text-decoration: none;
+    font-weight: bold;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 6px 14px;
+    border-radius: 8px;
+    transition: 0.3s;
+  }
+
+  a.logout:hover {
+    background: rgba(255,255,255,0.2);
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 30px auto 50px;
+    padding:  100px;
+    position: relative;
+  }
+
+  /* grille des 6 boutons */
+  .menu-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 26px;
+    margin-top: 20px;
+  }
+
+  @media (max-width: 900px) {
+    .menu-grid {
+      grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+  }
+
+  @media (max-width: 640px) {
+    .menu-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .menu-card {
+    background: var(--card-bg);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+    padding: 22px 18px;
+    text-align: center;
+    border: 1.8px solid rgba(181,18,18,0.7);
+    text-decoration: none;
+    color: var(--text);
+    font-size: 1.05rem;
+    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, color 0.25s ease;
+  }
+
+  .menu-card i {
+    font-size: 1.5rem;
+    color: var(--red-dark);
+  }
+
+  .menu-card:hover {
+    background: linear-gradient(180deg, #ffe0e0, #ffd0d0);
+    transform: translateY(-6px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+  }
+
+  .menu-card:hover i {
+    color: var(--red-light);
+  }
+
+  .menu-title {
+    font-size: 1.05rem;
+  }
+
+  .menu-sub {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .footer {
+    text-align: center;
+    color: var(--muted);
+    margin: 0 0 16px;
+    font-size: 0.85rem;
+  }
+
+  .coca-bottle {
+    position: fixed;
+    bottom: 30px;
+    right: 40px;
+    height: 170px;
+    animation: float 4s ease-in-out infinite;
+    opacity: 0.95;
+    z-index: 10;
+  }
+
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50%    { transform: translateY(-14px); }
+  }
+
+  #fx {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: -1;
+    opacity: 0.55;
+  }
+</style>
+</head>
+
+<body>
+  <!-- canvas bulles -->
+  <canvas id="fx"></canvas>
+
+  <header>
+    <div class="logo-box">
+      <img src="{{ url_for('static', filename='images/logo_cocacola.png') }}" alt="Logo Coca-Cola">
+      <img src="{{ url_for('static', filename='images/logo_cobomi.png') }}" alt="Logo Cobomi">
+    </div>
+    <div class="title-zone"><i class="fa-solid fa-gears"></i> Maintenance Préventive – production manager</div>
+    <a href="{{ url_for('logout') }}" class="logout">Déconnexion</a>
+  </header>
+
+  <div class="container">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="card" style="margin-bottom:25px;padding:12px 18px;">
+          {% for cat,msg in messages %}
+            <div style="
+              margin-bottom:6px;
+              padding:8px 10px;
+              border-radius:10px;
+              font-size:0.9rem;
+              {% if cat == 'ok' %}
+                background:#e4f8ea;color:#145a1f;border:1px solid #53b46b;
+              {% else %}
+                background:#ffe5e5;color:#7b1515;border:1px solid #e15b5b;
+              {% endif %}
+            ">
+              {{ msg }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="menu-grid">
+      <!-- 4. Liste des tâches en cours -->
+      <a class="menu-card" href="{{ url_for('admin_tasks_open') }}">
+        <i class="fa-solid fa-list-check"></i>
+        <div class="menu-title">Liste des tâches en cours</div>
+        <div class="menu-sub">Suivi des actions ouvertes par ligne, machine et intervenant.</div>
+      </a>
+      <a class="menu-card" href="{{ url_for('index') }}">
+        <i class="fa-solid fa-house"></i>
+        <div class="menu-title">Accueil</div>
+        <div class="menu-sub">
+          Retour à la page d’accueil & KPIs globaux
+        </div>
+      </a>
+
+
+      <!-- 5. Historique des tâches clôturées -->
+      <a class="menu-card" href="{{ url_for('admin_tasks_closed') }}">
+        <i class="fa-solid fa-clipboard-check"></i>
+        <div class="menu-title">Historique des tâches clôturées</div>
+        <div class="menu-sub">Traçabilité des PMP réalisées et scores associés.</div>
+      </a>
+
+      </a>
+    </div>
+  </div>
+
+  <img src="{{ url_for('static', filename='images/coca_bottle.png') }}" alt="Coca-Cola" class="coca-bottle">
+
+  <div class="footer">
+    © {{ current_year or 2025 }} Coca-Cola x Cobomi Maintenance System •
+  </div>
+
+</body>
+</html>
