@@ -218,14 +218,7 @@
         <div class="menu-title">Liste des tâches en cours</div>
         <div class="menu-sub">Suivi des actions ouvertes par ligne, machine et intervenant.</div>
       </a>
-      <a class="menu-card" href="{{ url_for('index') }}">
-        <i class="fa-solid fa-house"></i>
-        <div class="menu-title">Accueil</div>
-        <div class="menu-sub">
-          Retour à la page d’accueil & KPIs globaux
-        </div>
-      </a>
-
+     
 
       <!-- 5. Historique des tâches clôturées -->
       <a class="menu-card" href="{{ url_for('admin_tasks_closed') }}">
@@ -233,6 +226,15 @@
         <div class="menu-title">Historique des tâches clôturées</div>
         <div class="menu-sub">Traçabilité des PMP réalisées et scores associés.</div>
       </a>
+
+       <a class="menu-card" href="{{ url_for('index') }}">
+        <i class="fa-solid fa-house"></i>
+        <div class="menu-title">Accueil</div>
+        <div class="menu-sub">
+          Retour à la page d’accueil & KPIs globaux
+        </div>
+      </a>
+
 
       </a>
     </div>
