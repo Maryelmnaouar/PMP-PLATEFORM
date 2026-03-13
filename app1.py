@@ -200,13 +200,25 @@ def login_required(role=None):
         @wraps(f)
         def wrapper(*args, **kwargs):
             u = current_user()
+
             if not u:
                 return redirect(url_for("login"))
-            if role and u["role"] != role:
-                return redirect(
-                    url_for("admin_dashboard" if u["role"]=="admin" else "operator_dashboard")
-                )
+
+            # Gestion multi rôles
+            if role:
+                if isinstance(role, (list, tuple)):
+                    if u["role"] not in role:
+                        return redirect(
+                            url_for("admin_dashboard" if u["role"]=="admin" else "operator_dashboard")
+                        )
+                else:
+                    if u["role"] != role:
+                        return redirect(
+                            url_for("admin_dashboard" if u["role"]=="admin" else "operator_dashboard")
+                        )
+
             return f(*args, **kwargs)
+
         return wrapper
     return decorator
 
@@ -1000,8 +1012,7 @@ def admin_manual_create():
 # PAGE : Tâches en cours (ADMIN)
 # -------------------------------------------------------
 @app.route("/admin/tasks/open")
-@app.route("/production/tasks/open")
-@login_required(role=["admin", "production_manager"])
+@login_required(role=(["admin","production_manager"])
 def admin_tasks_open():
     line       = (request.args.get("line") or "").strip()
     machine    = (request.args.get("machine") or "").strip()
@@ -1053,8 +1064,7 @@ def admin_tasks_open():
 # PAGE : Tâches clôturées (ADMIN)
 # -------------------------------------------------------
 @app.route("/admin/tasks/closed")
-@app.route("/production/tasks/open")
-@login_required(role=["admin", "production_manager"])
+@login_required(role=("admin")
 def admin_tasks_closed():
     line       = (request.args.get("line") or "").strip()
     machine    = (request.args.get("machine") or "").strip()
