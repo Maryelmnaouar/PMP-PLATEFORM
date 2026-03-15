@@ -1279,7 +1279,7 @@ def admin_suggestions():
             SELECT
                 m.id,
                 u.username,
-                NULL::text AS line,
+                m.line,
                 m.machine,
                 m.description,
                 m.created_at,
