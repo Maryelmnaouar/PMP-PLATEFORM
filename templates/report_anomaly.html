@@ -52,6 +52,11 @@ border-radius:10px;
 border:1px solid #ddd;
 font-family:inherit;
 }
+.severity label{
+display:block;
+margin-bottom:6px;
+cursor:pointer;
+}
 
 .btn{
 background:linear-gradient(180deg,var(--red-light),var(--red-dark));
@@ -98,6 +103,30 @@ action="{{ url_for( 'report_anomaly' ) }}">
 <option value="{{ m }}">{{ m }}</option>
 {% endfor %}
 </select>
+
+<label>Degré de criticité</label>
+
+<div class="severity">
+<label>
+<input type="radio" name="severity" value="LOW" required>
+🟢 Faible
+</label>
+
+<label>
+<input type="radio" name="severity" value="MEDIUM">
+🟡 Moyenne
+</label>
+
+<label>
+<input type="radio" name="severity" value="HIGH">
+🟠 Élevée
+</label>
+
+<label>
+<input type="radio" name="severity" value="CRITICAL">
+🔴 Critique
+</label>
+</div>
 
 <label>Description anomalie</label>
 <textarea name="description" rows="4" required></textarea>
