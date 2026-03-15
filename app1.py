@@ -128,6 +128,11 @@ def init_db():
     ALTER TABLE machine_anomalies
     ADD COLUMN IF NOT EXISTS line TEXT
     """)
+
+    cur.execute("""
+    ALTER TABLE machine_anomalies
+    ADD COLUMN IF NOT EXISTS severity TEXT
+    """)
     # Insérer une ligne par défaut SI VIDE
     cur.execute("SELECT COUNT(*) AS n FROM kpi_settings")
     row = cur.fetchone()
@@ -535,11 +540,12 @@ def report_anomaly():
         line = request.form["Line"]
         machine = request.form["EQUIPEMENT"]
         description = request.form["description"]
+        severity = request.form["severity"]
 
         cur.execute("""
-            INSERT INTO machine_anomalies(user_id,line,machine,description)
-            VALUES (%s,%s,%s,%s)
-        """, (user["id"], line, machine, description))
+            INSERT INTO machine_anomalies(user_id,line,machine,description,severity)
+            VALUES (%s,%s,%s,%s,%s)
+        """, (user["id"], line, machine, description,severity))
 
         conn.commit()
         cur.close()
