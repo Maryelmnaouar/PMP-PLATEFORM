@@ -124,6 +124,10 @@ def init_db():
     treated BOOLEAN DEFAULT FALSE
     )
     """)
+    cur.execute("""
+    ALTER TABLE machine_anomalies
+    ADD COLUMN IF NOT EXISTS line TEXT
+    """)
     # Insérer une ligne par défaut SI VIDE
     cur.execute("SELECT COUNT(*) AS n FROM kpi_settings")
     row = cur.fetchone()
