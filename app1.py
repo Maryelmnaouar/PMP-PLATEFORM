@@ -479,7 +479,38 @@ def admin_settings():
         kpi=kpi,
         current_year=datetime.now().year
     )
+@app.route("/admin/operator-performance")
+@login_required(role="admin")
+def operator_performance():
 
+    db = get_db()
+    c = db.cursor()
+
+    c.execute("""
+    SELECT
+        u.username,
+        u.prod_line,
+        t.machine,
+        COUNT(t.id) AS total_tasks,
+        SUM(CASE WHEN t.status='cloturee' THEN 1 ELSE 0 END) AS completed_tasks,
+        ROUND(
+            SUM(CASE WHEN t.status='cloturee' THEN 1 ELSE 0 END) * 100.0
+            / NULLIF(COUNT(t.id),0),
+        1) AS completion_rate
+    FROM tasks t
+    JOIN users u ON u.id = t.assigned_to
+    GROUP BY u.username, u.prod_line, t.machine
+    ORDER BY completion_rate ASC
+    """)
+
+    rows = c.fetchall()
+
+    db.close()
+
+    return render_template(
+        "admin_operator_performance.html",
+        rows=rows
+    )
 
 @app.route("/admin/settings/user/delete/<int:user_id>", methods=["POST"])
 @login_required(role="admin")
