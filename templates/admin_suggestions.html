@@ -177,35 +177,46 @@
           <th>Ligne</th>
           <th>Machine</th>
           <th>Commentaire</th>
-          {% if f.severity == "CRITICAL" %}
-          <span style="color:red;font-weight:bold">CRITIQUE</span>
-          {% elif f.severity == "HIGH" %}
-          <span style="color:orange">ÉLEVÉE</span>
-          {% elif f.severity == "MEDIUM" %}
-          <span style="color:gold">MOYENNE</span>
-          {% else %}
-          <span style="color:green">FAIBLE</span>
-          {% endif %}
+          <th>criticité</th>  
           <th>Date</th>
           <th>Action</th>
         </tr>
       </thead>
       <tbody>
-        {% for f in feedbacks %}
-        <tr>
-          <td>{{ f.username }}</td>
-          <td>{{ f.line }}</td>
-          <td>{{ f.machine }}</td>
-          <td>{{ f.comment }}</td>
-          <td>{{ f.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
-          <td>
-            <form method="post"
-              action="{{ url_for('admin_treat_suggestion', type=f.source, fid=f.id) }}">
-              <button class="btn-danger">Traiter</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
+      {% for f in feedbacks %}
+      <tr>
+      
+      <td>{{ f.username }}</td>
+      <td>{{ f.line }}</td>
+      <td>{{ f.machine }}</td>
+      <td>{{ f.comment }}</td>
+      
+      <td>
+      {% if f.severity == "CRITICAL" %}
+      <span style="color:red;font-weight:bold">CRITIQUE</span>
+      
+      {% elif f.severity == "HIGH" %}
+      <span style="color:orange;font-weight:bold">ÉLEVÉE</span>
+      
+      {% elif f.severity == "MEDIUM" %}
+      <span style="color:gold;font-weight:bold">MOYENNE</span>
+      
+      {% else %}
+      <span style="color:green;font-weight:bold">FAIBLE</span>
+      {% endif %}
+      </td>
+      
+      <td>{{ f.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+      
+      <td>
+      <form method="post"
+      action="{{ url_for('admin_treat_suggestion', type=f.source, fid=f.id) }}">
+      <button class="btn">Traiter</button>
+      </form>
+      </td>
+      
+      </tr>
+      {% endfor %}
       </tbody>
     </table>
   </div>
