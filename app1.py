@@ -1133,10 +1133,15 @@ def operator_dashboard():
     c = db.cursor()
 
     c.execute("""
-        SELECT *
-        FROM tasks
-        WHERE assigned_to=%s
-        ORDER BY CASE status WHEN 'en_cours' THEN 0 ELSE 1 END, created_at DESC
+    SELECT *
+    FROM tasks
+    WHERE assigned_to=%s
+    AND (
+        frequency IS NULL
+        OR frequency NOT ILIKE 'hebdo%%'
+        OR created_at >= NOW() - INTERVAL '7 days'
+    )
+    ORDER BY CASE status WHEN 'en_cours' THEN 0 ELSE 1 END, created_at DESC
     """, (user["id"],))
     tasks = c.fetchall()
 
