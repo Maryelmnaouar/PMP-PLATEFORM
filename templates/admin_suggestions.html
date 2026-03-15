@@ -177,6 +177,15 @@
           <th>Ligne</th>
           <th>Machine</th>
           <th>Commentaire</th>
+          {% if f.severity == "CRITICAL" %}
+          <span style="color:red;font-weight:bold">CRITIQUE</span>
+          {% elif f.severity == "HIGH" %}
+          <span style="color:orange">ÉLEVÉE</span>
+          {% elif f.severity == "MEDIUM" %}
+          <span style="color:gold">MOYENNE</span>
+          {% else %}
+          <span style="color:green">FAIBLE</span>
+          {% endif %}
           <th>Date</th>
           <th>Action</th>
         </tr>
