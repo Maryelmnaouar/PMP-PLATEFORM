@@ -83,8 +83,8 @@ text-decoration:none;
 
 <h2><i class="fa-solid fa-triangle-exclamation"></i> Signaler une anomalie</h2>
 
-<form method="post">
-
+<form method="post"
+action="{{ url_for( 'report_anomaly' ) }}">
 <label>Ligne</label>
 <select name="Line" required>
 {% for l in lines %}
