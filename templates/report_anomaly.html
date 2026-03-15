@@ -86,14 +86,14 @@ text-decoration:none;
 <form method="post">
 
 <label>Ligne</label>
-<select name="Line" required>
+<select name="line" required>
 {% for l in lines %}
 <option value="{{ l }}">{{ l }}</option>
 {% endfor %}
 </select>
 
 <label>Machine</label>
-<select name="EQUIPEMENT" required>
+<select name="machine" required>
 {% for m in machines %}
 <option value="{{ m }}">{{ m }}</option>
 {% endfor %}
