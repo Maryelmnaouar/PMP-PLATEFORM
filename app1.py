@@ -908,7 +908,7 @@ def _auto_assign_pmp(line: str, freq_prefix: str):
                         line, machine, description, assigned_to,
                         status, points, frequency, documentation, created_at
                     )
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """, (
                     line,
                     machine,
