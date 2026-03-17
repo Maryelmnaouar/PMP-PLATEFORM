@@ -481,14 +481,10 @@ def admin_settings():
     )
 
 @app.route("/leader")
-@login_required()
+@login_required(role="team_leader")
 def team_leader_dashboard():
 
     user = current_user()
-
-    if user["role"] != "team_leader":
-        return redirect(url_for("index"))
-
     db = get_db()
     c = db.cursor()
 
@@ -503,7 +499,7 @@ def team_leader_dashboard():
     """, (user["id"],))
     tasks_open = c.fetchall()
 
-    # 🟡 TÂCHES CLÔTURÉES NON VALIDÉES
+    # 🟡 TÂCHES À VALIDER
     c.execute("""
         SELECT t.*, u.username
         FROM tasks t
