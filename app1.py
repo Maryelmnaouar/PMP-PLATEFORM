@@ -493,12 +493,13 @@ def leader_tasks_open():
     db = get_db()
     c = db.cursor()
 
-    c.execute("""
+   c.execute("""
         SELECT t.*, u.username
         FROM tasks t
         JOIN users u ON u.id = t.assigned_to
         WHERE u.team_leader_id = %s
         AND t.status = 'en_cours'
+        AND t.created_at >= NOW() - INTERVAL '7 days'
         ORDER BY t.created_at DESC
     """, (user["id"],))
 
@@ -514,13 +515,14 @@ def leader_tasks_validate():
     db = get_db()
     c = db.cursor()
 
-    c.execute("""
+   c.execute("""
         SELECT t.*, u.username
         FROM tasks t
         JOIN users u ON u.id = t.assigned_to
         WHERE u.team_leader_id = %s
         AND t.status = 'cloturee'
         AND t.validated_by_leader = FALSE
+        AND t.created_at >= NOW() - INTERVAL '7 days'
         ORDER BY t.closed_at DESC
     """, (user["id"],))
 
@@ -541,7 +543,9 @@ def leader_tasks_validated():
         FROM tasks t
         JOIN users u ON u.id = t.assigned_to
         WHERE u.team_leader_id = %s
+        AND t.status = 'cloturee'
         AND t.validated_by_leader = TRUE
+        AND t.created_at >= NOW() - INTERVAL '7 days'
         ORDER BY t.closed_at DESC
     """, (user["id"],))
 
