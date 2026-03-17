@@ -493,7 +493,7 @@ def leader_tasks_open():
     db = get_db()
     c = db.cursor()
 
-   c.execute("""
+    c.execute("""   # ✅ 4 espaces ici
         SELECT t.*, u.username
         FROM tasks t
         JOIN users u ON u.id = t.assigned_to
@@ -507,6 +507,8 @@ def leader_tasks_open():
     db.close()
 
     return render_template("leader_tasks_open.html", tasks=tasks)
+
+
 @app.route("/leader/tasks/validate")
 @login_required(role="team_leader")
 def leader_tasks_validate():
@@ -515,7 +517,7 @@ def leader_tasks_validate():
     db = get_db()
     c = db.cursor()
 
-   c.execute("""
+    c.execute("""   # ✅ corrigé
         SELECT t.*, u.username
         FROM tasks t
         JOIN users u ON u.id = t.assigned_to
@@ -530,6 +532,8 @@ def leader_tasks_validate():
     db.close()
 
     return render_template("leader_tasks_validate.html", tasks=tasks)
+
+
 @app.route("/leader/tasks/validated")
 @login_required(role="team_leader")
 def leader_tasks_validated():
