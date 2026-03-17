@@ -1,0 +1,40 @@
+<div class="container">
+
+<h2>👨‍🔧 Espace Chef d’équipe</h2>
+
+<div class="menu">
+
+<a href="{{ url_for('leader_tasks_open') }}" class="card red">
+🔴 Tâches en cours
+</a>
+
+<a href="{{ url_for('leader_tasks_validate') }}" class="card orange">
+🟡 Tâches à valider
+</a>
+
+<a href="{{ url_for('leader_tasks_validated') }}" class="card green">
+🟢 Tâches validées
+</a>
+
+</div>
+
+</div>
+
+<style>
+.menu{
+display:flex;
+gap:20px;
+}
+
+.card{
+padding:20px;
+border-radius:10px;
+color:white;
+text-decoration:none;
+font-weight:bold;
+}
+
+.red{background:#d32f2f;}
+.orange{background:#f57c00;}
+.green{background:#388e3c;}
+</style>
