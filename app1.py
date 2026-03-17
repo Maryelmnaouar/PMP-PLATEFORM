@@ -493,7 +493,7 @@ def leader_tasks_open():
     db = get_db()
     c = db.cursor()
 
-    c.execute("""   # ✅ 4 espaces ici
+    c.execute("""   
         SELECT t.*, u.username
         FROM tasks t
         JOIN users u ON u.id = t.assigned_to
@@ -517,7 +517,7 @@ def leader_tasks_validate():
     db = get_db()
     c = db.cursor()
 
-    c.execute("""   # ✅ corrigé
+    c.execute("""   
         SELECT t.*, u.username
         FROM tasks t
         JOIN users u ON u.id = t.assigned_to
