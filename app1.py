@@ -483,12 +483,16 @@ def admin_settings():
 @app.route("/leader")
 @login_required(role="team_leader")
 def team_leader_dashboard():
+    return render_template("leader_menu.html")
+
+@app.route("/leader/tasks/open")
+@login_required(role="team_leader")
+def leader_tasks_open():
 
     user = current_user()
     db = get_db()
     c = db.cursor()
 
-    # 🔴 TÂCHES EN COURS
     c.execute("""
         SELECT t.*, u.username
         FROM tasks t
@@ -497,9 +501,19 @@ def team_leader_dashboard():
         AND t.status = 'en_cours'
         ORDER BY t.created_at DESC
     """, (user["id"],))
-    tasks_open = c.fetchall()
 
-    # 🟡 TÂCHES À VALIDER
+    tasks = c.fetchall()
+    db.close()
+
+    return render_template("leader_tasks_open.html", tasks=tasks)
+@app.route("/leader/tasks/validate")
+@login_required(role="team_leader")
+def leader_tasks_validate():
+
+    user = current_user()
+    db = get_db()
+    c = db.cursor()
+
     c.execute("""
         SELECT t.*, u.username
         FROM tasks t
@@ -509,28 +523,33 @@ def team_leader_dashboard():
         AND t.validated_by_leader = FALSE
         ORDER BY t.closed_at DESC
     """, (user["id"],))
-    tasks_to_validate = c.fetchall()
 
-    # 🟢 TÂCHES VALIDÉES
+    tasks = c.fetchall()
+    db.close()
+
+    return render_template("leader_tasks_validate.html", tasks=tasks)
+@app.route("/leader/tasks/validated")
+@login_required(role="team_leader")
+def leader_tasks_validated():
+
+    user = current_user()
+    db = get_db()
+    c = db.cursor()
+
     c.execute("""
         SELECT t.*, u.username
         FROM tasks t
         JOIN users u ON u.id = t.assigned_to
         WHERE u.team_leader_id = %s
-        AND t.status = 'cloturee'
         AND t.validated_by_leader = TRUE
         ORDER BY t.closed_at DESC
     """, (user["id"],))
-    tasks_validated = c.fetchall()
 
+    tasks = c.fetchall()
     db.close()
 
-    return render_template(
-        "team_leader_dashboard.html",
-        tasks_open=tasks_open,
-        tasks_to_validate=tasks_to_validate,
-        tasks_validated=tasks_validated
-    )
+    return render_template("leader_tasks_validated.html", tasks=tasks)
+    
 @app.route("/admin/operator-performance")
 @login_required(role="admin")
 def operator_performance():
