@@ -479,6 +479,62 @@ def admin_settings():
         kpi=kpi,
         current_year=datetime.now().year
     )
+
+@app.route("/leader")
+@login_required()
+def team_leader_dashboard():
+
+    user = current_user()
+
+    if user["role"] != "team_leader":
+        return redirect(url_for("index"))
+
+    db = get_db()
+    c = db.cursor()
+
+    # 🔴 TÂCHES EN COURS
+    c.execute("""
+        SELECT t.*, u.username
+        FROM tasks t
+        JOIN users u ON u.id = t.assigned_to
+        WHERE u.team_leader_id = %s
+        AND t.status = 'en_cours'
+        ORDER BY t.created_at DESC
+    """, (user["id"],))
+    tasks_open = c.fetchall()
+
+    # 🟡 TÂCHES CLÔTURÉES NON VALIDÉES
+    c.execute("""
+        SELECT t.*, u.username
+        FROM tasks t
+        JOIN users u ON u.id = t.assigned_to
+        WHERE u.team_leader_id = %s
+        AND t.status = 'cloturee'
+        AND t.validated_by_leader = FALSE
+        ORDER BY t.closed_at DESC
+    """, (user["id"],))
+    tasks_to_validate = c.fetchall()
+
+    # 🟢 TÂCHES VALIDÉES
+    c.execute("""
+        SELECT t.*, u.username
+        FROM tasks t
+        JOIN users u ON u.id = t.assigned_to
+        WHERE u.team_leader_id = %s
+        AND t.status = 'cloturee'
+        AND t.validated_by_leader = TRUE
+        ORDER BY t.closed_at DESC
+    """, (user["id"],))
+    tasks_validated = c.fetchall()
+
+    db.close()
+
+    return render_template(
+        "team_leader_dashboard.html",
+        tasks_open=tasks_open,
+        tasks_to_validate=tasks_to_validate,
+        tasks_validated=tasks_validated
+    )
 @app.route("/admin/operator-performance")
 @login_required(role="admin")
 def operator_performance():
