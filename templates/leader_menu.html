@@ -1,40 +1,161 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Chef d'équipe – PMP</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+:root{
+--red-dark:#b51212;
+--red-light:#e41b13;
+--bg-light:#fff6f6;
+--card-bg:#fff3f3;
+--text:#1a1a1a;
+--muted:#555;
+--shadow:0 8px 30px rgba(0,0,0,0.15);
+}
+
+body{
+margin:0;
+font-family:'Segoe UI',Roboto;
+background:linear-gradient(135deg,var(--bg-light),#ffe0e0);
+}
+
+/* HEADER */
+header{
+display:flex;
+justify-content:space-between;
+align-items:center;
+background:linear-gradient(90deg,#444,var(--red-light));
+padding:15px 25px;
+color:white;
+box-shadow:var(--shadow);
+}
+
+.logo-box{
+display:flex;
+align-items:center;
+gap:15px;
+}
+
+.logo-box img{
+height:50px;
+}
+
+.title{
+font-weight:bold;
+font-size:1.4rem;
+}
+
+.logout{
+color:white;
+text-decoration:none;
+border:1px solid rgba(255,255,255,0.3);
+padding:6px 12px;
+border-radius:8px;
+}
+
+/* CONTAINER */
+.container{
+max-width:1000px;
+margin:50px auto;
+text-align:center;
+}
+
+/* GRID MENU */
+.menu{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+gap:25px;
+margin-top:40px;
+}
+
+/* CARDS */
+.card{
+background:var(--card-bg);
+padding:25px;
+border-radius:18px;
+box-shadow:var(--shadow);
+text-decoration:none;
+color:var(--text);
+transition:0.3s;
+border:2px solid rgba(181,18,18,0.4);
+}
+
+.card i{
+font-size:2rem;
+margin-bottom:10px;
+}
+
+.card:hover{
+transform:translateY(-6px);
+box-shadow:0 12px 35px rgba(0,0,0,0.2);
+}
+
+/* COLORS */
+.red{border-left:8px solid red;}
+.orange{border-left:8px solid orange;}
+.green{border-left:8px solid green;}
+
+.footer{
+text-align:center;
+margin-top:40px;
+color:var(--muted);
+font-size:0.85rem;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="logo-box">
+    <img src="{{ url_for('static', filename='images/logo_cocacola.png') }}">
+    <img src="{{ url_for('static', filename='images/logo_cobomi.png') }}">
+  </div>
+
+  <div class="title">
+    👨‍🔧 Chef d'équipe - PMP
+  </div>
+
+  <a href="{{ url_for('logout') }}" class="logout">Déconnexion</a>
+</header>
+
 <div class="container">
 
-<h2>👨‍🔧 Espace Chef d’équipe</h2>
+<h2>Gestion des tâches équipe</h2>
 
 <div class="menu">
 
 <a href="{{ url_for('leader_tasks_open') }}" class="card red">
-🔴 Tâches en cours
+<i class="fa-solid fa-gears"></i>
+<h3>Tâches en cours</h3>
+<p>Suivi des tâches en cours de l’équipe</p>
 </a>
 
 <a href="{{ url_for('leader_tasks_validate') }}" class="card orange">
-🟡 Tâches à valider
+<i class="fa-solid fa-check-circle"></i>
+<h3>Tâches à valider</h3>
+<p>Validation des tâches réalisées</p>
 </a>
 
 <a href="{{ url_for('leader_tasks_validated') }}" class="card green">
-🟢 Tâches validées
+<i class="fa-solid fa-chart-line"></i>
+<h3>Tâches validées</h3>
+<p>Historique des tâches confirmées</p>
 </a>
 
 </div>
 
 </div>
 
-<style>
-.menu{
-display:flex;
-gap:20px;
-}
+<div class="footer">
+© {{ current_year or 2025 }} Coca-Cola x Cobomi Maintenance System
+</div>
 
-.card{
-padding:20px;
-border-radius:10px;
-color:white;
-text-decoration:none;
-font-weight:bold;
-}
-
-.red{background:#d32f2f;}
-.orange{background:#f57c00;}
-.green{background:#388e3c;}
-</style>
+</body>
+</html>
