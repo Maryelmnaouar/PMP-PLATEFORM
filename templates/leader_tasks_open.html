@@ -1,1 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Tâches en cours</title>
 
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+:root{
+--red-dark:#b51212;
+--red-light:#e41b13;
+--bg-light:#fff6f6;
+--card-bg:#fff3f3;
+--shadow:0 6px 25px rgba(0,0,0,0.12);
+}
+
+body{
+margin:0;
+font-family:'Segoe UI';
+background:linear-gradient(135deg,var(--bg-light),#ffe0e0);
+}
+
+.container{
+max-width:1000px;
+margin:30px auto;
+}
+
+.card{
+background:var(--card-bg);
+padding:18px;
+margin-bottom:12px;
+border-radius:14px;
+box-shadow:var(--shadow);
+border-left:6px solid red;
+}
+
+h2{
+color:var(--red-dark);
+}
+
+.back{
+display:inline-block;
+margin-top:20px;
+text-decoration:none;
+color:#444;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>🔴 Tâches en cours</h2>
+
+{% for t in tasks %}
+<div class="card">
+<b>{{ t.machine }}</b> - {{ t.description }}
+<br>👤 {{ t.username }}
+</div>
+{% else %}
+<p>Aucune tâche en cours</p>
+{% endfor %}
+
+<a href="{{ url_for('team_leader_dashboard') }}" class="back">⬅ Retour</a>
+
+</div>
+
+</body>
+</html>
