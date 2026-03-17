@@ -178,36 +178,39 @@
 
 <table border="1">
 
-<tr>
-<th>Machine</th>
-<th>Description</th>
-<th>Opérateur</th>
-<th>Date</th>
-<th>Action</th>
-</tr>
+<h2>🔴 Tâches en cours</h2>
 
-{% for t in tasks %}
+{% for t in tasks_open %}
+<div class="card">
+<b>{{ t.machine }}</b> - {{ t.description }}
+<br>Opérateur: {{ t.username }}
+</div>
+{% endfor %}
+🟡 À valider
+HTML
+Copier le code
+<h2>🟡 Tâches à valider</h2>
 
-<tr>
-<td>{{t.machine}}</td>
-<td>{{t.description}}</td>
-<td>{{t.username}}</td>
-<td>{{t.closed_at}}</td>
+{% for t in tasks_to_validate %}
+<div class="card">
 
-<td>
+<b>{{ t.machine }}</b> - {{ t.description }}
+<br>Opérateur: {{ t.username }}
 
-<form method="POST" action="/leader/validate/{{t.id}}">
-
-<button type="submit">
-Confirmer
-</button>
-
+<form method="post" action="{{ url_for('leader_validate_task', task_id=t.id) }}">
+<button class="btn">Valider</button>
 </form>
 
-</td>
-
-</tr>
-
+</div>
 {% endfor %}
+🟢 Validées
+HTML
+Copier le code
+<h2>🟢 Tâches validées</h2>
 
-</table>
+{% for t in tasks_validated %}
+<div class="card">
+<b>{{ t.machine }}</b> - {{ t.description }}
+<br>✔ Validée
+</div>
+{% endfor %}
