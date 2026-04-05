@@ -1243,17 +1243,18 @@ def operator_dashboard():
     db = get_db()
     c = db.cursor()
 
+    # récupération filtre bouton
     freq = (request.args.get("freq") or "").lower()
 
-    # 🔥 QUERY FIXE (aucun bug possible)
+    # 🔥 requête principale (SAFE psycopg2)
     query = """
     SELECT *
     FROM tasks
     WHERE assigned_to = %s
     AND (
-        (LOWER(COALESCE(frequency,'')) LIKE 'quotidien%' AND created_at >= NOW() - INTERVAL '1 day')
+        (LOWER(COALESCE(frequency,'')) LIKE 'quotidien%%' AND created_at >= NOW() - INTERVAL '1 day')
         OR
-        (LOWER(COALESCE(frequency,'')) NOT LIKE 'quotidien%' AND created_at >= NOW() - INTERVAL '7 days')
+        (LOWER(COALESCE(frequency,'')) NOT LIKE 'quotidien%%' AND created_at >= NOW() - INTERVAL '7 days')
         OR
         frequency IS NULL
     )
@@ -1261,7 +1262,7 @@ def operator_dashboard():
 
     params = [user["id"]]
 
-    # 🔥 filtre fréquence sécurisé
+    # 🔥 filtre par fréquence (boutons)
     if freq:
         query += " AND LOWER(COALESCE(frequency,'')) LIKE %s"
         params.append(freq + "%")
@@ -1272,17 +1273,35 @@ def operator_dashboard():
     created_at DESC
     """
 
+    # DEBUG (tu peux supprimer après test)
     print("QUERY:", query)
     print("PARAMS:", params)
 
     c.execute(query, params)
     tasks = c.fetchall()
 
+    # 🔥 KPI
+    c.execute("""
+        SELECT 
+            COUNT(*) FILTER (WHERE status='en_cours') AS en_cours,
+            COUNT(*) FILTER (WHERE status='cloturee') AS cloturees,
+            COALESCE(SUM(points) FILTER (WHERE status='cloturee'),0) AS score
+        FROM tasks
+        WHERE assigned_to=%s
+    """, (user["id"],))
+
+    kpi = c.fetchone()
+
     db.close()
 
     return render_template(
         "operator_dashboard.html",
-        tasks=tasks
+        me=user,
+        tasks=tasks,
+        taches_en_cours=kpi["en_cours"],
+        taches_cloturees=kpi["cloturees"],
+        score_total=kpi["score"],
+        current_freq=freq
     )
 # -------------------------------------------------------
 # REDIRECTION PLATEFORME SELON UTILISATEUR
