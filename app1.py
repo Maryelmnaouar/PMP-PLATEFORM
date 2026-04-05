@@ -1056,7 +1056,81 @@ def admin_auto_assign_mensuel():
     except Exception as e:
         print("❌ ERROR AUTO ASSIGN MENSUEL:", repr(e))
         raise
+@app.route("/admin/auto-assign/quotidien", methods=["POST"])
+def admin_auto_assign_quotidien():
+    try:
+        print(">>> AUTO ASSIGN QUOTIDIEN")
 
+        line = request.form.get("line")
+        if not line:
+            flash("Veuillez sélectionner une ligne", "warning")
+            return redirect(url_for("admin_assign_page"))
+
+        created = _auto_assign_pmp(line, "quotidien")
+
+        flash(f"{created} tâches PMP quotidiennes assignées", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    except Exception as e:
+        print("❌ ERROR AUTO ASSIGN QUOTIDIEN:", repr(e))
+        raise
+
+@app.route("/admin/auto-assign/trimestriel", methods=["POST"])
+def admin_auto_assign_trimestriel():
+    try:
+        print(">>> AUTO ASSIGN TRIMESTRIEL")
+
+        line = request.form.get("line")
+        if not line:
+            flash("Veuillez sélectionner une ligne", "warning")
+            return redirect(url_for("admin_assign_page"))
+
+        created = _auto_assign_pmp(line, "trimestriel")
+
+        flash(f"{created} tâches PMP trimestrielles assignées", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    except Exception as e:
+        print("❌ ERROR AUTO ASSIGN TRIMESTRIEL:", repr(e))
+        raise
+
+@app.route("/admin/auto-assign/semestriel", methods=["POST"])
+def admin_auto_assign_semestriel():
+    try:
+        print(">>> AUTO ASSIGN SEMESTRIEL")
+
+        line = request.form.get("line")
+        if not line:
+            flash("Veuillez sélectionner une ligne", "warning")
+            return redirect(url_for("admin_assign_page"))
+
+        created = _auto_assign_pmp(line, "semestriel")
+
+        flash(f"{created} tâches PMP semestrielles assignées", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    except Exception as e:
+        print("❌ ERROR AUTO ASSIGN SEMESTRIEL:", repr(e))
+        raise
+
+@app.route("/admin/auto-assign/annuel", methods=["POST"])
+def admin_auto_assign_semestriel():
+    try:
+        print(">>> AUTO ASSIGN ANNUEL")
+
+        line = request.form.get("line")
+        if not line:
+            flash("Veuillez sélectionner une ligne", "warning")
+            return redirect(url_for("admin_assign_page"))
+
+        created = _auto_assign_pmp(line, "annuel")
+
+        flash(f"{created} tâches PMP annuelles assignées", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    except Exception as e:
+        print("❌ ERROR AUTO ASSIGN ANNUEL:", repr(e))
+        raise
 
 # -------------------------------------------------------
 # PAGE : Ajout manuel tâche
