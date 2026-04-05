@@ -1240,85 +1240,68 @@ def admin_tasks_closed():
 def operator_dashboard():
 
     user = current_user()
-    freq = request.args.get("freq")
-
     db = get_db()
     c = db.cursor()
+
+    freq = (request.args.get("freq") or "").lower()
 
     query = """
     SELECT *
     FROM tasks
-    WHERE assigned_to=%s
+    WHERE assigned_to = %s
     """
     params = [user["id"]]
 
-    # 🎯 FILTRE PAR BOUTON
+    # 🔥 filtre bouton fréquence
     if freq:
-        query += " AND LOWER(COALESCE(frequency,' ')) LIKE %s"
+        query += " AND LOWER(COALESCE(frequency,'')) LIKE %s"
         params.append(freq + "%")
 
-    # 🎯 GESTION EXPIRATION PAR FREQUENCE
+    # 🔥 logique délais
     query += """
     AND (
+        -- 🟥 QUOTIDIEN → 1 jour
+        (LOWER(frequency) LIKE 'quotidien%' AND created_at >= NOW() - INTERVAL '1 day')
+
+        OR
+
+        -- 🟩 AUTRES → 7 jours
+        (LOWER(frequency) NOT LIKE 'quotidien%' AND created_at >= NOW() - INTERVAL '7 days')
+
+        OR
+
+        -- si pas de fréquence
         frequency IS NULL
-
-        OR (
-            LOWER(frequency) LIKE '%quotid%'
-            AND created_at >= NOW() - INTERVAL '1 day'
-        )
-
-        OR (
-            LOWER(frequency) LIKE '%hebdo%'
-            AND created_at >= NOW() - INTERVAL '7 days'
-        )
-
-        OR (
-            LOWER(frequency) LIKE '%mens%'
-            AND created_at >= NOW() - INTERVAL '7 days'
-        )
-
-        OR (
-            LOWER(frequency) LIKE '%trimes%'
-            AND created_at >= NOW() - INTERVAL '7 days'
-        )
-
-        OR (
-            LOWER(frequency) LIKE '%semes%'
-            AND created_at >= NOW() - INTERVAL '7 days'
-        )
-
-        OR (
-            LOWER(frequency) LIKE '%ann%'
-            AND created_at >= NOW() - INTERVAL '7 days'
-        )
     )
     """
 
     query += """
-    ORDER BY 
+    ORDER BY
     CASE status WHEN 'en_cours' THEN 0 ELSE 1 END,
     created_at DESC
     """
 
+    print("QUERY:", query)
+    print("PARAMS:", params)
+
     c.execute(query, params)
     tasks = c.fetchall()
 
-    # SCORE
+    # KPI
     c.execute("""
         SELECT COALESCE(SUM(points),0) AS score
         FROM tasks
         WHERE assigned_to=%s AND status='cloturee'
     """, (user["id"],))
+
     score = c.fetchone()["score"]
 
     db.close()
 
     return render_template(
         "operator_dashboard.html",
-        me=user,
         tasks=tasks,
-        score_total=score,
-        current_freq=freq
+        score_total=score
     )
 # -------------------------------------------------------
 # REDIRECTION PLATEFORME SELON UTILISATEUR
