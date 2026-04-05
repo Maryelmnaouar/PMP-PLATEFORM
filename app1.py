@@ -1252,25 +1252,16 @@ def operator_dashboard():
     """
     params = [user["id"]]
 
-    # 🔥 filtre bouton fréquence
     if freq:
         query += " AND LOWER(COALESCE(frequency,'')) LIKE %s"
         params.append(freq + "%")
 
-    # 🔥 logique délais
     query += """
     AND (
-        -- 🟥 QUOTIDIEN → 1 jour
-        (LOWER(frequency) LIKE 'quotidien%' AND created_at >= NOW() - INTERVAL '1 day')
-
+        (LOWER(COALESCE(frequency,'')) LIKE 'quotidien%' AND created_at >= NOW() - INTERVAL '1 day')
         OR
-
-        -- 🟩 AUTRES → 7 jours
-        (LOWER(frequency) NOT LIKE 'quotidien%' AND created_at >= NOW() - INTERVAL '7 days')
-
+        (LOWER(COALESCE(frequency,'')) NOT LIKE 'quotidien%' AND created_at >= NOW() - INTERVAL '7 days')
         OR
-
-        -- si pas de fréquence
         frequency IS NULL
     )
     """
@@ -1287,21 +1278,11 @@ def operator_dashboard():
     c.execute(query, params)
     tasks = c.fetchall()
 
-    # KPI
-    c.execute("""
-        SELECT COALESCE(SUM(points),0) AS score
-        FROM tasks
-        WHERE assigned_to=%s AND status='cloturee'
-    """, (user["id"],))
-
-    score = c.fetchone()["score"]
-
     db.close()
 
     return render_template(
         "operator_dashboard.html",
-        tasks=tasks,
-        score_total=score
+        tasks=tasks
     )
 # -------------------------------------------------------
 # REDIRECTION PLATEFORME SELON UTILISATEUR
