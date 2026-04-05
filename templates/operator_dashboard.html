@@ -257,6 +257,23 @@
        ⚠️ Signaler anomalie
     </a>
   </div>
+  <div class="filters">
+
+<a href="{{ url_for('operator_dashboard', freq='quotidien') }}" class="btn-filter">Quotidienne</a>
+
+<a href="{{ url_for('operator_dashboard', freq='hebdo') }}" class="btn-filter">Hebdomadaire</a>
+
+<a href="{{ url_for('operator_dashboard', freq='mensuel') }}" class="btn-filter">Mensuelle</a>
+
+<a href="{{ url_for('operator_dashboard', freq='trimestriel') }}" class="btn-filter">Trimestrielle</a>
+
+<a href="{{ url_for('operator_dashboard', freq='semestriel') }}" class="btn-filter">Semestrielle</a>
+
+<a href="{{ url_for('operator_dashboard', freq='annuel') }}" class="btn-filter">Annuelle</a>
+
+<a href="{{ url_for('operator_dashboard') }}" class="btn-filter reset">Toutes</a>
+
+</div>
     <table>
       <thead>
         <tr>
