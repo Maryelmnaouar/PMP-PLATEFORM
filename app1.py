@@ -1245,18 +1245,11 @@ def operator_dashboard():
 
     freq = (request.args.get("freq") or "").lower()
 
+    # 🔥 QUERY FIXE (aucun bug possible)
     query = """
     SELECT *
     FROM tasks
     WHERE assigned_to = %s
-    """
-    params = [user["id"]]
-
-    if freq:
-        query += " AND LOWER(COALESCE(frequency,'')) LIKE %s"
-        params.append(freq + "%")
-
-    query += """
     AND (
         (LOWER(COALESCE(frequency,'')) LIKE 'quotidien%' AND created_at >= NOW() - INTERVAL '1 day')
         OR
@@ -1265,6 +1258,13 @@ def operator_dashboard():
         frequency IS NULL
     )
     """
+
+    params = [user["id"]]
+
+    # 🔥 filtre fréquence sécurisé
+    if freq:
+        query += " AND LOWER(COALESCE(frequency,'')) LIKE %s"
+        params.append(freq + "%")
 
     query += """
     ORDER BY
