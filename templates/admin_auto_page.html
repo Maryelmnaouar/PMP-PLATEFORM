@@ -99,7 +99,27 @@
     <input type="hidden" name="line" id="mensu-line">
     <button type="submit"><i class="fa-solid fa-calendar-days"></i> Assigner PMP mensuelles</button>
   </form>
-
+ <!-- Form QUOTIDIEN -->
+  <form id="form-mensu" action="{{ url_for('admin_auto_assign_quotidien') }}" method="POST">
+    <input type="hidden" name="line" id="mensu-line">
+    <button type="submit"><i class="fa-solid fa-calendar-days"></i> Assigner PMP quotidien</button>
+  </form>
+<!-- Form SEMESTRIEL -->
+  <form id="form-mensu" action="{{ url_for('admin_auto_assign_semestriel') }}" method="POST">
+    <input type="hidden" name="line" id="mensu-line">
+    <button type="submit"><i class="fa-solid fa-calendar-days"></i> Assigner PMP semestriel</button>
+  </form>
+<!-- Form SEMESTRIEL -->
+  <form id="form-mensu" action="{{ url_for('admin_auto_assign_trimestriel') }}" method="POST">
+    <input type="hidden" name="line" id="mensu-line">
+    <button type="submit"><i class="fa-solid fa-calendar-days"></i> Assigner PMP trimestriel</button>
+  </form>
+<!-- Form ANNUEL -->
+  <form id="form-mensu" action="{{ url_for('admin_auto_assign_annuel') }}" method="POST">
+    <input type="hidden" name="line" id="mensu-line">
+    <button type="submit"><i class="fa-solid fa-calendar-days"></i> Assigner PMP annuel</button>
+  </form>
+  
   <a href="{{ url_for('admin_dashboard') }}" class="back">← Retour au tableau de bord</a>
 </div>
 
