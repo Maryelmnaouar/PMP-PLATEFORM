@@ -1114,7 +1114,7 @@ def admin_auto_assign_semestriel():
         raise
 
 @app.route("/admin/auto-assign/annuel", methods=["POST"])
-def admin_auto_assign_semestriel():
+def admin_auto_assign_annuel():
     try:
         print(">>> AUTO ASSIGN ANNUEL")
 
