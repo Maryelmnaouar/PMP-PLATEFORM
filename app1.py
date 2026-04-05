@@ -1238,23 +1238,72 @@ def admin_tasks_closed():
 @app.route("/me")
 @login_required()
 def operator_dashboard():
+
     user = current_user()
+    freq = request.args.get("freq")
+
     db = get_db()
     c = db.cursor()
 
-    c.execute("""
+    query = """
     SELECT *
     FROM tasks
     WHERE assigned_to=%s
+    """
+    params = [user["id"]]
+
+    # 🎯 FILTRE PAR BOUTON
+    if freq:
+        query += " AND LOWER(frequency) LIKE %s"
+        params.append(f"%{freq.lower()}%")
+
+    # 🎯 GESTION EXPIRATION PAR FREQUENCE
+    query += """
     AND (
         frequency IS NULL
-        OR frequency NOT ILIKE 'hebdo%%'
-        OR created_at >= NOW() - INTERVAL '7 days'
+
+        OR (
+            LOWER(frequency) LIKE '%quotid%'
+            AND created_at >= NOW() - INTERVAL '1 day'
+        )
+
+        OR (
+            LOWER(frequency) LIKE '%hebdo%'
+            AND created_at >= NOW() - INTERVAL '7 days'
+        )
+
+        OR (
+            LOWER(frequency) LIKE '%mens%'
+            AND created_at >= NOW() - INTERVAL '7 days'
+        )
+
+        OR (
+            LOWER(frequency) LIKE '%trimes%'
+            AND created_at >= NOW() - INTERVAL '7 days'
+        )
+
+        OR (
+            LOWER(frequency) LIKE '%semes%'
+            AND created_at >= NOW() - INTERVAL '7 days'
+        )
+
+        OR (
+            LOWER(frequency) LIKE '%ann%'
+            AND created_at >= NOW() - INTERVAL '7 days'
+        )
     )
-    ORDER BY CASE status WHEN 'en_cours' THEN 0 ELSE 1 END, created_at DESC
-    """, (user["id"],))
+    """
+
+    query += """
+    ORDER BY 
+    CASE status WHEN 'en_cours' THEN 0 ELSE 1 END,
+    created_at DESC
+    """
+
+    c.execute(query, params)
     tasks = c.fetchall()
 
+    # SCORE
     c.execute("""
         SELECT COALESCE(SUM(points),0) AS score
         FROM tasks
@@ -1268,7 +1317,8 @@ def operator_dashboard():
         "operator_dashboard.html",
         me=user,
         tasks=tasks,
-        score_total=score
+        score_total=score,
+        current_freq=freq
     )
 # -------------------------------------------------------
 # REDIRECTION PLATEFORME SELON UTILISATEUR
