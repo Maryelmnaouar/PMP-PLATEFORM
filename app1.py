@@ -1254,8 +1254,8 @@ def operator_dashboard():
 
     # 🎯 FILTRE PAR BOUTON
     if freq:
-        query += " AND LOWER(frequency) LIKE %s"
-        params.append(f"%{freq.lower()}%")
+        query += " AND LOWER(COALESCE(frequency,' ')) LIKE %s"
+        params.append(freq + "%")
 
     # 🎯 GESTION EXPIRATION PAR FREQUENCE
     query += """
