@@ -1,760 +1,1492 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>PMP – Maintenance Industrielle</title>
-
-<link rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-
-<style>
-
-:root{
-    --red:#e41b13;
-    --red-dark:#b51212;
-    --black:#101418;
-    --black-2:#171c21;
-    --black-3:#20262c;
-    --grey:#9da4aa;
-    --white:#ffffff;
-    --border:rgba(255,255,255,.08);
-}
-
-*{
-    box-sizing:border-box;
-}
-
-body{
-    margin:0;
-    font-family:"Segoe UI",Arial,sans-serif;
-    background:#f4f5f6;
-    color:#20252a;
-}
-
-/* =====================================================
-   SIDEBAR
-===================================================== */
-
-.sidebar{
-    position:fixed;
-    left:0;
-    top:0;
-    width:245px;
-    height:100vh;
-
-    background:
-        linear-gradient(
-            180deg,
-            #171c21 0%,
-            #111519 100%
-        );
-
-    color:white;
-    z-index:1000;
-
-    box-shadow:5px 0 25px rgba(0,0,0,.18);
-
-    overflow-y:auto;
-}
-
-.sidebar-header{
-    height:70px;
-    display:flex;
-    align-items:center;
-    gap:12px;
-
-    padding:0 18px;
-
-    border-bottom:1px solid var(--border);
-}
-
-.sidebar-logo{
-    width:36px;
-    height:36px;
-    object-fit:contain;
-}
-
-.sidebar-title{
-    font-size:21px;
-    font-weight:800;
-    letter-spacing:.5px;
-}
-
-/* MENU */
-
-.menu{
-    padding:14px 9px;
-}
-
-.menu-section{
-    color:#6f777d;
-    font-size:10px;
-    text-transform:uppercase;
-    font-weight:700;
-
-    padding:15px 12px 7px;
-    letter-spacing:1px;
-}
-
-.menu a{
-    display:flex;
-    align-items:center;
-    gap:12px;
 
-    color:#d6d9dc;
-    text-decoration:none;
+    <meta charset="UTF-8">
 
-    padding:10px 13px;
-    margin:2px 0;
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
 
-    border-radius:5px;
+    <title>PMP - Digital Maintenance Platform</title>
 
-    font-size:13px;
+    <!-- Font Awesome -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 
-    transition:.2s;
-}
+    <style>
 
-.menu a i{
-    width:18px;
-    text-align:center;
-    font-size:13px;
-}
+        /* =========================================================
+           GLOBAL
+        ========================================================= */
 
-.menu a:hover{
-    background:#252c32;
-    color:white;
-}
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-.menu a.active{
-    background:linear-gradient(
-        90deg,
-        #d91612,
-        #ed241d
-    );
+        :root {
 
-    color:white;
+            --red: #e31b23;
+            --red-dark: #b80f16;
+            --red-light: #fff0f1;
 
-    box-shadow:
-        0 4px 12px rgba(228,27,19,.25);
-}
+            --black: #10161b;
+            --black-2: #151c22;
+            --black-3: #1d252c;
 
-.menu a.sub{
-    padding-left:43px;
-    font-size:12px;
-    color:#aeb4b8;
-}
+            --white: #ffffff;
 
-.menu a.sub:hover{
-    color:white;
-}
+            --text: #182027;
+            --text-light: #6b747c;
 
-/* =====================================================
-   MAIN
-===================================================== */
+            --background: #f3f5f6;
+            --border: #e3e7ea;
 
-.main{
-    margin-left:245px;
-    min-height:100vh;
-}
+        }
 
-/* TOP BAR */
+        body {
 
-.topbar{
-    height:70px;
+            font-family:
+                "Segoe UI",
+                Arial,
+                Helvetica,
+                sans-serif;
 
-    background:white;
+            background: var(--background);
 
-    border-bottom:1px solid #e5e7e9;
+            color: var(--text);
 
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
+            min-height: 100vh;
 
-    padding:0 35px;
-}
+        }
 
-.breadcrumb{
-    color:#777;
-    font-size:13px;
-}
 
-.breadcrumb strong{
-    color:#222;
-}
+        /* =========================================================
+           SIDEBAR
+        ========================================================= */
 
-.top-logos{
-    display:flex;
-    align-items:center;
-    gap:18px;
-}
+        .sidebar {
 
-.top-logos img{
-    max-height:38px;
-    max-width:120px;
-    object-fit:contain;
-}
+            position: fixed;
 
-/* =====================================================
-   HERO
-===================================================== */
+            left: 0;
+            top: 0;
 
-.hero{
-    position:relative;
+            width: 245px;
+            height: 100vh;
 
-    margin:32px 35px 25px;
+            background:
+                linear-gradient(
+                    180deg,
+                    #11181e 0%,
+                    #0b1116 100%
+                );
 
-    min-height:360px;
+            color: white;
 
-    border-radius:18px;
+            z-index: 1000;
 
-    overflow:hidden;
+            overflow-y: auto;
 
-    background:
-        linear-gradient(
-            110deg,
-            rgba(15,19,23,.98) 0%,
-            rgba(25,30,35,.95) 48%,
-            rgba(60,15,15,.90) 100%
-        );
+            box-shadow:
+                5px 0 25px rgba(0,0,0,.20);
 
-    box-shadow:
-        0 15px 40px rgba(0,0,0,.15);
+        }
 
-    display:flex;
-    align-items:center;
-}
 
-.hero-content{
-    width:58%;
-    padding:45px;
-    color:white;
-    position:relative;
-    z-index:2;
-}
+        /* HEADER SIDEBAR */
 
-.hero-tag{
-    display:inline-flex;
-    align-items:center;
-    gap:8px;
+        .sidebar-header {
 
-    background:rgba(228,27,19,.15);
-    border:1px solid rgba(228,27,19,.45);
+            height: 82px;
 
-    color:#ff6a63;
+            display: flex;
 
-    padding:7px 13px;
+            align-items: center;
 
-    border-radius:20px;
+            padding: 0 18px;
 
-    font-size:12px;
-    font-weight:700;
+            gap: 12px;
 
-    margin-bottom:18px;
-}
+            border-bottom:
+                1px solid rgba(255,255,255,.08);
 
-.hero h1{
-    font-size:42px;
-    line-height:1.1;
-    margin:0 0 15px;
+        }
 
-    font-weight:800;
-}
 
-.hero h1 span{
-    color:var(--red);
-}
+        .sidebar-logo {
 
-.hero p{
-    font-size:16px;
-    line-height:1.7;
+            width: 45px;
+            height: 45px;
 
-    color:#c7ccd0;
+            object-fit: contain;
 
-    max-width:650px;
+        }
 
-    margin-bottom:25px;
-}
 
-.hero-buttons{
-    display:flex;
-    gap:12px;
-    flex-wrap:wrap;
-}
+        .brand {
 
-.btn-primary{
-    display:inline-flex;
-    align-items:center;
-    gap:9px;
+            display: flex;
 
-    background:var(--red);
-    color:white;
+            flex-direction: column;
 
-    text-decoration:none;
+        }
 
-    padding:12px 20px;
 
-    border-radius:8px;
+        .brand-name {
 
-    font-weight:700;
-    font-size:13px;
+            font-size: 23px;
 
-    transition:.2s;
-}
+            font-weight: 800;
 
-.btn-primary:hover{
-    background:#ff2c24;
-    transform:translateY(-2px);
-}
+            letter-spacing: .5px;
 
-.btn-secondary{
-    display:inline-flex;
-    align-items:center;
-    gap:9px;
+        }
 
-    color:white;
 
-    border:1px solid rgba(255,255,255,.2);
+        .brand-subtitle {
 
-    padding:12px 20px;
+            font-size: 10px;
 
-    border-radius:8px;
+            color: #aeb5ba;
 
-    text-decoration:none;
+            letter-spacing: .4px;
 
-    font-size:13px;
+        }
 
-    transition:.2s;
-}
 
-.btn-secondary:hover{
-    background:rgba(255,255,255,.08);
-}
+        /* MENU */
 
-/* HERO VISUAL */
+        .menu {
 
-.hero-visual{
-    position:absolute;
-    right:0;
-    top:0;
+            padding: 13px 8px 25px;
 
-    width:45%;
-    height:100%;
+        }
 
-    display:flex;
-    justify-content:center;
-    align-items:center;
-}
 
-.hero-visual::before{
-    content:"";
+        .menu-section {
 
-    position:absolute;
+            font-size: 10px;
 
-    width:360px;
-    height:360px;
+            text-transform: uppercase;
 
-    border-radius:50%;
+            color: #697279;
 
-    background:
-        radial-gradient(
-            circle,
-            rgba(228,27,19,.22),
-            transparent 68%
-        );
-}
+            letter-spacing: 1.2px;
 
-.hero-visual img{
-    position:relative;
+            font-weight: 700;
 
-    max-height:280px;
-    max-width:80%;
+            padding:
 
-    object-fit:contain;
+                16px 13px
+                7px;
 
-    filter:
-        drop-shadow(0 20px 30px rgba(0,0,0,.5));
+        }
 
-    animation:float 4s ease-in-out infinite;
-}
 
-@keyframes float{
+        .menu-item {
 
-    0%,100%{
-        transform:translateY(0);
-    }
+            display: flex;
 
-    50%{
-        transform:translateY(-10px);
-    }
+            align-items: center;
 
-}
+            gap: 13px;
 
-/* =====================================================
-   SECTION TITLE
-===================================================== */
+            min-height: 42px;
 
-.section{
-    margin:0 35px 30px;
-}
+            padding: 10px 13px;
 
-.section-title{
-    display:flex;
-    justify-content:space-between;
-    align-items:end;
+            margin: 2px 0;
 
-    margin-bottom:15px;
-}
+            border-radius: 7px;
 
-.section-title h2{
-    margin:0;
+            color: #dce1e4;
 
-    font-size:21px;
+            text-decoration: none;
 
-    color:#20252a;
-}
+            font-size: 13px;
 
-.section-title p{
-    margin:5px 0 0;
+            transition:
+                background .2s ease,
+                color .2s ease,
+                transform .2s ease;
 
-    color:#7c848a;
+        }
 
-    font-size:13px;
-}
 
-/* =====================================================
-   MODULE CARDS
-===================================================== */
+        .menu-item i {
 
-.modules{
-    display:grid;
+            width: 19px;
 
-    grid-template-columns:
-        repeat(4,1fr);
+            text-align: center;
 
-    gap:18px;
-}
+            font-size: 14px;
 
-.module{
-    background:white;
+        }
 
-    border-radius:13px;
 
-    padding:22px;
+        .menu-item:hover {
 
-    border:1px solid #e7e9eb;
+            background:
+                rgba(255,255,255,.07);
 
-    transition:.25s;
+            color: white;
 
-    position:relative;
+        }
 
-    overflow:hidden;
-}
 
-.module::after{
-    content:"";
+        .menu-item.active {
 
-    position:absolute;
+            background:
+                linear-gradient(
+                    90deg,
+                    #d9141b,
+                    #ef252d
+                );
 
-    left:0;
-    bottom:0;
+            color: white;
 
-    width:100%;
-    height:3px;
+            box-shadow:
+                0 5px 15px
+                rgba(227,27,35,.30);
 
-    background:var(--red);
+        }
 
-    transform:scaleX(0);
 
-    transform-origin:left;
+        .menu-item.active i {
 
-    transition:.25s;
-}
+            color: white;
 
-.module:hover{
-    transform:translateY(-5px);
+        }
 
-    box-shadow:
-        0 12px 30px rgba(0,0,0,.10);
-}
 
-.module:hover::after{
-    transform:scaleX(1);
-}
+        /* SUBMENU */
 
-.module-icon{
-    width:46px;
-    height:46px;
+        .submenu {
 
-    display:flex;
-    align-items:center;
-    justify-content:center;
+            margin-left: 21px;
 
-    border-radius:10px;
+            border-left:
+                1px solid rgba(255,255,255,.12);
 
-    background:#fff0ef;
+            padding-left: 8px;
 
-    color:var(--red);
+            margin-top: 2px;
 
-    font-size:20px;
+            margin-bottom: 5px;
 
-    margin-bottom:15px;
-}
+        }
 
-.module h3{
-    margin:0 0 8px;
 
-    font-size:16px;
-}
+        .submenu a {
 
-.module p{
-    margin:0;
+            display: flex;
 
-    color:#747b80;
+            align-items: center;
 
-    font-size:12px;
+            gap: 9px;
 
-    line-height:1.6;
-}
+            text-decoration: none;
 
-/* =====================================================
-   PRESENTATION
-===================================================== */
+            color: #aeb6bc;
 
-.presentation{
-    display:grid;
+            font-size: 12px;
 
-    grid-template-columns:
-        1.1fr .9fr;
+            padding: 8px 10px;
 
-    gap:20px;
+            border-radius: 5px;
 
-    margin-top:20px;
-}
+        }
 
-.info-card{
-    background:white;
 
-    border:1px solid #e7e9eb;
+        .submenu a:hover {
 
-    border-radius:14px;
+            color: white;
 
-    padding:25px;
-}
+            background:
+                rgba(255,255,255,.06);
 
-.info-card h2{
-    margin:0 0 12px;
+        }
 
-    font-size:20px;
-}
 
-.info-card h2 i{
-    color:var(--red);
-    margin-right:8px;
-}
+        .submenu a::before {
 
-.info-card p{
-    color:#666;
+            content: "";
 
-    font-size:13px;
+            width: 4px;
+            height: 4px;
 
-    line-height:1.8;
-}
+            border-radius: 50%;
 
-.features{
-    display:grid;
+            background: #697279;
 
-    grid-template-columns:
-        repeat(2,1fr);
+        }
 
-    gap:12px;
 
-    margin-top:18px;
-}
+        /* SIDEBAR BOTTOM IMAGE */
 
-.feature{
-    display:flex;
-    align-items:center;
+        .sidebar-promo {
 
-    gap:10px;
+            margin:
+                20px 10px 0;
 
-    background:#f7f8f9;
+            height: 190px;
 
-    padding:12px;
+            border-radius: 10px;
 
-    border-radius:8px;
+            overflow: hidden;
 
-    font-size:12px;
+            position: relative;
 
-    color:#555;
-}
+            background:
+                linear-gradient(
+                    180deg,
+                    transparent,
+                    rgba(0,0,0,.75)
+                );
 
-.feature i{
-    color:var(--red);
-}
+        }
 
-/* =====================================================
-   KPI STRIP
-===================================================== */
 
-.kpi-strip{
-    margin-top:20px;
+        .sidebar-promo img {
 
-    display:grid;
+            width: 100%;
+            height: 100%;
 
-    grid-template-columns:
-        repeat(3,1fr);
+            object-fit: cover;
 
-    gap:15px;
-}
+            opacity: .82;
 
-.kpi{
-    background:#171c21;
+        }
 
-    color:white;
 
-    padding:20px;
+        .sidebar-promo-overlay {
 
-    border-radius:12px;
+            position: absolute;
 
-    display:flex;
-    align-items:center;
+            left: 13px;
+            right: 13px;
+            bottom: 12px;
 
-    gap:15px;
-}
+            color: white;
 
-.kpi i{
-    font-size:25px;
+        }
 
-    color:var(--red);
-}
 
-.kpi strong{
-    display:block;
+        .sidebar-promo-overlay strong {
 
-    font-size:18px;
-}
+            display: block;
 
-.kpi span{
-    color:#9fa5aa;
+            font-size: 17px;
 
-    font-size:11px;
-}
+            font-style: italic;
 
-/* =====================================================
-   FOOTER
-===================================================== */
+        }
 
-.footer{
-    text-align:center;
 
-    color:#92989d;
+        .sidebar-promo-overlay span {
 
-    font-size:11px;
+            color: #ff3038;
 
-    padding:25px;
-}
+            font-size: 12px;
 
-/* =====================================================
-   RESPONSIVE
-===================================================== */
+            font-weight: 700;
 
-@media(max-width:1000px){
+        }
 
-    .modules{
-        grid-template-columns:
-            repeat(2,1fr);
-    }
 
-    .hero-content{
-        width:70%;
-    }
+        /* =========================================================
+           MAIN
+        ========================================================= */
 
-    .hero-visual{
-        opacity:.35;
-    }
+        .main {
 
-}
+            margin-left: 245px;
 
-@media(max-width:700px){
+            min-height: 100vh;
 
-    .sidebar{
-        width:70px;
-    }
+        }
 
-    .sidebar-title,
-    .menu a span,
-    .menu-section{
-        display:none;
-    }
 
-    .sidebar-header{
-        justify-content:center;
-        padding:0;
-    }
+        /* =========================================================
+           TOPBAR
+        ========================================================= */
 
-    .menu a{
-        justify-content:center;
-        padding:13px;
-    }
+        .topbar {
 
-    .menu a i{
-        width:auto;
-        font-size:17px;
-    }
+            height: 64px;
 
-    .main{
-        margin-left:70px;
-    }
+            background: white;
 
-    .topbar{
-        padding:0 15px;
-    }
+            display: flex;
 
-    .top-logos{
-        display:none;
-    }
+            align-items: center;
 
-    .hero{
-        margin:20px 15px;
-    }
+            justify-content: space-between;
 
-    .hero-content{
-        width:100%;
-        padding:30px;
-    }
+            padding:
+                0 28px;
 
-    .hero h1{
-        font-size:30px;
-    }
+            border-bottom:
+                1px solid var(--border);
 
-    .hero-visual{
-        display:none;
-    }
+            position: sticky;
 
-    .section{
-        margin:0 15px 20px;
-    }
+            top: 0;
 
-    .modules,
-    .presentation,
-    .kpi-strip{
-        grid-template-columns:1fr;
-    }
-}
+            z-index: 900;
 
-</style>
+        }
+
+
+        .top-left {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 17px;
+
+        }
+
+
+        .hamburger {
+
+            font-size: 20px;
+
+            color: #1b2329;
+
+        }
+
+
+        .page-title {
+
+            font-size: 18px;
+
+            font-weight: 700;
+
+        }
+
+
+        .top-right {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 20px;
+
+        }
+
+
+        .company-logo {
+
+            max-width: 110px;
+
+            max-height: 37px;
+
+            object-fit: contain;
+
+        }
+
+
+        .company-logo.cobomi {
+
+            max-width: 105px;
+
+        }
+
+
+        .top-separator {
+
+            height: 35px;
+
+            width: 1px;
+
+            background: #e3e5e7;
+
+        }
+
+
+        .notification {
+
+            position: relative;
+
+            font-size: 18px;
+
+            color: #293139;
+
+        }
+
+
+        .notification-badge {
+
+            position: absolute;
+
+            right: -7px;
+
+            top: -8px;
+
+            background: var(--red);
+
+            color: white;
+
+            width: 16px;
+
+            height: 16px;
+
+            display: flex;
+
+            justify-content: center;
+
+            align-items: center;
+
+            border-radius: 50%;
+
+            font-size: 9px;
+
+            font-weight: 700;
+
+        }
+
+
+        .profile {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 9px;
+
+        }
+
+
+        .avatar {
+
+            width: 37px;
+
+            height: 37px;
+
+            border-radius: 50%;
+
+            background: var(--black);
+
+            color: white;
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            font-size: 12px;
+
+            font-weight: 700;
+
+        }
+
+
+        .profile-info strong {
+
+            display: block;
+
+            font-size: 12px;
+
+        }
+
+
+        .profile-info span {
+
+            display: block;
+
+            font-size: 10px;
+
+            color: #7a8288;
+
+        }
+
+
+        /* =========================================================
+           HERO
+        ========================================================= */
+
+        .hero {
+
+            min-height: 390px;
+
+            position: relative;
+
+            overflow: hidden;
+
+            display: flex;
+
+            align-items: center;
+
+            background:
+
+                linear-gradient(
+                    90deg,
+                    rgba(7,12,16,.98) 0%,
+                    rgba(12,17,22,.92) 45%,
+                    rgba(10,15,19,.35) 100%
+                ),
+
+                url("{{ url_for('static', filename='images/coca_bottle.png') }}");
+
+            background-size: auto, 560px;
+
+            background-repeat: no-repeat;
+
+            background-position:
+                center,
+                right 40px center;
+
+        }
+
+
+        .hero::before {
+
+            content: "";
+
+            position: absolute;
+
+            left: 0;
+
+            top: 0;
+
+            width: 250px;
+
+            height: 100%;
+
+            background:
+                linear-gradient(
+                    135deg,
+                    var(--red) 0%,
+                    rgba(227,27,35,.55) 38%,
+                    transparent 70%
+                );
+
+            opacity: .8;
+
+        }
+
+
+        .hero-content {
+
+            position: relative;
+
+            z-index: 3;
+
+            width: 60%;
+
+            padding:
+                55px 45px;
+
+            color: white;
+
+        }
+
+
+        .hero-label {
+
+            color: #ff3139;
+
+            font-size: 13px;
+
+            font-weight: 700;
+
+            letter-spacing: 2px;
+
+            margin-bottom: 15px;
+
+        }
+
+
+        .hero h1 {
+
+            font-size: 43px;
+
+            line-height: 1.08;
+
+            margin-bottom: 18px;
+
+            font-weight: 800;
+
+        }
+
+
+        .hero h1 span {
+
+            color: #f3262e;
+
+        }
+
+
+        .hero-description {
+
+            max-width: 650px;
+
+            font-size: 15px;
+
+            line-height: 1.7;
+
+            color: #d4d8da;
+
+            margin-bottom: 23px;
+
+        }
+
+
+        .hero-highlights {
+
+            display: flex;
+
+            flex-wrap: wrap;
+
+            gap: 24px;
+
+            margin-bottom: 27px;
+
+        }
+
+
+        .hero-highlight {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 9px;
+
+            font-size: 12px;
+
+            color: #e9ebec;
+
+        }
+
+
+        .hero-highlight i {
+
+            color: #ef252d;
+
+            font-size: 22px;
+
+        }
+
+
+        .hero-buttons {
+
+            display: flex;
+
+            gap: 12px;
+
+            flex-wrap: wrap;
+
+        }
+
+
+        .btn-primary {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            gap: 10px;
+
+            padding:
+                13px 20px;
+
+            border-radius: 8px;
+
+            background: var(--red);
+
+            color: white;
+
+            text-decoration: none;
+
+            font-size: 13px;
+
+            font-weight: 700;
+
+            transition: .2s;
+
+        }
+
+
+        .btn-primary:hover {
+
+            background: #f32830;
+
+            transform: translateY(-2px);
+
+        }
+
+
+        .btn-secondary {
+
+            display: inline-flex;
+
+            align-items: center;
+
+            gap: 10px;
+
+            padding:
+                12px 19px;
+
+            border-radius: 8px;
+
+            border:
+                1px solid rgba(255,255,255,.55);
+
+            color: white;
+
+            text-decoration: none;
+
+            font-size: 13px;
+
+            transition: .2s;
+
+        }
+
+
+        .btn-secondary:hover {
+
+            background:
+                rgba(255,255,255,.08);
+
+        }
+
+
+        /* =========================================================
+           CONTENT
+        ========================================================= */
+
+        .content {
+
+            padding:
+                25px;
+
+        }
+
+
+        /* SECTION HEADER */
+
+        .section-header {
+
+            margin-bottom: 15px;
+
+        }
+
+
+        .section-header h2 {
+
+            font-size: 22px;
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 10px;
+
+        }
+
+
+        .section-header h2::before {
+
+            content: "";
+
+            width: 5px;
+
+            height: 28px;
+
+            background: var(--red);
+
+            border-radius: 4px;
+
+        }
+
+
+        .section-header p {
+
+            margin-left: 15px;
+
+            margin-top: 4px;
+
+            color: var(--text-light);
+
+            font-size: 12px;
+
+        }
+
+
+        /* =========================================================
+           MODULES
+        ========================================================= */
+
+        .modules {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(4, 1fr);
+
+            gap: 15px;
+
+        }
+
+
+        .module-card {
+
+            background: white;
+
+            border:
+                1px solid var(--border);
+
+            border-radius: 12px;
+
+            padding: 21px;
+
+            min-height: 190px;
+
+            position: relative;
+
+            transition:
+                transform .2s,
+                box-shadow .2s;
+
+        }
+
+
+        .module-card:hover {
+
+            transform:
+                translateY(-4px);
+
+            box-shadow:
+                0 12px 30px
+                rgba(0,0,0,.09);
+
+        }
+
+
+        .module-icon {
+
+            width: 52px;
+
+            height: 52px;
+
+            border-radius: 13px;
+
+            background:
+                var(--red-light);
+
+            color: var(--red);
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            font-size: 22px;
+
+            margin-bottom: 14px;
+
+        }
+
+
+        .module-card h3 {
+
+            font-size: 15px;
+
+            margin-bottom: 8px;
+
+        }
+
+
+        .module-card p {
+
+            font-size: 12px;
+
+            line-height: 1.65;
+
+            color: var(--text-light);
+
+        }
+
+
+        .card-arrow {
+
+            position: absolute;
+
+            right: 15px;
+
+            bottom: 15px;
+
+            width: 27px;
+
+            height: 27px;
+
+            border-radius: 50%;
+
+            background:
+                var(--red-light);
+
+            color: var(--red);
+
+            display: flex;
+
+            align-items: center;
+
+            justify-content: center;
+
+            font-size: 11px;
+
+        }
+
+
+        /* =========================================================
+           LOWER CONTENT
+        ========================================================= */
+
+        .lower-grid {
+
+            display: grid;
+
+            grid-template-columns:
+                1.15fr .85fr;
+
+            gap: 17px;
+
+            margin-top: 18px;
+
+        }
+
+
+        .panel {
+
+            background: white;
+
+            border:
+                1px solid var(--border);
+
+            border-radius: 13px;
+
+            padding: 22px;
+
+        }
+
+
+        .panel-title {
+
+            display: flex;
+
+            align-items: center;
+
+            gap: 10px;
+
+            font-size: 20px;
+
+            margin-bottom: 12px;
+
+        }
+
+
+        .panel-title::before {
+
+            content: "";
+
+            width: 5px;
+
+            height: 24px;
+
+            border-radius: 3px;
+
+            background: var(--red);
+
+        }
+
+
+        .panel p {
+
+            color: #59636b;
+
+            font-size: 13px;
+
+            line-height: 1.7;
+
+        }
+
+
+        /* BENEFITS */
+
+        .benefits {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(4, 1fr);
+
+            gap: 10px;
+
+            margin-top: 18px;
+
+        }
+
+
+        .benefit {
+
+            border:
+                1px solid #edf0f2;
+
+            border-radius: 9px;
+
+            padding: 15px 10px;
+
+            text-align: center;
+
+        }
+
+
+        .benefit i {
+
+            color: var(--red);
+
+            font-size: 22px;
+
+            margin-bottom: 9px;
+
+        }
+
+
+        .benefit strong {
+
+            display: block;
+
+            font-size: 11px;
+
+            line-height: 1.4;
+
+        }
+
+
+        /* ENVIRONMENT IMAGE */
+
+        .environment-image {
+
+            width: 100%;
+
+            height: 225px;
+
+            border-radius: 10px;
+
+            object-fit: cover;
+
+            margin-top: 3px;
+
+            background: #eee;
+
+        }
+
+
+        .environment-points {
+
+            display: grid;
+
+            grid-template-columns:
+                repeat(3,1fr);
+
+            gap: 8px;
+
+            margin-top: 12px;
+
+        }
+
+
+        .environment-point {
+
+            text-align: center;
+
+            font-size: 10px;
+
+            color: #667078;
+
+        }
+
+
+        .environment-point i {
+
+            display: block;
+
+            font-size: 20px;
+
+            color: var(--red);
+
+            margin-bottom: 5px;
+
+        }
+
+
+        /* =========================================================
+           QUOTE
+        ========================================================= */
+
+        .quote {
+
+            margin-top: 18px;
+
+            padding:
+                15px 20px;
+
+            border-radius: 10px;
+
+            background:
+                linear-gradient(
+                    90deg,
+                    #f7f8f9,
+                    #ffffff
+                );
+
+            border-left:
+                4px solid var(--red);
+
+            color: #353d43;
+
+            font-size: 14px;
+
+            font-weight: 600;
+
+        }
+
+
+        .quote i {
+
+            color: var(--red);
+
+            font-size: 20px;
+
+            margin-right: 8px;
+
+        }
+
+
+        /* =========================================================
+           FOOTER
+        ========================================================= */
+
+        .footer {
+
+            margin-top: 8px;
+
+            border-top:
+                1px solid var(--border);
+
+            padding:
+                18px 25px;
+
+            display: flex;
+
+            justify-content: space-between;
+
+            color: #727c83;
+
+            font-size: 10px;
+
+        }
+
+
+        /* =========================================================
+           RESPONSIVE
+        ========================================================= */
+
+        @media(max-width:1200px) {
+
+            .modules {
+
+                grid-template-columns:
+                    repeat(2,1fr);
+
+            }
+
+            .hero-content {
+
+                width: 70%;
+
+            }
+
+        }
+
+
+        @media(max-width:900px) {
+
+            .sidebar {
+
+                width: 72px;
+
+            }
+
+            .sidebar-header {
+
+                justify-content: center;
+
+                padding: 0;
+
+            }
+
+            .brand {
+
+                display: none;
+
+            }
+
+            .menu-item span,
+            .menu-section {
+
+                display: none;
+
+            }
+
+            .menu-item {
+
+                justify-content: center;
+
+                padding:
+                    12px;
+
+            }
+
+            .submenu {
+
+                display: none;
+
+            }
+
+            .sidebar-promo {
+
+                display: none;
+
+            }
+
+            .main {
+
+                margin-left: 72px;
+
+            }
+
+            .lower-grid {
+
+                grid-template-columns: 1fr;
+
+            }
+
+            .hero-content {
+
+                width: 80%;
+
+            }
+
+        }
+
+
+        @media(max-width:650px) {
+
+            .topbar {
+
+                padding:
+                    0 15px;
+
+            }
+
+            .company-logo,
+            .top-separator,
+            .notification,
+            .profile-info {
+
+                display: none;
+
+            }
+
+            .hero {
+
+                min-height: 430px;
+
+                background-position:
+                    center,
+                    right -100px center;
+
+            }
+
+            .hero-content {
+
+                width: 100%;
+
+                padding:
+                    35px 25px;
+
+                background:
+                    rgba(7,12,16,.55);
+
+            }
+
+            .hero h1 {
+
+                font-size: 31px;
+
+            }
+
+            .hero-highlights {
+
+                flex-direction: column;
+
+                gap: 10px;
+
+            }
+
+            .modules {
+
+                grid-template-columns: 1fr;
+
+            }
+
+            .benefits {
+
+                grid-template-columns:
+                    repeat(2,1fr);
+
+            }
+
+            .content {
+
+                padding: 15px;
+
+            }
+
+            .footer {
+
+                flex-direction: column;
+
+                gap: 5px;
+
+            }
+
+        }
+
+    </style>
+
 </head>
 
 
 <body>
 
-<!-- =====================================================
+
+<!-- =========================================================
      SIDEBAR
-===================================================== -->
+========================================================= -->
 
 <aside class="sidebar">
+
 
     <div class="sidebar-header">
 
@@ -763,8 +1495,16 @@ body{
             class="sidebar-logo"
             alt="PMP">
 
-        <div class="sidebar-title">
-            PMP
+        <div class="brand">
+
+            <div class="brand-name">
+                PMP
+            </div>
+
+            <div class="brand-subtitle">
+                Maintenance Platform
+            </div>
+
         </div>
 
     </div>
@@ -772,364 +1512,590 @@ body{
 
     <nav class="menu">
 
-        <div class="menu-section">
-            Navigation
-        </div>
 
-        <a href="{{ url_for('index') }}" class="active">
+        <!-- ACCUEIL -->
+
+        <a href="/index"
+           class="menu-item active">
+
             <i class="fa-solid fa-house"></i>
-            <span>Accueil</span>
+
+            <span>
+                Accueil
+            </span>
+
         </a>
 
 
-        <a href="{{ url_for('platform_redirect') }}">
+        <!-- PREVENTIVE -->
+
+        <a href="/platform"
+           class="menu-item">
+
+            <i class="fa-solid fa-calendar-check"></i>
+
+            <span>
+                Maintenance Préventive
+            </span>
+
+        </a>
+
+
+        <!-- CORRECTIVE -->
+
+        <a href="/me/report"
+           class="menu-item">
+
             <i class="fa-solid fa-screwdriver-wrench"></i>
-            <span>Maintenance Préventive</span>
+
+            <span>
+                Maintenance Corrective
+            </span>
+
         </a>
 
 
-        <a href="{{ url_for('production_dashboard') }}">
-            <i class="fa-solid fa-chart-line"></i>
-            <span>Dashboard AM</span>
-        </a>
+        <!-- MAINTENANCE AUTONOME -->
 
-
-        <a href="{{ url_for('documentation') }}">
-            <i class="fa-solid fa-book"></i>
-            <span>Documentation</span>
-        </a>
-
-
-        <div class="menu-section">
-            Maintenance Autonome
-        </div>
-
-
-        <a href="{{ url_for('operator_dashboard') }}"
-           class="active">
+        <a href="/me"
+           class="menu-item active">
 
             <i class="fa-solid fa-gears"></i>
 
-            <span>Maintenance Autonome</span>
+            <span>
+                Maintenance Autonome
+            </span>
 
         </a>
 
 
-        <a href="{{ url_for('me_report') }}">
+        <div class="submenu">
 
-            <i class="fa-solid fa-triangle-exclamation"></i>
+            <a href="/me">
+                Dashboard AM
+            </a>
 
-            <span>Tags / Anomalies</span>
+            <a href="/me">
+                Nettoyage initial
+            </a>
 
-        </a>
+            <a href="/me/report">
+                Tags / Anomalies
+            </a>
 
+            <!-- À connecter lorsque les checklists seront créées -->
+            <a href="/me">
+                Checklists CIL
+            </a>
 
-        <a href="{{ url_for('operator_dashboard') }}">
+            <a href="/me">
+                Actions & interventions
+            </a>
 
-            <i class="fa-solid fa-list-check"></i>
+            <a href="/me">
+                Audits & progression
+            </a>
 
-            <span>Actions & interventions</span>
-
-        </a>
-
-
-        <a href="{{ url_for('admin_operator_performance') }}">
-
-            <i class="fa-solid fa-chart-simple"></i>
-
-            <span>Audits & progression</span>
-
-        </a>
-
-
-        <div class="menu-section">
-            Performance
         </div>
 
 
-        <a href="{{ url_for('production_dashboard') }}">
+        <!-- SEPARATOR -->
 
-            <i class="fa-solid fa-gauge-high"></i>
+        <div
+            style="
+                height:1px;
+                background:rgba(255,255,255,.08);
+                margin:12px 8px;
+            ">
+        </div>
 
-            <span>Performance (TRS)</span>
+
+        <!-- PIECES -->
+
+        <a href="/documentation"
+           class="menu-item">
+
+            <i class="fa-solid fa-box-open"></i>
+
+            <span>
+                Pièces de rechange
+            </span>
 
         </a>
 
 
-        <a href="{{ url_for('admin_teams') }}">
+        <!-- TRS -->
+
+        <a href="/production"
+           class="menu-item">
+
+            <i class="fa-solid fa-chart-line"></i>
+
+            <span>
+                Performance (TRS)
+            </span>
+
+        </a>
+
+
+        <!-- TPM -->
+
+        <a href="/admin/teams"
+           class="menu-item">
 
             <i class="fa-solid fa-trophy"></i>
 
-            <span>TPM Challenge</span>
+            <span>
+                TPM Challenge
+            </span>
 
         </a>
 
 
-        <a href="{{ url_for('admin_settings') }}">
+        <!-- SETTINGS -->
+
+        <a href="/admin/settings"
+           class="menu-item">
 
             <i class="fa-solid fa-gear"></i>
 
-            <span>Paramètres</span>
+            <span>
+                Paramètres
+            </span>
 
         </a>
 
+
     </nav>
+
+
+    <!-- SIDEBAR PROMO -->
+
+    <div class="sidebar-promo">
+
+        <img
+            src="{{ url_for('static', filename='images/coca_bottle.png') }}"
+            alt="Coca-Cola">
+
+        <div class="sidebar-promo-overlay">
+
+            <strong>
+                Be Refreshing
+            </strong>
+
+            <span>
+                Keep it Running
+            </span>
+
+        </div>
+
+    </div>
+
 
 </aside>
 
 
-<!-- =====================================================
+
+<!-- =========================================================
      MAIN
-===================================================== -->
+========================================================= -->
 
 <main class="main">
 
 
-    <!-- TOP BAR -->
+    <!-- =====================================================
+         TOPBAR
+    ====================================================== -->
 
     <header class="topbar">
 
-        <div class="breadcrumb">
 
-            <i class="fa-solid fa-house"></i>
+        <div class="top-left">
 
-            &nbsp; Accueil
+            <i class="fa-solid fa-bars hamburger"></i>
 
-            <span> / </span>
-
-            <strong>Maintenance Industrielle</strong>
+            <div class="page-title">
+                Accueil
+            </div>
 
         </div>
 
 
-        <div class="top-logos">
+        <div class="top-right">
+
 
             <img
                 src="{{ url_for('static', filename='images/logo_cocacola.png') }}"
+                class="company-logo"
                 alt="Coca-Cola">
+
 
             <img
                 src="{{ url_for('static', filename='images/logo_cobomi.png') }}"
-                alt="Cobomi">
+                class="company-logo cobomi"
+                alt="COBOMI">
+
+
+            <div class="top-separator"></div>
+
+
+            <div class="notification">
+
+                <i class="fa-solid fa-bell"></i>
+
+                <span class="notification-badge">
+                    3
+                </span>
+
+            </div>
+
+
+            <div class="profile">
+
+                <div class="avatar">
+                    ME
+                </div>
+
+                <div class="profile-info">
+
+                    <strong>
+                        Responsable
+                    </strong>
+
+                    <span>
+                        Maintenance
+                    </span>
+
+                </div>
+
+                <i
+                    class="fa-solid fa-chevron-down"
+                    style="font-size:10px;color:#667078;">
+                </i>
+
+            </div>
+
 
         </div>
+
 
     </header>
 
 
 
-    <!-- =================================================
+    <!-- =====================================================
          HERO
-    ================================================== -->
+    ====================================================== -->
 
     <section class="hero">
 
 
         <div class="hero-content">
 
-            <div class="hero-tag">
 
-                <i class="fa-solid fa-industry"></i>
+            <div class="hero-label">
 
-                DIGITAL MAINTENANCE PLATFORM
+                PMP – DIGITAL MAINTENANCE PLATFORM
 
             </div>
 
 
             <h1>
 
-                Une nouvelle génération de
+                Une maintenance plus sûre,
 
-                <span>maintenance industrielle</span>
+                <br>
+
+                plus fiable,
+
+                <span>
+                    plus performante
+                </span>
 
             </h1>
 
 
-            <p>
+            <p class="hero-description">
 
-                La plateforme PMP centralise la maintenance préventive,
-                la maintenance autonome, le suivi des anomalies,
-                les indicateurs de performance et la progression
-                des équipes dans un environnement digital unique.
+                Digitalisons ensemble nos activités de maintenance
+                pour assurer la disponibilité de nos équipements,
+                développer l'implication des équipes et construire
+                une performance durable.
 
             </p>
 
 
+            <div class="hero-highlights">
+
+
+                <div class="hero-highlight">
+
+                    <i class="fa-solid fa-users"></i>
+
+                    <span>
+                        Des équipes engagées
+                    </span>
+
+                </div>
+
+
+                <div class="hero-highlight">
+
+                    <i class="fa-solid fa-chart-simple"></i>
+
+                    <span>
+                        Des équipements fiables
+                    </span>
+
+                </div>
+
+
+                <div class="hero-highlight">
+
+                    <i class="fa-solid fa-leaf"></i>
+
+                    <span>
+                        Une production durable
+                    </span>
+
+                </div>
+
+
+            </div>
+
+
             <div class="hero-buttons">
 
-                <a
-                    href="{{ url_for('platform_redirect') }}"
-                    class="btn-primary">
 
-                    <i class="fa-solid fa-arrow-right"></i>
+                <a
+                    href="/platform"
+                    class="btn-primary">
 
                     Accéder à la plateforme
 
+                    <i class="fa-solid fa-arrow-right"></i>
+
                 </a>
 
 
                 <a
-                    href="{{ url_for('documentation') }}"
+                    href="/documentation"
                     class="btn-secondary">
 
-                    <i class="fa-solid fa-book"></i>
+                    <i class="fa-solid fa-play"></i>
 
-                    Documentation
+                    Voir la documentation
 
                 </a>
 
+
             </div>
 
-        </div>
-
-
-        <div class="hero-visual">
-
-            <img
-                src="{{ url_for('static', filename='images/coca_bottle.png') }}"
-                alt="Maintenance industrielle">
 
         </div>
+
 
     </section>
 
 
 
-    <!-- =================================================
-         MODULES
-    ================================================== -->
+    <!-- =====================================================
+         CONTENT
+    ====================================================== -->
 
-    <section class="section">
+    <div class="content">
 
 
-        <div class="section-title">
+        <!-- MODULES -->
 
-            <div>
+        <section>
+
+
+            <div class="section-header">
 
                 <h2>
-                    Les modules de la plateforme
+                    Nos modules
                 </h2>
 
                 <p>
-                    Une vision centralisée de la performance maintenance.
-                </p>
-
-            </div>
-
-        </div>
-
-
-        <div class="modules">
-
-
-            <div class="module">
-
-                <div class="module-icon">
-
-                    <i class="fa-solid fa-calendar-check"></i>
-
-                </div>
-
-                <h3>
-                    Maintenance Préventive
-                </h3>
-
-                <p>
-                    Planification et suivi des PMP,
-                    affectation automatique des tâches
-                    et suivi de leur réalisation.
+                    Tout ce dont vous avez besoin pour une maintenance performante
                 </p>
 
             </div>
 
 
+            <div class="modules">
 
-            <div class="module">
 
-                <div class="module-icon">
+                <!-- CARD 1 -->
 
-                    <i class="fa-solid fa-gears"></i>
+                <a
+                    href="/platform"
+                    style="text-decoration:none;color:inherit;">
 
-                </div>
+                    <div class="module-card">
 
-                <h3>
-                    Maintenance Autonome
-                </h3>
+                        <div class="module-icon">
 
-                <p>
-                    Impliquer les opérateurs dans les
-                    inspections, contrôles et actions
-                    quotidiennes sur les équipements.
-                </p>
+                            <i class="fa-solid fa-calendar-check"></i>
+
+                        </div>
+
+                        <h3>
+                            Maintenance Préventive
+                        </h3>
+
+                        <p>
+
+                            Planification et suivi des PMP
+                            pour assurer la disponibilité
+                            des équipements.
+
+                        </p>
+
+                        <div class="card-arrow">
+
+                            <i class="fa-solid fa-arrow-right"></i>
+
+                        </div>
+
+                    </div>
+
+                </a>
+
+
+
+                <!-- CARD 2 -->
+
+                <a
+                    href="/me"
+                    style="text-decoration:none;color:inherit;">
+
+                    <div class="module-card">
+
+                        <div class="module-icon">
+
+                            <i class="fa-solid fa-gears"></i>
+
+                        </div>
+
+                        <h3>
+                            Maintenance Autonome
+                        </h3>
+
+                        <p>
+
+                            Implication des opérateurs dans
+                            le nettoyage, l'inspection et les
+                            contrôles quotidiens.
+
+                        </p>
+
+                        <div class="card-arrow">
+
+                            <i class="fa-solid fa-arrow-right"></i>
+
+                        </div>
+
+                    </div>
+
+                </a>
+
+
+
+                <!-- CARD 3 -->
+
+                <a
+                    href="/me/report"
+                    style="text-decoration:none;color:inherit;">
+
+                    <div class="module-card">
+
+                        <div class="module-icon">
+
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+
+                        </div>
+
+                        <h3>
+                            Tags / Anomalies
+                        </h3>
+
+                        <p>
+
+                            Déclaration et suivi des anomalies
+                            pour une réaction rapide et efficace.
+
+                        </p>
+
+                        <div class="card-arrow">
+
+                            <i class="fa-solid fa-arrow-right"></i>
+
+                        </div>
+
+                    </div>
+
+                </a>
+
+
+
+                <!-- CARD 4 -->
+
+                <a
+                    href="/production"
+                    style="text-decoration:none;color:inherit;">
+
+                    <div class="module-card">
+
+                        <div class="module-icon">
+
+                            <i class="fa-solid fa-chart-line"></i>
+
+                        </div>
+
+                        <h3>
+                            Performance (TRS)
+                        </h3>
+
+                        <p>
+
+                            Suivi des indicateurs clés
+                            et analyse de la performance
+                            des lignes de production.
+
+                        </p>
+
+                        <div class="card-arrow">
+
+                            <i class="fa-solid fa-arrow-right"></i>
+
+                        </div>
+
+                    </div>
+
+                </a>
+
 
             </div>
 
-
-
-            <div class="module">
-
-                <div class="module-icon">
-
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-
-                </div>
-
-                <h3>
-                    Anomalies & Tags
-                </h3>
-
-                <p>
-                    Identifier rapidement les anomalies,
-                    les signaler et assurer leur suivi
-                    jusqu'à leur traitement.
-                </p>
-
-            </div>
+        </section>
 
 
 
-            <div class="module">
+        <!-- =================================================
+             LOWER GRID
+        ================================================== -->
 
-                <div class="module-icon">
-
-                    <i class="fa-solid fa-chart-line"></i>
-
-                </div>
-
-                <h3>
-                    Performance & TRS
-                </h3>
-
-                <p>
-                    Suivre les indicateurs clés,
-                    analyser la performance et améliorer
-                    continuellement les résultats.
-                </p>
-
-            </div>
+        <div class="lower-grid">
 
 
-        </div>
+            <!-- À PROPOS -->
 
-    </section>
-
-
-
-    <!-- =================================================
-         PRESENTATION
-    ================================================== -->
-
-    <section class="section">
+            <section class="panel">
 
 
-        <div class="presentation">
-
-
-            <div class="info-card">
-
-                <h2>
-
-                    <i class="fa-solid fa-circle-info"></i>
+                <h2 class="panel-title">
 
                     À propos de PMP
 
@@ -1138,182 +2104,187 @@ body{
 
                 <p>
 
-                    PMP est une plateforme digitale dédiée à la gestion
-                    de la maintenance industrielle. Elle permet de
-                    connecter les opérateurs, techniciens, chefs d'équipe
-                    et responsables maintenance autour d'un même système.
+                    PMP est une plateforme digitale dédiée à la
+                    gestion de la maintenance industrielle.
+                    Elle connecte les opérateurs, techniciens,
+                    chefs d'équipe et responsables autour d'un
+                    même objectif : améliorer la fiabilité des
+                    équipements et l'excellence opérationnelle.
 
                 </p>
 
 
-                <p>
-
-                    L'objectif est de passer d'une maintenance
-                    principalement réactive à une démarche structurée,
-                    préventive et participative.
-
-                </p>
+                <div class="benefits">
 
 
-                <div class="features">
+                    <div class="benefit">
 
+                        <i class="fa-solid fa-bullseye"></i>
 
-                    <div class="feature">
-
-                        <i class="fa-solid fa-check"></i>
-
-                        Suivi des PMP
+                        <strong>
+                            Simplicité
+                            d'utilisation
+                        </strong>
 
                     </div>
 
 
-                    <div class="feature">
+                    <div class="benefit">
 
-                        <i class="fa-solid fa-check"></i>
+                        <i class="fa-solid fa-users"></i>
 
-                        Gestion des anomalies
-
-                    </div>
-
-
-                    <div class="feature">
-
-                        <i class="fa-solid fa-check"></i>
-
-                        KPI maintenance
+                        <strong>
+                            Collaboration
+                            des équipes
+                        </strong>
 
                     </div>
 
 
-                    <div class="feature">
+                    <div class="benefit">
 
-                        <i class="fa-solid fa-check"></i>
+                        <i class="fa-solid fa-chart-column"></i>
 
-                        Gamification TPM
-
-                    </div>
-
-
-                    <div class="feature">
-
-                        <i class="fa-solid fa-check"></i>
-
-                        Documentation
+                        <strong>
+                            Suivi en
+                            temps réel
+                        </strong>
 
                     </div>
 
 
-                    <div class="feature">
+                    <div class="benefit">
 
-                        <i class="fa-solid fa-check"></i>
+                        <i class="fa-solid fa-leaf"></i>
 
-                        Traçabilité
+                        <strong>
+                            Amélioration
+                            continue
+                        </strong>
 
                     </div>
 
 
                 </div>
 
-            </div>
+
+                <div class="quote">
+
+                    <i class="fa-solid fa-quote-left"></i>
+
+                    Une équipe engagée aujourd'hui,
+                    une production plus forte demain.
+
+                </div>
+
+
+            </section>
 
 
 
-            <div class="info-card">
+            <!-- ENVIRONNEMENT -->
 
-                <h2>
+            <section class="panel">
 
-                    <i class="fa-solid fa-bullseye"></i>
 
-                    Notre objectif
+                <h2 class="panel-title">
+
+                    Notre environnement
 
                 </h2>
 
 
-                <p>
-
-                    Digitaliser les activités de maintenance afin de
-                    faciliter le travail quotidien des équipes,
-                    améliorer la fiabilité des équipements et développer
-                    une culture d'amélioration continue.
-
-                </p>
+                <img
+                    src="{{ url_for('static', filename='images/coca_bottle.png') }}"
+                    class="environment-image"
+                    alt="Environnement industriel">
 
 
-                <div class="kpi-strip">
+                <div class="environment-points">
 
 
-                    <div class="kpi">
+                    <div class="environment-point">
 
-                        <i class="fa-solid fa-screwdriver-wrench"></i>
+                        <i class="fa-solid fa-gears"></i>
 
-                        <div>
-
-                            <strong>PMP</strong>
-
-                            <span>Maintenance préventive</span>
-
-                        </div>
+                        Des lignes
+                        performantes
 
                     </div>
 
 
-                    <div class="kpi">
+                    <div class="environment-point">
 
-                        <i class="fa-solid fa-users"></i>
+                        <i class="fa-solid fa-shield-halved"></i>
 
-                        <div>
-
-                            <strong>TPM</strong>
-
-                            <span>Implication des équipes</span>
-
-                        </div>
+                        Des équipes
+                        mobilisées
 
                     </div>
 
 
-                    <div class="kpi">
+                    <div class="environment-point">
 
-                        <i class="fa-solid fa-chart-line"></i>
+                        <i class="fa-solid fa-leaf"></i>
 
-                        <div>
-
-                            <strong>KPI</strong>
-
-                            <span>Performance industrielle</span>
-
-                        </div>
+                        Un avenir
+                        durable
 
                     </div>
 
 
                 </div>
 
-            </div>
+
+            </section>
 
 
         </div>
 
-    </section>
+
+    </div>
 
 
 
-    <!-- =================================================
+    <!-- =====================================================
          FOOTER
-    ================================================== -->
+    ====================================================== -->
 
     <footer class="footer">
 
-        © {{ current_year or 2026 }}
 
-        PMP – Digital Maintenance Platform
+        <div>
 
-        • Coca-Cola x Cobomi
+            <strong>
+                PMP
+            </strong>
+
+            – Digital Maintenance Platform
+
+            &nbsp; | &nbsp;
+
+            Coca-Cola x Cobomi
+
+            &nbsp; | &nbsp;
+
+            Ensemble pour une performance durable
+
+        </div>
+
+
+        <div>
+
+            Version 1.0.0
+
+        </div>
+
 
     </footer>
 
 
 </main>
 
+
 </body>
+
 </html>
