@@ -1,305 +1,1319 @@
 <!DOCTYPE html>
-
 <html lang="fr">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Accueil – Coca-Cola x Cobomi PMP</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<title>PMP – Maintenance Industrielle</title>
+
+<link rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 
 <style>
-  :root {
-    --red-dark: #b51212;
-    --red-light: #e41b13;
-    --bg-light: #fff5f5;
-    --card-bg: rgba(255,255,255,0.9);
-    --text: #1a1a1a;
-    --muted: #555;
-    --shadow: 0 8px 30px rgba(0,0,0,0.15);
-  }
 
-  body {
-    margin: 0;
-    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    background: linear-gradient(135deg, var(--bg-light), #ffdada);
-    color: var(--text);
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
+:root{
+    --red:#e41b13;
+    --red-dark:#b51212;
+    --black:#101418;
+    --black-2:#171c21;
+    --black-3:#20262c;
+    --grey:#9da4aa;
+    --white:#ffffff;
+    --border:rgba(255,255,255,.08);
+}
 
-  header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: linear-gradient(90deg, var(--muted), var(--red-dark));
-    padding: 16px 28px;
-    box-shadow: var(--shadow);
-    color: #fff;
-  }
+*{
+    box-sizing:border-box;
+}
 
-  .logo-box {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-  }
+body{
+    margin:0;
+    font-family:"Segoe UI",Arial,sans-serif;
+    background:#f4f5f6;
+    color:#20252a;
+}
 
-  .logo-box img {
-    height: 55px;
-    transition: transform 0.4s ease;
-  }
+/* =====================================================
+   SIDEBAR
+===================================================== */
 
-  .logo-box img:hover { transform: scale(1.05); }
+.sidebar{
+    position:fixed;
+    left:0;
+    top:0;
+    width:245px;
+    height:100vh;
 
-  .title-zone {
-    font-size: 1.5rem;
-    font-weight: 800;
-    text-align: center;
-    letter-spacing: .5px;
-  }
+    background:
+        linear-gradient(
+            180deg,
+            #171c21 0%,
+            #111519 100%
+        );
 
-  .container {
-    max-width: 1100px;
-    margin: 40px auto;
-    padding: 0 16px;
-  }
+    color:white;
+    z-index:1000;
 
-  .hero { text-align: center; margin-bottom: 30px; }
+    box-shadow:5px 0 25px rgba(0,0,0,.18);
 
-  .hero h1 {
-    color: var(--red-dark);
-    font-size: 2rem;
-    margin-bottom: 10px;
-  }
+    overflow-y:auto;
+}
 
-  .hero p { color: var(--muted); font-size: 1.1rem; }
+.sidebar-header{
+    height:70px;
+    display:flex;
+    align-items:center;
+    gap:12px;
 
-  .kpi-container {
-    display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin-bottom: 40px;
-  }
+    padding:0 18px;
 
-  .kpi-box {
-    flex: 1 1 250px;
-    background: var(--card-bg);
-    border-radius: 16px;
-    text-align: center;
-    padding: 18px;
-    box-shadow: var(--shadow);
-    backdrop-filter: blur(6px);
-  }
+    border-bottom:1px solid var(--border);
+}
 
-  .kpi-box h3 { margin: 8px 0 6px; color: var(--red-dark); }
+.sidebar-logo{
+    width:36px;
+    height:36px;
+    object-fit:contain;
+}
 
-  .kpi-value {
-    font-size: 1.9rem;
-    font-weight: 800;
-    color: var(--red-light);
-  }
+.sidebar-title{
+    font-size:21px;
+    font-weight:800;
+    letter-spacing:.5px;
+}
 
-  .grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 20px;
-    margin-top: 20px;
-  }
+/* MENU */
 
-  .card {
-    background: var(--card-bg);
-    border-radius: 16px;
-    box-shadow: var(--shadow);
-    padding: 18px;
-    backdrop-filter: blur(6px);
-    transition: transform .25s ease;
-  }
+.menu{
+    padding:14px 9px;
+}
 
-  .card:hover { transform: translateY(-4px); }
+.menu-section{
+    color:#6f777d;
+    font-size:10px;
+    text-transform:uppercase;
+    font-weight:700;
 
-  .card h2 {
-    color: var(--red-dark);
-    margin-bottom: 10px;
-    font-size: 1.2rem;
-  }
+    padding:15px 12px 7px;
+    letter-spacing:1px;
+}
 
-  table { width: 100%; border-collapse: collapse; }
-  th, td { padding: 8px; border-bottom: 1px solid #ddd; text-align: left; }
-  th { color: var(--muted); font-size: .85rem; text-transform: uppercase; }
+.menu a{
+    display:flex;
+    align-items:center;
+    gap:12px;
 
-  .cta { display: flex; justify-content: center; margin: 40px 0; }
+    color:#d6d9dc;
+    text-decoration:none;
 
-  .btn {
-    background: linear-gradient(180deg, var(--red-light), var(--red-dark));
-    border: none; color: white;
-    border-radius: 12px; padding: 14px 24px;
-    font-weight: bold; font-size: 1.1rem;
-    cursor: pointer; transition: .25s;
-    box-shadow: 0 6px 25px rgba(255,0,0,.3);
-  }
-    .btne {
-    background: linear-gradient(180deg, var(--red-light), var(--red-dark));
-    border: none; color: white;
-    border-radius: 8px; padding: 1Opx 20px;
-    font-weight: bold; font-size: 1.1rem;
-    cursor: pointer; transition: .25s;
-    box-shadow: 0 4px 21px rgba(255,0,0,.3);
-  }
-  .btne:hover { transform: scale(1.05); box-shadow: 0 6px 24px rgba(255,0,0,.45); }
-  .btn:hover { transform: scale(1.05); box-shadow: 0 8px 30px rgba(255,0,0,.45); }
+    padding:10px 13px;
+    margin:2px 0;
 
-  .footer { text-align: center; color: var(--muted); margin: 40px 0 10px; font-size: .85rem; }
+    border-radius:5px;
 
-  .coca-bottle {
-    position: fixed; bottom: 30px; right: 40px;
-    height: 170px; animation: float 4s ease-in-out infinite;
-    opacity: .9; z-index: 10;
-  }
+    font-size:13px;
 
-  @keyframes float {
-    0%,100% { transform: translateY(0); }
-    50% { transform: translateY(-14px); }
-  }
+    transition:.2s;
+}
 
-  #fx {
-    position: fixed; top: 0; left: 0;
-    width: 100%; height: 100%;
-    z-index: -1; opacity: .55;
-  }
+.menu a i{
+    width:18px;
+    text-align:center;
+    font-size:13px;
+}
+
+.menu a:hover{
+    background:#252c32;
+    color:white;
+}
+
+.menu a.active{
+    background:linear-gradient(
+        90deg,
+        #d91612,
+        #ed241d
+    );
+
+    color:white;
+
+    box-shadow:
+        0 4px 12px rgba(228,27,19,.25);
+}
+
+.menu a.sub{
+    padding-left:43px;
+    font-size:12px;
+    color:#aeb4b8;
+}
+
+.menu a.sub:hover{
+    color:white;
+}
+
+/* =====================================================
+   MAIN
+===================================================== */
+
+.main{
+    margin-left:245px;
+    min-height:100vh;
+}
+
+/* TOP BAR */
+
+.topbar{
+    height:70px;
+
+    background:white;
+
+    border-bottom:1px solid #e5e7e9;
+
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+
+    padding:0 35px;
+}
+
+.breadcrumb{
+    color:#777;
+    font-size:13px;
+}
+
+.breadcrumb strong{
+    color:#222;
+}
+
+.top-logos{
+    display:flex;
+    align-items:center;
+    gap:18px;
+}
+
+.top-logos img{
+    max-height:38px;
+    max-width:120px;
+    object-fit:contain;
+}
+
+/* =====================================================
+   HERO
+===================================================== */
+
+.hero{
+    position:relative;
+
+    margin:32px 35px 25px;
+
+    min-height:360px;
+
+    border-radius:18px;
+
+    overflow:hidden;
+
+    background:
+        linear-gradient(
+            110deg,
+            rgba(15,19,23,.98) 0%,
+            rgba(25,30,35,.95) 48%,
+            rgba(60,15,15,.90) 100%
+        );
+
+    box-shadow:
+        0 15px 40px rgba(0,0,0,.15);
+
+    display:flex;
+    align-items:center;
+}
+
+.hero-content{
+    width:58%;
+    padding:45px;
+    color:white;
+    position:relative;
+    z-index:2;
+}
+
+.hero-tag{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+
+    background:rgba(228,27,19,.15);
+    border:1px solid rgba(228,27,19,.45);
+
+    color:#ff6a63;
+
+    padding:7px 13px;
+
+    border-radius:20px;
+
+    font-size:12px;
+    font-weight:700;
+
+    margin-bottom:18px;
+}
+
+.hero h1{
+    font-size:42px;
+    line-height:1.1;
+    margin:0 0 15px;
+
+    font-weight:800;
+}
+
+.hero h1 span{
+    color:var(--red);
+}
+
+.hero p{
+    font-size:16px;
+    line-height:1.7;
+
+    color:#c7ccd0;
+
+    max-width:650px;
+
+    margin-bottom:25px;
+}
+
+.hero-buttons{
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+}
+
+.btn-primary{
+    display:inline-flex;
+    align-items:center;
+    gap:9px;
+
+    background:var(--red);
+    color:white;
+
+    text-decoration:none;
+
+    padding:12px 20px;
+
+    border-radius:8px;
+
+    font-weight:700;
+    font-size:13px;
+
+    transition:.2s;
+}
+
+.btn-primary:hover{
+    background:#ff2c24;
+    transform:translateY(-2px);
+}
+
+.btn-secondary{
+    display:inline-flex;
+    align-items:center;
+    gap:9px;
+
+    color:white;
+
+    border:1px solid rgba(255,255,255,.2);
+
+    padding:12px 20px;
+
+    border-radius:8px;
+
+    text-decoration:none;
+
+    font-size:13px;
+
+    transition:.2s;
+}
+
+.btn-secondary:hover{
+    background:rgba(255,255,255,.08);
+}
+
+/* HERO VISUAL */
+
+.hero-visual{
+    position:absolute;
+    right:0;
+    top:0;
+
+    width:45%;
+    height:100%;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+.hero-visual::before{
+    content:"";
+
+    position:absolute;
+
+    width:360px;
+    height:360px;
+
+    border-radius:50%;
+
+    background:
+        radial-gradient(
+            circle,
+            rgba(228,27,19,.22),
+            transparent 68%
+        );
+}
+
+.hero-visual img{
+    position:relative;
+
+    max-height:280px;
+    max-width:80%;
+
+    object-fit:contain;
+
+    filter:
+        drop-shadow(0 20px 30px rgba(0,0,0,.5));
+
+    animation:float 4s ease-in-out infinite;
+}
+
+@keyframes float{
+
+    0%,100%{
+        transform:translateY(0);
+    }
+
+    50%{
+        transform:translateY(-10px);
+    }
+
+}
+
+/* =====================================================
+   SECTION TITLE
+===================================================== */
+
+.section{
+    margin:0 35px 30px;
+}
+
+.section-title{
+    display:flex;
+    justify-content:space-between;
+    align-items:end;
+
+    margin-bottom:15px;
+}
+
+.section-title h2{
+    margin:0;
+
+    font-size:21px;
+
+    color:#20252a;
+}
+
+.section-title p{
+    margin:5px 0 0;
+
+    color:#7c848a;
+
+    font-size:13px;
+}
+
+/* =====================================================
+   MODULE CARDS
+===================================================== */
+
+.modules{
+    display:grid;
+
+    grid-template-columns:
+        repeat(4,1fr);
+
+    gap:18px;
+}
+
+.module{
+    background:white;
+
+    border-radius:13px;
+
+    padding:22px;
+
+    border:1px solid #e7e9eb;
+
+    transition:.25s;
+
+    position:relative;
+
+    overflow:hidden;
+}
+
+.module::after{
+    content:"";
+
+    position:absolute;
+
+    left:0;
+    bottom:0;
+
+    width:100%;
+    height:3px;
+
+    background:var(--red);
+
+    transform:scaleX(0);
+
+    transform-origin:left;
+
+    transition:.25s;
+}
+
+.module:hover{
+    transform:translateY(-5px);
+
+    box-shadow:
+        0 12px 30px rgba(0,0,0,.10);
+}
+
+.module:hover::after{
+    transform:scaleX(1);
+}
+
+.module-icon{
+    width:46px;
+    height:46px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    border-radius:10px;
+
+    background:#fff0ef;
+
+    color:var(--red);
+
+    font-size:20px;
+
+    margin-bottom:15px;
+}
+
+.module h3{
+    margin:0 0 8px;
+
+    font-size:16px;
+}
+
+.module p{
+    margin:0;
+
+    color:#747b80;
+
+    font-size:12px;
+
+    line-height:1.6;
+}
+
+/* =====================================================
+   PRESENTATION
+===================================================== */
+
+.presentation{
+    display:grid;
+
+    grid-template-columns:
+        1.1fr .9fr;
+
+    gap:20px;
+
+    margin-top:20px;
+}
+
+.info-card{
+    background:white;
+
+    border:1px solid #e7e9eb;
+
+    border-radius:14px;
+
+    padding:25px;
+}
+
+.info-card h2{
+    margin:0 0 12px;
+
+    font-size:20px;
+}
+
+.info-card h2 i{
+    color:var(--red);
+    margin-right:8px;
+}
+
+.info-card p{
+    color:#666;
+
+    font-size:13px;
+
+    line-height:1.8;
+}
+
+.features{
+    display:grid;
+
+    grid-template-columns:
+        repeat(2,1fr);
+
+    gap:12px;
+
+    margin-top:18px;
+}
+
+.feature{
+    display:flex;
+    align-items:center;
+
+    gap:10px;
+
+    background:#f7f8f9;
+
+    padding:12px;
+
+    border-radius:8px;
+
+    font-size:12px;
+
+    color:#555;
+}
+
+.feature i{
+    color:var(--red);
+}
+
+/* =====================================================
+   KPI STRIP
+===================================================== */
+
+.kpi-strip{
+    margin-top:20px;
+
+    display:grid;
+
+    grid-template-columns:
+        repeat(3,1fr);
+
+    gap:15px;
+}
+
+.kpi{
+    background:#171c21;
+
+    color:white;
+
+    padding:20px;
+
+    border-radius:12px;
+
+    display:flex;
+    align-items:center;
+
+    gap:15px;
+}
+
+.kpi i{
+    font-size:25px;
+
+    color:var(--red);
+}
+
+.kpi strong{
+    display:block;
+
+    font-size:18px;
+}
+
+.kpi span{
+    color:#9fa5aa;
+
+    font-size:11px;
+}
+
+/* =====================================================
+   FOOTER
+===================================================== */
+
+.footer{
+    text-align:center;
+
+    color:#92989d;
+
+    font-size:11px;
+
+    padding:25px;
+}
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media(max-width:1000px){
+
+    .modules{
+        grid-template-columns:
+            repeat(2,1fr);
+    }
+
+    .hero-content{
+        width:70%;
+    }
+
+    .hero-visual{
+        opacity:.35;
+    }
+
+}
+
+@media(max-width:700px){
+
+    .sidebar{
+        width:70px;
+    }
+
+    .sidebar-title,
+    .menu a span,
+    .menu-section{
+        display:none;
+    }
+
+    .sidebar-header{
+        justify-content:center;
+        padding:0;
+    }
+
+    .menu a{
+        justify-content:center;
+        padding:13px;
+    }
+
+    .menu a i{
+        width:auto;
+        font-size:17px;
+    }
+
+    .main{
+        margin-left:70px;
+    }
+
+    .topbar{
+        padding:0 15px;
+    }
+
+    .top-logos{
+        display:none;
+    }
+
+    .hero{
+        margin:20px 15px;
+    }
+
+    .hero-content{
+        width:100%;
+        padding:30px;
+    }
+
+    .hero h1{
+        font-size:30px;
+    }
+
+    .hero-visual{
+        display:none;
+    }
+
+    .section{
+        margin:0 15px 20px;
+    }
+
+    .modules,
+    .presentation,
+    .kpi-strip{
+        grid-template-columns:1fr;
+    }
+}
+
 </style>
-
 </head>
+
+
 <body>
 
-<canvas id="fx"></canvas>
+<!-- =====================================================
+     SIDEBAR
+===================================================== -->
 
-<header>
-  <div class="logo-box">
-    <img src="{{ url_for('static', filename='images/logo_cocacola.png') }}" alt="Coca-Cola">
-    <img src="{{ url_for('static', filename='images/logo_cobomi.png') }}" alt="Cobomi">
-  </div>
-  <div class="title-zone"><i class="fa-solid fa-industry"></i> Plateforme PMP</div>
-</header>
-<form method="get" style="max-width:1200px;margin:20px auto;padding:12px 20px;
-       background:rgba(255,255,255,0.7);border-radius:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
-  <div>
-    <label>Ligne</label><br>
-    <select name="line">
-      <option value="">(Toutes)</option>
-      {% for l in lignes %}
-        <option value="{{ l }}" {% if filters.line == l %}selected{% endif %}>{{ l }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div>
-    <label>Machine</label><br>
-    <select name="machine">
-      <option value="">(Toutes)</option>
-      {% for l, machines in machines_par_ligne.items() %}
-        {% for m in machines %}
-          <option value="{{ m }}" {% if filters.machine == m %}selected{% endif %}>{{ m }}</option>
-        {% endfor %}
-      {% endfor %}
-    </select>
-  </div>
-  <div>
-    <label>Date début</label><br>
-    <input type="date" name="start_date" value="{{ filters.start_date }}">
-  </div>
-  <div>
-    <label>Date fin</label><br>
-    <input type="date" name="end_date" value="{{ filters.end_date }}">
-  </div>
-  <div>
-    <button type="submit" class="btne">
-    <i class="fa-solid fa-right-to-bracket"></i> Filtrer
-    </button>
-    <a href="{{ url_for('index') }}" style="margin-left:320px; color:var(--red-dark)">Réinitialiser</a>
-  </div>
-</form>
-<div class="container">
-  <section class="hero">
-    <h1>Plateforme PMP</h1>
-    <p>Supervision de la maintenance préventive, suivie des indicateurs clés et motivation des équipes.</p>
-  </section>
-  <!-- KPI globaux -->
-  <div class="kpi-container">
-    <div class="kpi-box">
-      <i class="fa-solid fa-screwdriver-wrench fa-2x" style="color:var(--red-dark);"></i>
-      <h3>Tâches totales</h3>
-      <div class="kpi-value">{{ total_taches }}</div>
-    </div>
-    <div class="kpi-box">
-      <i class="fa-solid fa-check-circle fa-2x" style="color:var(--red-dark);"></i>
-      <h3>Tâches réalisées</h3>
-      <div class="kpi-value">{{ taches_realisees }}</div>
-    </div>
-    <div class="kpi-box">
-      <i class="fa-solid fa-gauge-high fa-2x" style="color:var(--red-dark);"></i>
-      <h3>Taux de réalisation</h3>
-      <div class="kpi-value" style="color:{{ taux_couleur }};">
-    {{ taux_realisation }}%
-</div>
+<aside class="sidebar">
+
+    <div class="sidebar-header">
+
+        <img
+            src="{{ url_for('static', filename='images/logo.png') }}"
+            class="sidebar-logo"
+            alt="PMP">
+
+        <div class="sidebar-title">
+            PMP
+        </div>
 
     </div>
-  </div>
 
-  <!-- Tops et critiques -->
 
-  <div class="grid">
-    <div class="card">
-      <h2><i class="fa-solid fa-user-tie"></i> Top 3 opérateurs</h2>
-      <table>
-        <thead><tr><th>Nom</th><th>Score</th></tr></thead>
-        <tbody>
-          {% for op in top_operateurs %}
-          <tr><td>{{ op.nom }}</td><td>{{ op.score }}</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+    <nav class="menu">
 
-<div class="card">
-  <h2><i class="fa-solid fa-user-gear"></i> Top 3 techniciens</h2>
-  <table>
-    <thead><tr><th>Nom</th><th>Score</th></tr></thead>
-    <tbody>
-      {% for tech in top_techniciens %}
-      <tr><td>{{ tech.nom }}</td><td>{{ tech.score }}</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+        <div class="menu-section">
+            Navigation
+        </div>
 
-<div class="card">
- <h2><i class="fa-solid fa-triangle-exclamation"></i> Actions préventives critiques</h2>
-<table>
-  <thead>
-    <tr>
-      <th>Ligne</th>
-      <th>Machine</th>
-      <th>Points</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for act in actions_critiques %}
-    <tr>
-      <td>{{ act.ligne }}</td>
-      <td>{{ act.machine }}</td>
-      <td>{{ act.points }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
+        <a href="{{ url_for('index') }}" class="active">
+            <i class="fa-solid fa-house"></i>
+            <span>Accueil</span>
+        </a>
 
-  <div class="cta">
-    <button class="btn" onclick="location.href='{{ url_for('platform_redirect') }}'">
-      <i class="fa-solid fa-right-to-bracket"></i> Accéder à la plateforme
-    </button>
-  </div>
-</div>
 
-<img src="{{ url_for('static', filename='images/coca_bottle.png') }}" alt="Coca-Cola" class="coca-bottle">
+        <a href="{{ url_for('platform_redirect') }}">
+            <i class="fa-solid fa-screwdriver-wrench"></i>
+            <span>Maintenance Préventive</span>
+        </a>
 
-<div class="footer">© {{ current_year or 2025 }} Coca-Cola x Cobomi Maintenance System •</div>
+
+        <a href="{{ url_for('production_dashboard') }}">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>Dashboard AM</span>
+        </a>
+
+
+        <a href="{{ url_for('documentation') }}">
+            <i class="fa-solid fa-book"></i>
+            <span>Documentation</span>
+        </a>
+
+
+        <div class="menu-section">
+            Maintenance Autonome
+        </div>
+
+
+        <a href="{{ url_for('operator_dashboard') }}"
+           class="active">
+
+            <i class="fa-solid fa-gears"></i>
+
+            <span>Maintenance Autonome</span>
+
+        </a>
+
+
+        <a href="{{ url_for('me_report') }}">
+
+            <i class="fa-solid fa-triangle-exclamation"></i>
+
+            <span>Tags / Anomalies</span>
+
+        </a>
+
+
+        <a href="{{ url_for('operator_dashboard') }}">
+
+            <i class="fa-solid fa-list-check"></i>
+
+            <span>Actions & interventions</span>
+
+        </a>
+
+
+        <a href="{{ url_for('admin_operator_performance') }}">
+
+            <i class="fa-solid fa-chart-simple"></i>
+
+            <span>Audits & progression</span>
+
+        </a>
+
+
+        <div class="menu-section">
+            Performance
+        </div>
+
+
+        <a href="{{ url_for('production_dashboard') }}">
+
+            <i class="fa-solid fa-gauge-high"></i>
+
+            <span>Performance (TRS)</span>
+
+        </a>
+
+
+        <a href="{{ url_for('admin_teams') }}">
+
+            <i class="fa-solid fa-trophy"></i>
+
+            <span>TPM Challenge</span>
+
+        </a>
+
+
+        <a href="{{ url_for('admin_settings') }}">
+
+            <i class="fa-solid fa-gear"></i>
+
+            <span>Paramètres</span>
+
+        </a>
+
+    </nav>
+
+</aside>
+
+
+<!-- =====================================================
+     MAIN
+===================================================== -->
+
+<main class="main">
+
+
+    <!-- TOP BAR -->
+
+    <header class="topbar">
+
+        <div class="breadcrumb">
+
+            <i class="fa-solid fa-house"></i>
+
+            &nbsp; Accueil
+
+            <span> / </span>
+
+            <strong>Maintenance Industrielle</strong>
+
+        </div>
+
+
+        <div class="top-logos">
+
+            <img
+                src="{{ url_for('static', filename='images/logo_cocacola.png') }}"
+                alt="Coca-Cola">
+
+            <img
+                src="{{ url_for('static', filename='images/logo_cobomi.png') }}"
+                alt="Cobomi">
+
+        </div>
+
+    </header>
+
+
+
+    <!-- =================================================
+         HERO
+    ================================================== -->
+
+    <section class="hero">
+
+
+        <div class="hero-content">
+
+            <div class="hero-tag">
+
+                <i class="fa-solid fa-industry"></i>
+
+                DIGITAL MAINTENANCE PLATFORM
+
+            </div>
+
+
+            <h1>
+
+                Une nouvelle génération de
+
+                <span>maintenance industrielle</span>
+
+            </h1>
+
+
+            <p>
+
+                La plateforme PMP centralise la maintenance préventive,
+                la maintenance autonome, le suivi des anomalies,
+                les indicateurs de performance et la progression
+                des équipes dans un environnement digital unique.
+
+            </p>
+
+
+            <div class="hero-buttons">
+
+                <a
+                    href="{{ url_for('platform_redirect') }}"
+                    class="btn-primary">
+
+                    <i class="fa-solid fa-arrow-right"></i>
+
+                    Accéder à la plateforme
+
+                </a>
+
+
+                <a
+                    href="{{ url_for('documentation') }}"
+                    class="btn-secondary">
+
+                    <i class="fa-solid fa-book"></i>
+
+                    Documentation
+
+                </a>
+
+            </div>
+
+        </div>
+
+
+        <div class="hero-visual">
+
+            <img
+                src="{{ url_for('static', filename='images/coca_bottle.png') }}"
+                alt="Maintenance industrielle">
+
+        </div>
+
+    </section>
+
+
+
+    <!-- =================================================
+         MODULES
+    ================================================== -->
+
+    <section class="section">
+
+
+        <div class="section-title">
+
+            <div>
+
+                <h2>
+                    Les modules de la plateforme
+                </h2>
+
+                <p>
+                    Une vision centralisée de la performance maintenance.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <div class="modules">
+
+
+            <div class="module">
+
+                <div class="module-icon">
+
+                    <i class="fa-solid fa-calendar-check"></i>
+
+                </div>
+
+                <h3>
+                    Maintenance Préventive
+                </h3>
+
+                <p>
+                    Planification et suivi des PMP,
+                    affectation automatique des tâches
+                    et suivi de leur réalisation.
+                </p>
+
+            </div>
+
+
+
+            <div class="module">
+
+                <div class="module-icon">
+
+                    <i class="fa-solid fa-gears"></i>
+
+                </div>
+
+                <h3>
+                    Maintenance Autonome
+                </h3>
+
+                <p>
+                    Impliquer les opérateurs dans les
+                    inspections, contrôles et actions
+                    quotidiennes sur les équipements.
+                </p>
+
+            </div>
+
+
+
+            <div class="module">
+
+                <div class="module-icon">
+
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+
+                </div>
+
+                <h3>
+                    Anomalies & Tags
+                </h3>
+
+                <p>
+                    Identifier rapidement les anomalies,
+                    les signaler et assurer leur suivi
+                    jusqu'à leur traitement.
+                </p>
+
+            </div>
+
+
+
+            <div class="module">
+
+                <div class="module-icon">
+
+                    <i class="fa-solid fa-chart-line"></i>
+
+                </div>
+
+                <h3>
+                    Performance & TRS
+                </h3>
+
+                <p>
+                    Suivre les indicateurs clés,
+                    analyser la performance et améliorer
+                    continuellement les résultats.
+                </p>
+
+            </div>
+
+
+        </div>
+
+    </section>
+
+
+
+    <!-- =================================================
+         PRESENTATION
+    ================================================== -->
+
+    <section class="section">
+
+
+        <div class="presentation">
+
+
+            <div class="info-card">
+
+                <h2>
+
+                    <i class="fa-solid fa-circle-info"></i>
+
+                    À propos de PMP
+
+                </h2>
+
+
+                <p>
+
+                    PMP est une plateforme digitale dédiée à la gestion
+                    de la maintenance industrielle. Elle permet de
+                    connecter les opérateurs, techniciens, chefs d'équipe
+                    et responsables maintenance autour d'un même système.
+
+                </p>
+
+
+                <p>
+
+                    L'objectif est de passer d'une maintenance
+                    principalement réactive à une démarche structurée,
+                    préventive et participative.
+
+                </p>
+
+
+                <div class="features">
+
+
+                    <div class="feature">
+
+                        <i class="fa-solid fa-check"></i>
+
+                        Suivi des PMP
+
+                    </div>
+
+
+                    <div class="feature">
+
+                        <i class="fa-solid fa-check"></i>
+
+                        Gestion des anomalies
+
+                    </div>
+
+
+                    <div class="feature">
+
+                        <i class="fa-solid fa-check"></i>
+
+                        KPI maintenance
+
+                    </div>
+
+
+                    <div class="feature">
+
+                        <i class="fa-solid fa-check"></i>
+
+                        Gamification TPM
+
+                    </div>
+
+
+                    <div class="feature">
+
+                        <i class="fa-solid fa-check"></i>
+
+                        Documentation
+
+                    </div>
+
+
+                    <div class="feature">
+
+                        <i class="fa-solid fa-check"></i>
+
+                        Traçabilité
+
+                    </div>
+
+
+                </div>
+
+            </div>
+
+
+
+            <div class="info-card">
+
+                <h2>
+
+                    <i class="fa-solid fa-bullseye"></i>
+
+                    Notre objectif
+
+                </h2>
+
+
+                <p>
+
+                    Digitaliser les activités de maintenance afin de
+                    faciliter le travail quotidien des équipes,
+                    améliorer la fiabilité des équipements et développer
+                    une culture d'amélioration continue.
+
+                </p>
+
+
+                <div class="kpi-strip">
+
+
+                    <div class="kpi">
+
+                        <i class="fa-solid fa-screwdriver-wrench"></i>
+
+                        <div>
+
+                            <strong>PMP</strong>
+
+                            <span>Maintenance préventive</span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="kpi">
+
+                        <i class="fa-solid fa-users"></i>
+
+                        <div>
+
+                            <strong>TPM</strong>
+
+                            <span>Implication des équipes</span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="kpi">
+
+                        <i class="fa-solid fa-chart-line"></i>
+
+                        <div>
+
+                            <strong>KPI</strong>
+
+                            <span>Performance industrielle</span>
+
+                        </div>
+
+                    </div>
+
+
+                </div>
+
+            </div>
+
+
+        </div>
+
+    </section>
+
+
+
+    <!-- =================================================
+         FOOTER
+    ================================================== -->
+
+    <footer class="footer">
+
+        © {{ current_year or 2026 }}
+
+        PMP – Digital Maintenance Platform
+
+        • Coca-Cola x Cobomi
+
+    </footer>
+
+
+</main>
 
 </body>
 </html>
