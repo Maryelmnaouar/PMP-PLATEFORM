@@ -1,11 +1,14 @@
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>PMP | Digital Maintenance Platform</title>
+    <title>PMP | Maintenance Industrielle</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <link rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -18,647 +21,475 @@
             box-sizing: border-box;
         }
 
-        :root {
-            --red: #e31b23;
-            --red-hover: #c9151c;
-
-            --sidebar: #242a2f;
-            --sidebar-hover: #30373d;
-
-            --text: #242a2f;
-            --muted: #7a838b;
-
-            --background: #f6f7f8;
-            --white: #ffffff;
-
-            --border: #e7e9eb;
-        }
-
         body {
-            font-family: "Segoe UI", Arial, sans-serif;
-            background: var(--background);
-            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            background: #f6f8fb;
+            color: #263746;
         }
 
-
-        /* =====================================================
-           SIDEBAR
-        ===================================================== */
-
-        .sidebar {
-            position: fixed;
-            left: 0;
-            top: 0;
-
-            width: 235px;
-            height: 100vh;
-
-            background: var(--sidebar);
-            color: white;
-
-            z-index: 1000;
-
-            overflow-y: auto;
-        }
-
-
-        .sidebar-header {
-            height: 75px;
-
-            display: flex;
-            align-items: center;
-
-            padding: 0 20px;
-
-            border-bottom: 1px solid rgba(255,255,255,.08);
-        }
-
-
-        .logo-box {
-            width: 38px;
-            height: 38px;
-
-            border-radius: 8px;
-
-            background: var(--red);
-
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            margin-right: 11px;
-
-            font-size: 18px;
-            font-weight: 800;
-        }
-
-
-        .brand-name {
-            font-size: 20px;
-            font-weight: 700;
-            letter-spacing: .5px;
-        }
-
-
-        .brand-subtitle {
-            font-size: 9px;
-            color: #9ca4aa;
-            margin-top: 2px;
-        }
-
-
-        .menu {
-            padding: 15px 10px;
-        }
-
-
-        .menu-title {
-            color: #777f85;
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-
-            padding: 15px 12px 7px;
-        }
-
-
-        .menu-item {
-            display: flex;
-            align-items: center;
-
-            min-height: 40px;
-
-            padding: 9px 12px;
-
-            margin: 2px 0;
-
-            border-radius: 6px;
-
+        a {
             text-decoration: none;
-
-            color: #d6dadd;
-
-            font-size: 12px;
-
-            transition: .2s;
+            color: inherit;
         }
 
+        /* =========================
+           LAYOUT
+        ========================= */
 
-        .menu-item i {
-            width: 22px;
-            font-size: 13px;
-            margin-right: 8px;
-        }
-
-
-        .menu-item:hover {
-            background: var(--sidebar-hover);
-            color: white;
-        }
-
-
-        .menu-item.active {
-            background: var(--red);
-            color: white;
-        }
-
-
-        .submenu {
-            margin-left: 21px;
-            padding-left: 8px;
-
-            border-left: 1px solid rgba(255,255,255,.12);
-        }
-
-
-        .submenu a {
-            display: block;
-
-            padding: 7px 9px;
-
-            text-decoration: none;
-
-            color: #aeb5ba;
-
-            font-size: 11px;
-
-            border-radius: 4px;
-        }
-
-
-        .submenu a:hover {
-            color: white;
-            background: rgba(255,255,255,.06);
-        }
-
-
-        /* =====================================================
-           MAIN
-        ===================================================== */
-
-        .main {
-            margin-left: 235px;
+        .app {
+            display: flex;
             min-height: 100vh;
         }
 
+        /* =========================
+           SIDEBAR
+        ========================= */
 
-        /* =====================================================
-           TOPBAR
-        ===================================================== */
+        .sidebar {
+            width: 245px;
+            background: #ffffff;
+            border-right: 1px solid #e5eaf0;
+            padding: 28px 18px;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+        }
 
-        .topbar {
-            height: 65px;
-
-            background: white;
-
-            border-bottom: 1px solid var(--border);
-
+        .brand {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-
-            padding: 0 30px;
+            gap: 12px;
+            padding: 0 10px;
+            margin-bottom: 38px;
         }
 
-
-        .top-title {
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-
-        .top-right {
-            display: flex;
-            align-items: center;
-            gap: 18px;
-        }
-
-
-        .top-logo {
-            height: 32px;
-            max-width: 105px;
-            object-fit: contain;
-        }
-
-
-        .divider {
-            height: 28px;
-            width: 1px;
-            background: var(--border);
-        }
-
-
-        .user {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-        }
-
-
-        .avatar {
-            width: 34px;
-            height: 34px;
-
-            border-radius: 50%;
-
-            background: #edf0f2;
-
-            color: #40484e;
-
+        .brand-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: #e8f3f7;
+            color: #276b83;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-size: 19px;
+        }
 
+        .brand-text h2 {
+            font-size: 17px;
+            font-weight: 700;
+            color: #263746;
+        }
+
+        .brand-text span {
+            display: block;
             font-size: 11px;
+            color: #8493a1;
+            margin-top: 2px;
+        }
+
+        .menu-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: #9aa7b3;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 0 12px;
+            margin-bottom: 10px;
+        }
+
+        .menu {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .menu a {
+            display: flex;
+            align-items: center;
+            gap: 13px;
+            padding: 11px 13px;
+            border-radius: 10px;
+            color: #657583;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+
+        .menu a i {
+            width: 18px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .menu a:hover {
+            background: #f0f6f8;
+            color: #276b83;
+        }
+
+        .menu a.active {
+            background: #eaf4f7;
+            color: #276b83;
+            font-weight: 600;
+        }
+
+        .sidebar-bottom {
+            margin-top: auto;
+        }
+
+        .help-box {
+            background: #f5f8fa;
+            border-radius: 13px;
+            padding: 15px;
+            margin-bottom: 12px;
+        }
+
+        .help-box i {
+            color: #52859a;
+            margin-bottom: 8px;
+        }
+
+        .help-box strong {
+            display: block;
+            font-size: 12px;
+            color: #354957;
+            margin-bottom: 4px;
+        }
+
+        .help-box p {
+            font-size: 10px;
+            line-height: 1.5;
+            color: #8997a3;
+        }
+
+        /* =========================
+           MAIN
+        ========================= */
+
+        .main {
+            margin-left: 245px;
+            width: calc(100% - 245px);
+            min-height: 100vh;
+        }
+
+        /* =========================
+           TOPBAR
+        ========================= */
+
+        .topbar {
+            height: 72px;
+            background: #ffffff;
+            border-bottom: 1px solid #e7ecf0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 38px;
+        }
+
+        .breadcrumb {
+            font-size: 12px;
+            color: #8b99a5;
+        }
+
+        .breadcrumb strong {
+            color: #455766;
+        }
+
+        .user-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .notification {
+            width: 36px;
+            height: 36px;
+            border: 1px solid #e5ebef;
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #71818e;
+        }
+
+        .avatar {
+            width: 37px;
+            height: 37px;
+            border-radius: 50%;
+            background: #dcecf1;
+            color: #276b83;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
             font-weight: 700;
         }
 
-
-        .user-text strong {
-            display: block;
-            font-size: 11px;
-        }
-
-
-        .user-text span {
-            display: block;
-            font-size: 9px;
-            color: var(--muted);
-        }
-
-
-        /* =====================================================
+        /* =========================
            CONTENT
-        ===================================================== */
+        ========================= */
 
         .content {
-            padding: 35px;
+            padding: 38px;
             max-width: 1500px;
+            margin: auto;
         }
 
+        .welcome {
+            margin-bottom: 30px;
+        }
 
-        /* =====================================================
+        .welcome small {
+            font-size: 12px;
+            color: #82919d;
+        }
+
+        .welcome h1 {
+            font-size: 29px;
+            color: #263746;
+            margin-top: 7px;
+            font-weight: 700;
+        }
+
+        .welcome p {
+            margin-top: 9px;
+            color: #7c8b97;
+            font-size: 13px;
+        }
+
+        /* =========================
            HERO
-        ===================================================== */
+        ========================= */
 
         .hero {
-            min-height: 410px;
-
-            background: white;
-
-            border-radius: 14px;
-
-            border: 1px solid var(--border);
-
+            background: #ffffff;
+            border: 1px solid #e7edf1;
+            border-radius: 20px;
+            min-height: 330px;
             display: grid;
-
-            grid-template-columns: 45% 55%;
-
+            grid-template-columns: 1fr 1fr;
             overflow: hidden;
-
-            margin-bottom: 25px;
+            margin-bottom: 30px;
         }
 
-
         .hero-text {
-            padding: 55px 45px;
-
+            padding: 45px;
             display: flex;
             flex-direction: column;
             justify-content: center;
         }
 
-
-        .small-title {
-            color: var(--red);
-
-            font-size: 11px;
-
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: #edf6f8;
+            color: #39768a;
+            padding: 7px 11px;
+            border-radius: 20px;
+            width: fit-content;
+            font-size: 10px;
             font-weight: 700;
-
-            letter-spacing: 1.7px;
-
-            margin-bottom: 15px;
-        }
-
-
-        .hero-title {
-            font-size: 42px;
-
-            line-height: 1.12;
-
-            font-weight: 750;
-
-            color: #242a2f;
-
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
             margin-bottom: 18px;
         }
 
-
-        .hero-title span {
-            color: var(--red);
+        .tag span {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #4e94a8;
         }
 
+        .hero h2 {
+            font-size: 28px;
+            line-height: 1.25;
+            color: #263746;
+            max-width: 500px;
+            margin-bottom: 14px;
+        }
+
+        .hero h2 span {
+            color: #397c93;
+        }
 
         .hero-description {
-            color: var(--muted);
-
-            font-size: 14px;
-
+            color: #7b8995;
+            font-size: 13px;
             line-height: 1.7;
-
-            max-width: 490px;
-
-            margin-bottom: 27px;
-        }
-
-
-        .hero-button {
-            width: fit-content;
-
-            display: inline-flex;
-
-            align-items: center;
-
-            gap: 10px;
-
-            padding: 12px 20px;
-
-            background: var(--red);
-
-            color: white;
-
-            border-radius: 6px;
-
-            text-decoration: none;
-
-            font-size: 12px;
-
-            font-weight: 600;
-
-            transition: .2s;
-        }
-
-
-        .hero-button:hover {
-            background: var(--red-hover);
-
-            transform: translateY(-1px);
-        }
-
-
-        .hero-image {
-            position: relative;
-
-            min-height: 410px;
-
-            background-image:
-                linear-gradient(
-                    90deg,
-                    rgba(255,255,255,.10),
-                    rgba(0,0,0,.03)
-                ),
-                url("{{ url_for('static', filename='images/coca_bottle.png') }}");
-
-            background-size: cover;
-
-            background-position: center;
-
-        }
-
-
-        .hero-image-label {
-            position: absolute;
-
-            right: 25px;
-            bottom: 25px;
-
-            background: rgba(255,255,255,.94);
-
-            padding: 13px 17px;
-
-            border-radius: 8px;
-
-            box-shadow: 0 5px 20px rgba(0,0,0,.12);
-        }
-
-
-        .hero-image-label strong {
-            display: block;
-
-            font-size: 12px;
-        }
-
-
-        .hero-image-label span {
-            color: var(--muted);
-
-            font-size: 9px;
-        }
-
-
-        /* =====================================================
-           MODULES
-        ===================================================== */
-
-        .section-heading {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-
-            margin-bottom: 13px;
-        }
-
-
-        .section-heading h2 {
-            font-size: 18px;
-        }
-
-
-        .section-heading p {
-            color: var(--muted);
-            font-size: 11px;
-        }
-
-
-        .modules {
-            display: grid;
-
-            grid-template-columns:
-                repeat(4, 1fr);
-
-            gap: 13px;
-
+            max-width: 500px;
             margin-bottom: 25px;
         }
 
-
-        .module {
-            background: white;
-
-            border: 1px solid var(--border);
-
-            border-radius: 10px;
-
-            padding: 20px;
-
-            text-decoration: none;
-
-            color: var(--text);
-
-            transition: .2s;
-
-            min-height: 145px;
+        .hero-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            background: #326f85;
+            color: white;
+            width: fit-content;
+            padding: 11px 18px;
+            border-radius: 9px;
+            font-size: 12px;
+            font-weight: 600;
+            transition: 0.2s;
         }
 
-
-        .module:hover {
-            border-color: #d5d9dc;
-
-            transform: translateY(-2px);
-
-            box-shadow:
-                0 8px 20px rgba(0,0,0,.05);
+        .hero-button:hover {
+            background: #285e72;
+            transform: translateY(-1px);
         }
 
+        .hero-image {
+            min-height: 330px;
+            position: relative;
+            background:
+                linear-gradient(
+                    90deg,
+                    rgba(255,255,255,0.08),
+                    rgba(255,255,255,0)
+                ),
+                url("/static/images/production_line.jpg");
 
-        .module-icon {
-            width: 39px;
-            height: 39px;
+            background-size: cover;
+            background-position: center;
+        }
 
-            border-radius: 8px;
+        .image-label {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.93);
+            backdrop-filter: blur(8px);
+            border-radius: 11px;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            gap: 11px;
+        }
 
-            background: #fff0f1;
-
-            color: var(--red);
-
+        .image-label-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 9px;
+            background: #e7f2f5;
+            color: #397c93;
             display: flex;
             align-items: center;
             justify-content: center;
-
-            margin-bottom: 13px;
         }
 
-
-        .module h3 {
-            font-size: 13px;
-            margin-bottom: 6px;
+        .image-label strong {
+            display: block;
+            color: #344957;
+            font-size: 11px;
         }
 
-
-        .module p {
-            color: var(--muted);
-
-            font-size: 10px;
-
-            line-height: 1.5;
+        .image-label span {
+            color: #8996a0;
+            font-size: 9px;
         }
 
+        /* =========================
+           MODULES
+        ========================= */
 
-        /* =====================================================
-           BOTTOM
-        ===================================================== */
+        .section-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
 
-        .bottom {
+        .section-title h3 {
+            font-size: 16px;
+            color: #344957;
+        }
+
+        .section-title span {
+            font-size: 11px;
+            color: #94a0aa;
+        }
+
+        .modules {
             display: grid;
-
-            grid-template-columns: 1fr 1fr;
-
+            grid-template-columns: repeat(4, 1fr);
             gap: 15px;
         }
 
+        .module {
+            background: #ffffff;
+            border: 1px solid #e7edf1;
+            border-radius: 15px;
+            padding: 20px;
+            transition: 0.2s;
+        }
 
-        .info-card {
-            background: white;
+        .module:hover {
+            border-color: #c9dfe6;
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(44, 75, 90, 0.06);
+        }
 
-            border: 1px solid var(--border);
-
+        .module-icon {
+            width: 40px;
+            height: 40px;
             border-radius: 10px;
-
-            padding: 21px;
-        }
-
-
-        .info-card h3 {
-            font-size: 15px;
-
-            margin-bottom: 10px;
-        }
-
-
-        .info-card p {
-            color: var(--muted);
-
-            font-size: 11px;
-
-            line-height: 1.65;
-        }
-
-
-        .info-list {
-            margin-top: 13px;
-
             display: flex;
-
-            gap: 10px;
-
-            flex-wrap: wrap;
-        }
-
-
-        .info-item {
-            display: flex;
-
             align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            background: #edf5f7;
+            color: #39788d;
+        }
 
-            gap: 7px;
+        .module h4 {
+            color: #354957;
+            font-size: 13px;
+            margin-bottom: 7px;
+        }
 
+        .module p {
+            color: #8996a0;
             font-size: 10px;
-
-            color: #505960;
-
-            background: #f7f8f9;
-
-            padding: 8px 11px;
-
-            border-radius: 6px;
+            line-height: 1.6;
+            margin-bottom: 14px;
         }
 
-
-        .info-item i {
-            color: var(--red);
+        .module-link {
+            color: #39788d;
+            font-size: 10px;
+            font-weight: 600;
         }
 
+        .module-link i {
+            margin-left: 4px;
+        }
 
-        /* =====================================================
+        /* =========================
            FOOTER
-        ===================================================== */
+        ========================= */
 
         .footer {
-            margin-top: 30px;
-
-            padding: 20px 0 5px;
-
-            color: #969da2;
-
-            font-size: 9px;
-
-            display: flex;
-
-            justify-content: space-between;
-
-            border-top: 1px solid var(--border);
+            padding: 30px 0 10px;
+            text-align: center;
+            color: #a1adb5;
+            font-size: 10px;
         }
 
-
-        /* =====================================================
+        /* =========================
            RESPONSIVE
-        ===================================================== */
+        ========================= */
 
-        @media(max-width:1100px) {
+        @media (max-width: 1100px) {
 
             .modules {
-                grid-template-columns: repeat(2,1fr);
+                grid-template-columns: repeat(2, 1fr);
             }
 
             .hero {
@@ -666,369 +497,407 @@
             }
 
             .hero-image {
-                min-height: 300px;
+                min-height: 250px;
             }
-
         }
 
-
-        @media(max-width:800px) {
+        @media (max-width: 800px) {
 
             .sidebar {
                 width: 70px;
+                padding: 20px 10px;
             }
 
-            .sidebar-header {
+            .brand-text,
+            .menu-title,
+            .menu span,
+            .help-box {
+                display: none;
+            }
+
+            .brand {
                 justify-content: center;
                 padding: 0;
             }
 
-            .brand-name,
-            .brand-subtitle,
-            .menu-item span,
-            .menu-title,
-            .submenu {
-                display: none;
-            }
-
-            .logo-box {
-                margin: 0;
-            }
-
-            .menu-item {
+            .menu a {
                 justify-content: center;
-            }
-
-            .menu-item i {
-                margin: 0;
+                padding: 12px;
             }
 
             .main {
                 margin-left: 70px;
+                width: calc(100% - 70px);
             }
 
             .content {
-                padding: 20px;
+                padding: 25px 18px;
             }
 
-            .bottom {
-                grid-template-columns: 1fr;
+            .topbar {
+                padding: 0 20px;
             }
-
         }
 
-
-        @media(max-width:600px) {
-
-            .top-logo,
-            .divider,
-            .user-text {
-                display: none;
-            }
+        @media (max-width: 600px) {
 
             .modules {
                 grid-template-columns: 1fr;
             }
 
-            .hero-title {
-                font-size: 32px;
-            }
-
             .hero-text {
-                padding: 35px 25px;
+                padding: 28px;
             }
 
-            .footer {
-                flex-direction: column;
-                gap: 7px;
+            .hero h2 {
+                font-size: 23px;
             }
 
+            .welcome h1 {
+                font-size: 23px;
+            }
+
+            .breadcrumb {
+                display: none;
+            }
         }
 
     </style>
-
 </head>
-
 
 <body>
 
+<div class="app">
 
-<!-- =========================================================
-     SIDEBAR
-========================================================= -->
+    <!-- =========================
+         SIDEBAR
+    ========================== -->
 
-<aside class="sidebar">
+    <aside class="sidebar">
 
+        <div class="brand">
 
-    <div class="sidebar-header">
-
-        <div class="logo-box">
-            P
-        </div>
-
-        <div>
-
-            <div class="brand-name">
-                PMP
+            <div class="brand-icon">
+                <i class="fa-solid fa-gears"></i>
             </div>
 
-            <div class="brand-subtitle">
-                DIGITAL MAINTENANCE
+            <div class="brand-text">
+                <h2>PMP</h2>
+                <span>Maintenance Platform</span>
             </div>
 
         </div>
-
-    </div>
-
-
-    <nav class="menu">
 
 
         <div class="menu-title">
             Navigation
         </div>
 
+        <nav class="menu">
 
-        <a href="/index"
-           class="menu-item active">
+            <a href="/index" class="active">
+                <i class="fa-solid fa-house"></i>
+                <span>Accueil</span>
+            </a>
 
-            <i class="fa-solid fa-house"></i>
-
-            <span>
-                Accueil
-            </span>
-
-        </a>
-
-
-        <a href="/platform"
-           class="menu-item">
-
-            <i class="fa-solid fa-calendar-check"></i>
-
-            <span>
-                Maintenance Préventive
-            </span>
-
-        </a>
-
-
-        <a href="/me/report"
-           class="menu-item">
-
-            <i class="fa-solid fa-screwdriver-wrench"></i>
-
-            <span>
-                Maintenance Corrective
-            </span>
-
-        </a>
-
-
-        <a href="/me"
-           class="menu-item">
-
-            <i class="fa-solid fa-gears"></i>
-
-            <span>
-                Maintenance Autonome
-            </span>
-
-        </a>
-
-
-        <div class="submenu">
-
-            <a href="/me">
-                Dashboard AM
+            <a href="/platform">
+                <i class="fa-solid fa-calendar-check"></i>
+                <span>Maintenance préventive</span>
             </a>
 
             <a href="/me">
-                Nettoyage initial
+                <i class="fa-solid fa-list-check"></i>
+                <span>Mes tâches</span>
             </a>
 
             <a href="/me/report">
-                Tags / Anomalies
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>Anomalies</span>
             </a>
 
-            <a href="/me">
-                Checklists CIL
+            <a href="/production">
+                <i class="fa-solid fa-chart-line"></i>
+                <span>Performance</span>
             </a>
 
-            <a href="/me">
-                Actions & interventions
+            <a href="/documentation">
+                <i class="fa-solid fa-folder-open"></i>
+                <span>Documentation</span>
             </a>
 
-            <a href="/me">
-                Audits & progression
+        </nav>
+
+
+        <div class="menu-title" style="margin-top:28px;">
+            Administration
+        </div>
+
+        <nav class="menu">
+
+            <a href="/admin/teams">
+                <i class="fa-solid fa-users"></i>
+                <span>Équipes</span>
             </a>
+
+            <a href="/admin/settings">
+                <i class="fa-solid fa-sliders"></i>
+                <span>Paramètres</span>
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-bottom">
+
+            <div class="help-box">
+
+                <i class="fa-regular fa-circle-question"></i>
+
+                <strong>Besoin d'aide ?</strong>
+
+                <p>
+                    Consultez la documentation
+                    de la plateforme.
+                </p>
+
+            </div>
 
         </div>
 
-
-        <a href="/documentation"
-           class="menu-item">
-
-            <i class="fa-solid fa-box-open"></i>
-
-            <span>
-                Pièces de rechange
-            </span>
-
-        </a>
+    </aside>
 
 
-        <a href="/production"
-           class="menu-item">
+    <!-- =========================
+         MAIN
+    ========================== -->
 
-            <i class="fa-solid fa-chart-line"></i>
-
-            <span>
-                Performance (TRS)
-            </span>
-
-        </a>
+    <main class="main">
 
 
-        <a href="/admin/teams"
-           class="menu-item">
+        <!-- TOPBAR -->
 
-            <i class="fa-solid fa-trophy"></i>
+        <header class="topbar">
 
-            <span>
-                TPM Challenge
-            </span>
+            <div class="breadcrumb">
+                PMP &nbsp;/&nbsp; <strong>Accueil</strong>
+            </div>
 
-        </a>
+            <div class="user-area">
 
-
-        <a href="/admin/settings"
-           class="menu-item">
-
-            <i class="fa-solid fa-gear"></i>
-
-            <span>
-                Paramètres
-            </span>
-
-        </a>
-
-
-    </nav>
-
-</aside>
-
-
-
-<!-- =========================================================
-     MAIN
-========================================================= -->
-
-<main class="main">
-
-
-    <!-- TOPBAR -->
-
-    <header class="topbar">
-
-
-        <div class="top-title">
-            Accueil
-        </div>
-
-
-        <div class="top-right">
-
-
-            <img
-                src="{{ url_for('static', filename='images/logo_cocacola.png') }}"
-                class="top-logo"
-                alt="Coca-Cola">
-
-
-            <img
-                src="{{ url_for('static', filename='images/logo_cobomi.png') }}"
-                class="top-logo"
-                alt="COBOMI">
-
-
-            <div class="divider"></div>
-
-
-            <div class="user">
-
-                <div class="avatar">
-                    ME
+                <div class="notification">
+                    <i class="fa-regular fa-bell"></i>
                 </div>
 
-                <div class="user-text">
+                <div class="avatar">
+                    {{ session.get('username', 'U')[0]|upper }}
+                </div>
 
-                    <strong>
-                        Responsable Maintenance
-                    </strong>
+            </div>
 
-                    <span>
-                        PMP Platform
-                    </span>
+        </header>
+
+
+        <!-- CONTENT -->
+
+        <section class="content">
+
+
+            <!-- WELCOME -->
+
+            <div class="welcome">
+
+                <small>
+                    Bienvenue sur votre espace de maintenance
+                </small>
+
+                <h1>
+                    Bonjour 👋
+                </h1>
+
+                <p>
+                    Pilotez simplement vos activités de maintenance
+                    et améliorez la performance de vos équipements.
+                </p>
+
+            </div>
+
+
+            <!-- HERO -->
+
+            <div class="hero">
+
+                <div class="hero-text">
+
+                    <div class="tag">
+                        <span></span>
+                        DIGITAL MAINTENANCE
+                    </div>
+
+                    <h2>
+                        Une maintenance
+                        <span>plus simple.</span>
+                    </h2>
+
+                    <p class="hero-description">
+
+                        PMP centralise les opérations de maintenance
+                        préventive, le suivi des anomalies, les
+                        interventions et les indicateurs de performance.
+
+                    </p>
+
+                    <a href="/platform" class="hero-button">
+
+                        Commencer
+
+                        <i class="fa-solid fa-arrow-right"></i>
+
+                    </a>
+
+                </div>
+
+
+                <div class="hero-image">
+
+                    <div class="image-label">
+
+                        <div class="image-label-icon">
+                            <i class="fa-solid fa-industry"></i>
+                        </div>
+
+                        <div>
+
+                            <strong>
+                                Maintenance industrielle
+                            </strong>
+
+                            <span>
+                                Suivi des équipements et des interventions
+                            </span>
+
+                        </div>
+
+                    </div>
 
                 </div>
 
             </div>
 
 
-        </div>
+            <!-- MODULES -->
+
+            <div class="section-title">
+
+                <h3>
+                    Accès rapide
+                </h3>
+
+                <span>
+                    Les principales fonctions
+                </span>
+
+            </div>
 
 
-    </header>
+            <div class="modules">
 
 
+                <!-- PREVENTIVE -->
 
-    <!-- CONTENT -->
+                <a href="/platform" class="module">
 
-    <div class="content">
+                    <div class="module-icon">
+                        <i class="fa-solid fa-calendar-check"></i>
+                    </div>
 
+                    <h4>
+                        Maintenance préventive
+                    </h4>
 
-        <!-- =================================================
-             HERO
-        ================================================== -->
+                    <p>
+                        Consultez et réalisez vos tâches
+                        de maintenance planifiées.
+                    </p>
 
-        <section class="hero">
+                    <div class="module-link">
+                        Accéder
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </div>
 
-
-            <div class="hero-text">
-
-
-                <div class="small-title">
-                    DIGITAL MAINTENANCE PLATFORM
-                </div>
-
-
-                <h1 class="hero-title">
-
-                    Simplifier la
-                    <br>
-
-                    <span>maintenance.</span>
-
-                </h1>
+                </a>
 
 
-                <p class="hero-description">
+                <!-- TASKS -->
 
-                    Une plateforme unique pour piloter
-                    la maintenance préventive, suivre les
-                    anomalies, impliquer les opérateurs et
-                    améliorer la performance des équipements.
+                <a href="/me" class="module">
 
-                </p>
+                    <div class="module-icon">
+                        <i class="fa-solid fa-clipboard-check"></i>
+                    </div>
+
+                    <h4>
+                        Mes tâches
+                    </h4>
+
+                    <p>
+                        Retrouvez vos tâches ouvertes,
+                        réalisées et à valider.
+                    </p>
+
+                    <div class="module-link">
+                        Consulter
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+
+                </a>
 
 
-                <a href="/platform"
-                   class="hero-button">
+                <!-- ANOMALIES -->
 
-                    Accéder à la plateforme
+                <a href="/me/report" class="module">
 
-                    <i class="fa-solid fa-arrow-right"></i>
+                    <div class="module-icon">
+                        <i class="fa-solid fa-bell"></i>
+                    </div>
+
+                    <h4>
+                        Anomalies
+                    </h4>
+
+                    <p>
+                        Signalez rapidement une anomalie
+                        détectée sur un équipement.
+                    </p>
+
+                    <div class="module-link">
+                        Signaler
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+
+                </a>
+
+
+                <!-- PERFORMANCE -->
+
+                <a href="/production" class="module">
+
+                    <div class="module-icon">
+                        <i class="fa-solid fa-chart-simple"></i>
+                    </div>
+
+                    <h4>
+                        Performance
+                    </h4>
+
+                    <p>
+                        Suivez les indicateurs et la performance
+                        de vos activités.
+                    </p>
+
+                    <div class="module-link">
+                        Voir les indicateurs
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </div>
 
                 </a>
 
@@ -1036,290 +905,22 @@
             </div>
 
 
-            <div class="hero-image">
+            <!-- FOOTER -->
 
+            <div class="footer">
 
-                <div class="hero-image-label">
-
-                    <strong>
-                        Excellence opérationnelle
-                    </strong>
-
-                    <span>
-                        Fiabilité · Performance · Sécurité
-                    </span>
-
-                </div>
-
+                PMP · Digital Maintenance Platform
+                <br>
+                Maintenance industrielle & Performance
 
             </div>
 
 
         </section>
 
+    </main>
 
-
-        <!-- =================================================
-             MODULES
-        ================================================== -->
-
-        <div class="section-heading">
-
-            <div>
-
-                <h2>
-                    Modules principaux
-                </h2>
-
-                <p>
-                    Les outils essentiels de la plateforme
-                </p>
-
-            </div>
-
-        </div>
-
-
-        <section class="modules">
-
-
-            <a href="/platform"
-               class="module">
-
-                <div class="module-icon">
-
-                    <i class="fa-solid fa-calendar-check"></i>
-
-                </div>
-
-                <h3>
-                    Maintenance Préventive
-                </h3>
-
-                <p>
-                    Planifier et suivre les opérations
-                    de maintenance.
-                </p>
-
-            </a>
-
-
-            <a href="/me"
-               class="module">
-
-                <div class="module-icon">
-
-                    <i class="fa-solid fa-gears"></i>
-
-                </div>
-
-                <h3>
-                    Maintenance Autonome
-                </h3>
-
-                <p>
-                    Impliquer les opérateurs dans
-                    l'entretien quotidien.
-                </p>
-
-            </a>
-
-
-            <a href="/me/report"
-               class="module">
-
-                <div class="module-icon">
-
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-
-                </div>
-
-                <h3>
-                    Anomalies
-                </h3>
-
-                <p>
-                    Déclarer et suivre rapidement
-                    les anomalies terrain.
-                </p>
-
-            </a>
-
-
-            <a href="/production"
-               class="module">
-
-                <div class="module-icon">
-
-                    <i class="fa-solid fa-chart-line"></i>
-
-                </div>
-
-                <h3>
-                    Performance TRS
-                </h3>
-
-                <p>
-                    Visualiser la performance et
-                    les indicateurs clés.
-                </p>
-
-            </a>
-
-
-        </section>
-
-
-
-        <!-- =================================================
-             INFORMATIONS
-        ================================================== -->
-
-        <section class="bottom">
-
-
-            <div class="info-card">
-
-
-                <h3>
-                    Une plateforme pour toute l'équipe
-                </h3>
-
-
-                <p>
-
-                    PMP centralise les activités de maintenance
-                    et facilite la collaboration entre opérateurs,
-                    techniciens, chefs d'équipe et responsables.
-
-                </p>
-
-
-                <div class="info-list">
-
-
-                    <div class="info-item">
-
-                        <i class="fa-solid fa-users"></i>
-
-                        Équipes
-
-                    </div>
-
-
-                    <div class="info-item">
-
-                        <i class="fa-solid fa-mobile-screen"></i>
-
-                        Terrain
-
-                    </div>
-
-
-                    <div class="info-item">
-
-                        <i class="fa-solid fa-chart-simple"></i>
-
-                        KPI
-
-                    </div>
-
-
-                    <div class="info-item">
-
-                        <i class="fa-solid fa-arrow-trend-up"></i>
-
-                        Amélioration continue
-
-                    </div>
-
-
-                </div>
-
-
-            </div>
-
-
-
-            <div class="info-card">
-
-
-                <h3>
-                    Notre objectif
-                </h3>
-
-
-                <p>
-
-                    Passer d'une maintenance réactive à une
-                    maintenance structurée, préventive et
-                    participative afin d'améliorer la fiabilité
-                    des équipements et la performance industrielle.
-
-                </p>
-
-
-                <div class="info-list">
-
-
-                    <div class="info-item">
-
-                        <i class="fa-solid fa-shield-halved"></i>
-
-                        Sécurité
-
-                    </div>
-
-
-                    <div class="info-item">
-
-                        <i class="fa-solid fa-wrench"></i>
-
-                        Fiabilité
-
-                    </div>
-
-
-                    <div class="info-item">
-
-                        <i class="fa-solid fa-gauge-high"></i>
-
-                        Performance
-
-                    </div>
-
-
-                </div>
-
-
-            </div>
-
-
-        </section>
-
-
-
-        <!-- FOOTER -->
-
-        <footer class="footer">
-
-            <span>
-                PMP — Digital Maintenance Platform
-            </span>
-
-            <span>
-                Maintenance • Fiabilité • Performance
-            </span>
-
-        </footer>
-
-
-    </div>
-
-
-</main>
-
+</div>
 
 </body>
-
 </html>
