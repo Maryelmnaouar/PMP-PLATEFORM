@@ -1,1603 +1,331 @@
 <!DOCTYPE html>
+
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accueil – Coca-Cola x Cobomi PMP</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+<style>
+  :root {
+    --red-dark: #b51212;
+    --red-light: #e41b13;
+    --bg-light: #fff5f5;
+    --card-bg: rgba(255,255,255,0.9);
+    --text: #1a1a1a;
+    --muted: #555;
+    --shadow: 0 8px 30px rgba(0,0,0,0.15);
+  }
+
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background: linear-gradient(135deg, var(--bg-light), #ffdada);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(90deg, var(--muted), var(--red-dark));
+    padding: 16px 28px;
+    box-shadow: var(--shadow);
+    color: #fff;
+  }
+
+  .logo-box {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .logo-box img {
+    height: 55px;
+    transition: transform 0.4s ease;
+  }
+
+  .logo-box img:hover { transform: scale(1.05); }
+
+  .title-zone {
+    font-size: 1.5rem;
+    font-weight: 800;
+    text-align: center;
+    letter-spacing: .5px;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 40px auto;
+    padding: 0 16px;
+  }
+
+  .hero { text-align: center; margin-bottom: 30px; }
+
+  .hero h1 {
+    color: var(--red-dark);
+    font-size: 2rem;
+    margin-bottom: 10px;
+  }
+
+  .hero p { color: var(--muted); font-size: 1.1rem; }
+
+  .kpi-container {
+    display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; margin-bottom: 40px;
+  }
+
+  .kpi-box {
+    flex: 1 1 250px;
+    background: var(--card-bg);
+    border-radius: 16px;
+    text-align: center;
+    padding: 18px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(6px);
+  }
+
+  .kpi-box h3 { margin: 8px 0 6px; color: var(--red-dark); }
+
+  .kpi-value {
+    font-size: 1.9rem;
+    font-weight: 800;
+    color: var(--red-light);
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 18px;
+    backdrop-filter: blur(6px);
+    transition: transform .25s ease;
+  }
+
+  .card:hover { transform: translateY(-4px); }
+
+  .card h2 {
+    color: var(--red-dark);
+    margin-bottom: 10px;
+    font-size: 1.2rem;
+  }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 8px; border-bottom: 1px solid #ddd; text-align: left; }
+  th { color: var(--muted); font-size: .85rem; text-transform: uppercase; }
+
+  .cta { display: flex; justify-content: center; margin: 40px 0; }
+
+  .btn {
+    background: linear-gradient(180deg, var(--red-light), var(--red-dark));
+    border: none; color: white;
+    border-radius: 12px; padding: 14px 24px;
+    font-weight: bold; font-size: 1.1rem;
+    cursor: pointer; transition: .25s;
+    box-shadow: 0 6px 25px rgba(255,0,0,.3);
+  }
+    .btne {
+    background: linear-gradient(180deg, var(--red-light), var(--red-dark));
+    border: none; color: white;
+    border-radius: 8px; padding: 1Opx 20px;
+    font-weight: bold; font-size: 1.1rem;
+    cursor: pointer; transition: .25s;
+    box-shadow: 0 4px 21px rgba(255,0,0,.3);
+  }
+  .btne:hover { transform: scale(1.05); box-shadow: 0 6px 24px rgba(255,0,0,.45); }
+  .btn:hover { transform: scale(1.05); box-shadow: 0 8px 30px rgba(255,0,0,.45); }
+
+  .footer { text-align: center; color: var(--muted); margin: 40px 0 10px; font-size: .85rem; }
+
+  .coca-bottle {
+    position: fixed; bottom: 30px; right: 40px;
+    height: 170px; animation: float 4s ease-in-out infinite;
+    opacity: .9; z-index: 10;
+  }
+
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-14px); }
+  }
+
+  #fx {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: -1; opacity: .55;
+  }
+</style>
 
-    <title>PMP | Smart Maintenance</title>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-    <link rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-
-    <style>
-
-        :root {
-            --blue-dark: #164e63;
-            --blue: #197a9a;
-            --blue-light: #42a5c6;
-            --cyan: #55c5d9;
-            --soft-blue: #e8f5f8;
-            --bg: #f2f7f9;
-            --white: #ffffff;
-            --text: #25404d;
-            --muted: #78909c;
-            --border: #dce9ed;
-            --green: #45a98a;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: "Inter", sans-serif;
-            background: var(--bg);
-            color: var(--text);
-        }
-
-        a {
-            text-decoration: none;
-            color: inherit;
-        }
-
-        /* ================================
-           APP
-        ================================= */
-
-        .app {
-            min-height: 100vh;
-            display: flex;
-        }
-
-        /* ================================
-           SIDEBAR
-        ================================= */
-
-        .sidebar {
-            width: 235px;
-            position: fixed;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            padding: 22px 15px;
-            background:
-                linear-gradient(
-                    180deg,
-                    #eaf6f8 0%,
-                    #f6fafb 55%,
-                    #edf6f8 100%
-                );
-            border-right: 1px solid var(--border);
-            z-index: 10;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 11px;
-            padding: 8px 10px 28px;
-        }
-
-        .brand-logo {
-            width: 43px;
-            height: 43px;
-            border-radius: 13px;
-
-            background:
-                linear-gradient(
-                    135deg,
-                    #1c718d,
-                    #55bfd1
-                );
-
-            color: white;
-
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            box-shadow:
-                0 8px 20px rgba(25,122,154,.20);
-
-            font-size: 18px;
-        }
-
-        .brand h2 {
-            font-size: 17px;
-            color: var(--blue-dark);
-            font-weight: 800;
-        }
-
-        .brand p {
-            font-size: 9px;
-            color: #75919c;
-            margin-top: 2px;
-        }
-
-        .nav-label {
-            font-size: 9px;
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
-            font-weight: 700;
-            color: #8ca3ac;
-            padding: 0 11px;
-            margin: 10px 0 9px;
-        }
-
-        .nav {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .nav a {
-            height: 43px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-
-            padding: 0 13px;
-
-            border-radius: 11px;
-
-            font-size: 11px;
-            font-weight: 600;
-            color: #68818c;
-
-            transition: .2s ease;
-        }
-
-        .nav a i {
-            width: 18px;
-            text-align: center;
-            font-size: 14px;
-        }
-
-        .nav a:hover {
-            background: rgba(255,255,255,.75);
-            color: var(--blue);
-            transform: translateX(2px);
-        }
-
-        .nav a.active {
-            color: white;
-
-            background:
-                linear-gradient(
-                    90deg,
-                    #226d85,
-                    #3c9db7
-                );
-
-            box-shadow:
-                0 7px 18px rgba(25,122,154,.18);
-        }
-
-        .sidebar-bottom {
-            position: absolute;
-            left: 15px;
-            right: 15px;
-            bottom: 18px;
-        }
-
-        .mini-status {
-            background: rgba(255,255,255,.75);
-            border: 1px solid rgba(214,230,235,.8);
-            border-radius: 13px;
-            padding: 13px;
-        }
-
-        .status-title {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 10px;
-            font-weight: 700;
-            color: var(--text);
-        }
-
-        .status-dot {
-            width: 7px;
-            height: 7px;
-            background: var(--green);
-            border-radius: 50%;
-            box-shadow: 0 0 0 4px rgba(69,169,138,.12);
-        }
-
-        .mini-status p {
-            color: #91a2aa;
-            font-size: 8px;
-            margin-top: 7px;
-        }
-
-        /* ================================
-           MAIN
-        ================================= */
-
-        .main {
-            margin-left: 235px;
-            width: calc(100% - 235px);
-            min-height: 100vh;
-        }
-
-        /* ================================
-           TOPBAR
-        ================================= */
-
-        .topbar {
-            height: 68px;
-            background: rgba(255,255,255,.85);
-            backdrop-filter: blur(12px);
-
-            border-bottom: 1px solid var(--border);
-
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-
-            padding: 0 34px;
-
-            position: sticky;
-            top: 0;
-            z-index: 5;
-        }
-
-        .top-title {
-            font-size: 12px;
-            color: #78909c;
-        }
-
-        .top-title strong {
-            color: var(--text);
-        }
-
-        .top-actions {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .notification {
-            width: 36px;
-            height: 36px;
-
-            border: 1px solid var(--border);
-            background: white;
-
-            border-radius: 10px;
-
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            color: #6d8995;
-
-            position: relative;
-        }
-
-        .notification::after {
-            content: "";
-            position: absolute;
-            width: 6px;
-            height: 6px;
-            background: #4cb5c9;
-            border-radius: 50%;
-            top: 7px;
-            right: 7px;
-        }
-
-        .user {
-            display: flex;
-            align-items: center;
-            gap: 9px;
-        }
-
-        .avatar {
-            width: 37px;
-            height: 37px;
-            border-radius: 11px;
-
-            background:
-                linear-gradient(
-                    135deg,
-                    #d8eef3,
-                    #b8dfe8
-                );
-
-            color: #286b80;
-
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            font-size: 12px;
-            font-weight: 800;
-        }
-
-        .user-info strong {
-            display: block;
-            font-size: 10px;
-            color: var(--text);
-        }
-
-        .user-info span {
-            font-size: 8px;
-            color: #91a1a9;
-        }
-
-        /* ================================
-           CONTENT
-        ================================= */
-
-        .content {
-            padding: 30px 34px 35px;
-            max-width: 1500px;
-            margin: auto;
-        }
-
-        .welcome {
-            margin-bottom: 21px;
-        }
-
-        .welcome small {
-            font-size: 10px;
-            color: #7f969f;
-        }
-
-        .welcome h1 {
-            font-size: 25px;
-            margin-top: 5px;
-            color: var(--text);
-            font-weight: 800;
-        }
-
-        /* ================================
-           HERO
-        ================================= */
-
-        .hero {
-            min-height: 310px;
-
-            border-radius: 22px;
-
-            overflow: hidden;
-
-            position: relative;
-
-            display: grid;
-            grid-template-columns: 1.05fr .95fr;
-
-            background:
-                linear-gradient(
-                    120deg,
-                    #14566c 0%,
-                    #1d7894 45%,
-                    #3da8bd 100%
-                );
-
-            box-shadow:
-                0 15px 35px rgba(29,92,110,.15);
-
-            margin-bottom: 22px;
-        }
-
-        /* digital decorative circles */
-
-        .hero::before {
-            content: "";
-            position: absolute;
-
-            width: 420px;
-            height: 420px;
-
-            border-radius: 50%;
-
-            border: 1px solid rgba(255,255,255,.13);
-
-            right: 25%;
-            top: -210px;
-        }
-
-        .hero::after {
-            content: "";
-            position: absolute;
-
-            width: 260px;
-            height: 260px;
-
-            border-radius: 50%;
-
-            border: 1px solid rgba(255,255,255,.10);
-
-            left: 38%;
-            bottom: -190px;
-        }
-
-        .hero-content {
-            position: relative;
-            z-index: 2;
-            padding: 39px 40px;
-
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        .hero-tag {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-
-            color: #c9f4fa;
-
-            font-size: 9px;
-            font-weight: 700;
-
-            letter-spacing: 1.2px;
-            text-transform: uppercase;
-
-            margin-bottom: 16px;
-        }
-
-        .live {
-            width: 7px;
-            height: 7px;
-            background: #8de6dc;
-            border-radius: 50%;
-
-            box-shadow:
-                0 0 0 5px rgba(141,230,220,.13);
-        }
-
-        .hero h2 {
-            color: white;
-            font-size: 31px;
-            line-height: 1.18;
-
-            max-width: 500px;
-
-            margin-bottom: 12px;
-        }
-
-        .hero h2 span {
-            color: #bceef4;
-        }
-
-        .hero-text {
-            color: rgba(255,255,255,.76);
-
-            font-size: 11px;
-            line-height: 1.7;
-
-            max-width: 455px;
-
-            margin-bottom: 22px;
-        }
-
-        .hero-buttons {
-            display: flex;
-            gap: 9px;
-        }
-
-        .primary-button {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-
-            background: white;
-            color: #216b81;
-
-            padding: 10px 16px;
-
-            border-radius: 9px;
-
-            font-size: 10px;
-            font-weight: 700;
-
-            transition: .2s;
-        }
-
-        .primary-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0,0,0,.12);
-        }
-
-        .secondary-button {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-
-            color: white;
-
-            border: 1px solid rgba(255,255,255,.35);
-
-            padding: 9px 15px;
-
-            border-radius: 9px;
-
-            font-size: 10px;
-            font-weight: 600;
-
-            transition: .2s;
-        }
-
-        .secondary-button:hover {
-            background: rgba(255,255,255,.1);
-        }
-
-        /* ================================
-           HERO IMAGE
-        ================================= */
-
-        .hero-visual {
-            position: relative;
-
-            background:
-                linear-gradient(
-                    90deg,
-                    rgba(20,86,108,.55),
-                    rgba(20,86,108,.05)
-                ),
-                url("/static/images/production_line.jpg");
-
-            background-size: cover;
-            background-position: center;
-
-            min-height: 310px;
-        }
-
-        .visual-overlay {
-            position: absolute;
-            inset: 0;
-
-            background:
-                linear-gradient(
-                    180deg,
-                    transparent 50%,
-                    rgba(13,60,74,.35)
-                );
-        }
-
-        /* floating monitoring card */
-
-        .monitor-card {
-            position: absolute;
-
-            right: 22px;
-            bottom: 22px;
-
-            width: 185px;
-
-            background: rgba(255,255,255,.94);
-            backdrop-filter: blur(10px);
-
-            border-radius: 13px;
-
-            padding: 13px;
-
-            box-shadow:
-                0 15px 30px rgba(12,67,83,.22);
-        }
-
-        .monitor-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-
-            margin-bottom: 11px;
-        }
-
-        .monitor-head strong {
-            font-size: 9px;
-            color: var(--text);
-        }
-
-        .monitor-head span {
-            font-size: 7px;
-            color: var(--green);
-        }
-
-        .progress-label {
-            display: flex;
-            justify-content: space-between;
-
-            font-size: 8px;
-            color: #7b919b;
-
-            margin-bottom: 5px;
-        }
-
-        .progress {
-            height: 5px;
-            background: #e6eef1;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 10px;
-        }
-
-        .progress span {
-            display: block;
-            height: 100%;
-            width: 86%;
-
-            background:
-                linear-gradient(
-                    90deg,
-                    #39a4b8,
-                    #61cad2
-                );
-
-            border-radius: inherit;
-        }
-
-        /* ================================
-           KPI
-        ================================= */
-
-        .kpis {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 13px;
-            margin-bottom: 22px;
-        }
-
-        .kpi {
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 15px;
-
-            padding: 17px;
-
-            display: flex;
-            align-items: center;
-            gap: 13px;
-
-            transition: .2s;
-        }
-
-        .kpi:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 25px rgba(44,88,101,.08);
-        }
-
-        .kpi-icon {
-            width: 42px;
-            height: 42px;
-
-            flex-shrink: 0;
-
-            border-radius: 11px;
-
-            background: var(--soft-blue);
-            color: var(--blue);
-
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            font-size: 15px;
-        }
-
-        .kpi:nth-child(2) .kpi-icon {
-            background: #edf8f3;
-            color: #4a9d82;
-        }
-
-        .kpi:nth-child(3) .kpi-icon {
-            background: #f0f4fb;
-            color: #5475a3;
-        }
-
-        .kpi:nth-child(4) .kpi-icon {
-            background: #eaf7f8;
-            color: #399aaa;
-        }
-
-        .kpi-info small {
-            display: block;
-            font-size: 8px;
-            color: #8ca0a9;
-            margin-bottom: 4px;
-        }
-
-        .kpi-info strong {
-            font-size: 19px;
-            color: var(--text);
-            font-weight: 800;
-        }
-
-        .kpi-info span {
-            font-size: 8px;
-            color: #71a391;
-            margin-left: 4px;
-        }
-
-        /* ================================
-           LOWER GRID
-        ================================= */
-
-        .lower {
-            display: grid;
-            grid-template-columns: 1.35fr .65fr;
-            gap: 16px;
-        }
-
-        .panel {
-            background: white;
-            border: 1px solid var(--border);
-            border-radius: 17px;
-            padding: 19px;
-        }
-
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-
-            margin-bottom: 16px;
-        }
-
-        .panel-title {
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--text);
-        }
-
-        .panel-subtitle {
-            font-size: 8px;
-            color: #9aaab1;
-            margin-top: 3px;
-        }
-
-        .view-all {
-            font-size: 8px;
-            color: var(--blue);
-            font-weight: 600;
-        }
-
-        /* ================================
-           ACTIVITY
-        ================================= */
-
-        .activity {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .activity-item {
-            display: flex;
-            align-items: center;
-            gap: 11px;
-
-            padding: 9px;
-
-            border-radius: 10px;
-
-            transition: .2s;
-        }
-
-        .activity-item:hover {
-            background: #f6fafb;
-        }
-
-        .activity-icon {
-            width: 31px;
-            height: 31px;
-
-            border-radius: 9px;
-
-            background: #edf7f8;
-            color: var(--blue);
-
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            font-size: 10px;
-        }
-
-        .activity-item:nth-child(2) .activity-icon {
-            background: #edf8f3;
-            color: var(--green);
-        }
-
-        .activity-item:nth-child(3) .activity-icon {
-            background: #f0f4fa;
-            color: #617ca0;
-        }
-
-        .activity-text {
-            flex: 1;
-        }
-
-        .activity-text strong {
-            display: block;
-            font-size: 9px;
-            color: var(--text);
-        }
-
-        .activity-text span {
-            font-size: 8px;
-            color: #9aa8af;
-        }
-
-        .activity-time {
-            font-size: 7px;
-            color: #a1adb3;
-        }
-
-        /* ================================
-           QUICK ACTIONS
-        ================================= */
-
-        .quick-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 9px;
-        }
-
-        .quick {
-            min-height: 82px;
-
-            padding: 13px;
-
-            border-radius: 12px;
-
-            background: #f5f9fa;
-            border: 1px solid #e7eff2;
-
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-
-            transition: .2s;
-        }
-
-        .quick:hover {
-            background: #eaf5f7;
-            border-color: #c9e1e7;
-            transform: translateY(-2px);
-        }
-
-        .quick i {
-            color: var(--blue);
-            font-size: 14px;
-        }
-
-        .quick strong {
-            font-size: 9px;
-            color: var(--text);
-        }
-
-        .quick span {
-            font-size: 7px;
-            color: #94a5ad;
-        }
-
-        /* ================================
-           FOOTER
-        ================================= */
-
-        .footer {
-            text-align: center;
-            padding-top: 23px;
-            font-size: 8px;
-            color: #9aacb4;
-        }
-
-        /* ================================
-           RESPONSIVE
-        ================================= */
-
-        @media(max-width:1100px) {
-
-            .hero {
-                grid-template-columns: 1fr;
-            }
-
-            .hero-visual {
-                min-height: 250px;
-            }
-
-            .kpis {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .lower {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media(max-width:800px) {
-
-            .sidebar {
-                width: 70px;
-                padding: 18px 9px;
-            }
-
-            .brand {
-                justify-content: center;
-                padding-left: 0;
-                padding-right: 0;
-            }
-
-            .brand > div:last-child,
-            .nav-label,
-            .nav span,
-            .sidebar-bottom {
-                display: none;
-            }
-
-            .nav a {
-                justify-content: center;
-                padding: 0;
-            }
-
-            .main {
-                margin-left: 70px;
-                width: calc(100% - 70px);
-            }
-
-            .content {
-                padding: 23px 17px;
-            }
-
-            .topbar {
-                padding: 0 18px;
-            }
-        }
-
-        @media(max-width:550px) {
-
-            .kpis {
-                grid-template-columns: 1fr;
-            }
-
-            .hero-content {
-                padding: 30px 25px;
-            }
-
-            .hero h2 {
-                font-size: 25px;
-            }
-
-            .hero-buttons {
-                flex-direction: column;
-                align-items: flex-start;
-            }
-
-            .quick-actions {
-                grid-template-columns: 1fr;
-            }
-
-            .user-info {
-                display: none;
-            }
-        }
-
-    </style>
 </head>
-
 <body>
 
-<div class="app">
-
-    <!-- ==========================================
-         SIDEBAR
-    =========================================== -->
-
-    <aside class="sidebar">
-
-        <div class="brand">
-
-            <div class="brand-logo">
-                <i class="fa-solid fa-gears"></i>
-            </div>
-
-            <div>
-                <h2>PMP</h2>
-                <p>Smart Maintenance</p>
-            </div>
-
-        </div>
-
-
-        <div class="nav-label">
-            Workspace
-        </div>
-
-        <nav class="nav">
-
-            <a href="/index" class="active">
-                <i class="fa-solid fa-house"></i>
-                <span>Accueil</span>
-            </a>
-
-            <a href="/platform">
-                <i class="fa-solid fa-calendar-check"></i>
-                <span>Maintenance préventive</span>
-            </a>
-
-            <a href="/me">
-                <i class="fa-solid fa-list-check"></i>
-                <span>Mes tâches</span>
-            </a>
-
-            <a href="/me/report">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                <span>Anomalies</span>
-            </a>
-
-            <a href="/production">
-                <i class="fa-solid fa-chart-line"></i>
-                <span>Performance</span>
-            </a>
-
-            <a href="/documentation">
-                <i class="fa-solid fa-folder-open"></i>
-                <span>Documentation</span>
-            </a>
-
-        </nav>
-
-
-        <div class="nav-label" style="margin-top:25px;">
-            Administration
-        </div>
-
-        <nav class="nav">
-
-            <a href="/admin/teams">
-                <i class="fa-solid fa-users"></i>
-                <span>Équipes</span>
-            </a>
-
-            <a href="/admin/settings">
-                <i class="fa-solid fa-sliders"></i>
-                <span>Paramètres</span>
-            </a>
-
-        </nav>
-
-
-        <div class="sidebar-bottom">
-
-            <div class="mini-status">
-
-                <div class="status-title">
-                    <span class="status-dot"></span>
-                    Plateforme opérationnelle
-                </div>
-
-                <p>
-                    Système de maintenance connecté
-                </p>
-
-            </div>
-
-        </div>
-
-    </aside>
-
-
-    <!-- ==========================================
-         MAIN
-    =========================================== -->
-
-    <main class="main">
-
-
-        <!-- TOPBAR -->
-
-        <header class="topbar">
-
-            <div class="top-title">
-                Smart Maintenance
-                <span> / </span>
-                <strong>Accueil</strong>
-            </div>
-
-            <div class="top-actions">
-
-                <div class="notification">
-                    <i class="fa-regular fa-bell"></i>
-                </div>
-
-                <div class="user">
-
-                    <div class="avatar">
-                        {{ session.get('username', 'U')[0]|upper }}
-                    </div>
-
-                    <div class="user-info">
-
-                        <strong>
-                            {{ session.get('username', 'Utilisateur') }}
-                        </strong>
-
-                        <span>
-                            Maintenance
-                        </span>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </header>
-
-
-        <!-- CONTENT -->
-
-        <section class="content">
-
-
-            <!-- WELCOME -->
-
-            <div class="welcome">
-
-                <small>
-                    Tableau de bord
-                </small>
-
-                <h1>
-                    Bonjour 👋
-                </h1>
-
-            </div>
-
-
-            <!-- =================================
-                 HERO
-            ================================== -->
-
-            <section class="hero">
-
-
-                <div class="hero-content">
-
-                    <div class="hero-tag">
-
-                        <span class="live"></span>
-
-                        SMART MAINTENANCE PLATFORM
-
-                    </div>
-
-
-                    <h2>
-                        Pilotez votre
-                        <span>maintenance</span>
-                        intelligemment.
-                    </h2>
-
-
-                    <p class="hero-text">
-
-                        Centralisez vos opérations de maintenance,
-                        suivez les équipements, détectez les anomalies
-                        et améliorez la performance de vos équipes.
-
-                    </p>
-
-
-                    <div class="hero-buttons">
-
-                        <a href="/platform" class="primary-button">
-
-                            Mes PMP
-
-                            <i class="fa-solid fa-arrow-right"></i>
-
-                        </a>
-
-
-                        <a href="/me/report" class="secondary-button">
-
-                            Signaler une anomalie
-
-                            <i class="fa-solid fa-plus"></i>
-
-                        </a>
-
-                    </div>
-
-                </div>
-
-
-                <div class="hero-visual">
-
-                    <div class="visual-overlay"></div>
-
-
-                    <div class="monitor-card">
-
-                        <div class="monitor-head">
-
-                            <strong>
-                                État de la maintenance
-                            </strong>
-
-                            <span>
-                                ● En ligne
-                            </span>
-
-                        </div>
-
-
-                        <div class="progress-label">
-                            <span>PMP réalisées</span>
-                            <strong>86%</strong>
-                        </div>
-
-                        <div class="progress">
-                            <span></span>
-                        </div>
-
-
-                        <div class="progress-label">
-                            <span>Équipements suivis</span>
-                            <strong>74%</strong>
-                        </div>
-
-                        <div class="progress">
-                            <span style="width:74%;"></span>
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            <!-- =================================
-                 KPI
-            ================================== -->
-
-            <section class="kpis">
-
-
-                <div class="kpi">
-
-                    <div class="kpi-icon">
-                        <i class="fa-solid fa-clipboard-check"></i>
-                    </div>
-
-                    <div class="kpi-info">
-
-                        <small>
-                            PMP réalisées
-                        </small>
-
-                        <strong>
-                            24
-                        </strong>
-
-                        <span>
-                            +12%
-                        </span>
-
-                    </div>
-
-                </div>
-
-
-                <div class="kpi">
-
-                    <div class="kpi-icon">
-                        <i class="fa-solid fa-circle-exclamation"></i>
-                    </div>
-
-                    <div class="kpi-info">
-
-                        <small>
-                            Anomalies ouvertes
-                        </small>
-
-                        <strong>
-                            03
-                        </strong>
-
-                        <span>
-                            À traiter
-                        </span>
-
-                    </div>
-
-                </div>
-
-
-                <div class="kpi">
-
-                    <div class="kpi-icon">
-                        <i class="fa-solid fa-gears"></i>
-                    </div>
-
-                    <div class="kpi-info">
-
-                        <small>
-                            Équipements suivis
-                        </small>
-
-                        <strong>
-                            08
-                        </strong>
-
-                        <span>
-                            actifs
-                        </span>
-
-                    </div>
-
-                </div>
-
-
-                <div class="kpi">
-
-                    <div class="kpi-icon">
-                        <i class="fa-solid fa-chart-line"></i>
-                    </div>
-
-                    <div class="kpi-info">
-
-                        <small>
-                            Performance
-                        </small>
-
-                        <strong>
-                            92%
-                        </strong>
-
-                        <span>
-                            +4%
-                        </span>
-
-                    </div>
-
-                </div>
-
-
-            </section>
-
-
-            <!-- =================================
-                 LOWER CONTENT
-            ================================== -->
-
-            <section class="lower">
-
-
-                <!-- ACTIVITY -->
-
-                <div class="panel">
-
-                    <div class="panel-header">
-
-                        <div>
-
-                            <div class="panel-title">
-                                Activité récente
-                            </div>
-
-                            <div class="panel-subtitle">
-                                Dernières opérations enregistrées
-                            </div>
-
-                        </div>
-
-                        <a href="/me" class="view-all">
-                            Voir tout →
-                        </a>
-
-                    </div>
-
-
-                    <div class="activity">
-
-
-                        <div class="activity-item">
-
-                            <div class="activity-icon">
-                                <i class="fa-solid fa-check"></i>
-                            </div>
-
-                            <div class="activity-text">
-
-                                <strong>
-                                    PMP réalisée
-                                </strong>
-
-                                <span>
-                                    Maintenance préventive terminée
-                                </span>
-
-                            </div>
-
-                            <div class="activity-time">
-                                Aujourd'hui
-                            </div>
-
-                        </div>
-
-
-                        <div class="activity-item">
-
-                            <div class="activity-icon">
-                                <i class="fa-solid fa-triangle-exclamation"></i>
-                            </div>
-
-                            <div class="activity-text">
-
-                                <strong>
-                                    Nouvelle anomalie
-                                </strong>
-
-                                <span>
-                                    Anomalie signalée sur un équipement
-                                </span>
-
-                            </div>
-
-                            <div class="activity-time">
-                                Il y a 2h
-                            </div>
-
-                        </div>
-
-
-                        <div class="activity-item">
-
-                            <div class="activity-icon">
-                                <i class="fa-solid fa-wrench"></i>
-                            </div>
-
-                            <div class="activity-text">
-
-                                <strong>
-                                    Intervention terminée
-                                </strong>
-
-                                <span>
-                                    Équipement remis en service
-                                </span>
-
-                            </div>
-
-                            <div class="activity-time">
-                                Il y a 4h
-                            </div>
-
-                        </div>
-
-
-                    </div>
-
-                </div>
-
-
-                <!-- QUICK ACTIONS -->
-
-                <div class="panel">
-
-                    <div class="panel-header">
-
-                        <div>
-
-                            <div class="panel-title">
-                                Accès rapide
-                            </div>
-
-                            <div class="panel-subtitle">
-                                Actions fréquentes
-                            </div>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="quick-actions">
-
-
-                        <a href="/platform" class="quick">
-
-                            <i class="fa-solid fa-calendar-check"></i>
-
-                            <div>
-                                <strong>
-                                    Mes PMP
-                                </strong>
-
-                                <span>
-                                    Tâches préventives
-                                </span>
-                            </div>
-
-                        </a>
-
-
-                        <a href="/me/report" class="quick">
-
-                            <i class="fa-solid fa-bell"></i>
-
-                            <div>
-                                <strong>
-                                    Anomalie
-                                </strong>
-
-                                <span>
-                                    Nouveau signalement
-                                </span>
-                            </div>
-
-                        </a>
-
-
-                        <a href="/production" class="quick">
-
-                            <i class="fa-solid fa-chart-simple"></i>
-
-                            <div>
-                                <strong>
-                                    Performance
-                                </strong>
-
-                                <span>
-                                    Voir les indicateurs
-                                </span>
-                            </div>
-
-                        </a>
-
-
-                        <a href="/documentation" class="quick">
-
-                            <i class="fa-solid fa-book"></i>
-
-                            <div>
-                                <strong>
-                                    Documentation
-                                </strong>
-
-                                <span>
-                                    Standards & procédures
-                                </span>
-                            </div>
-
-                        </a>
-
-
-                    </div>
-
-                </div>
-
-
-            </section>
-
-
-            <div class="footer">
-
-                PMP · Smart Maintenance Platform
-                &nbsp;•&nbsp;
-                Digitalisation de la maintenance industrielle
-
-            </div>
-
-
-        </section>
-
-    </main>
-
+<canvas id="fx"></canvas>
+
+<header>
+  <div class="logo-box">
+    <img src="{{ url_for('static', filename='images/logo_cocacola.png') }}" alt="Coca-Cola">
+    <img src="{{ url_for('static', filename='images/logo_cobomi.png') }}" alt="Cobomi">
+  </div>
+  <div class="title-zone"><i class="fa-solid fa-industry"></i> Plateforme PMP</div>
+</header>
+<form method="get" style="max-width:1200px;margin:20px auto;padding:12px 20px;
+       background:rgba(255,255,255,0.7);border-radius:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+  <div>
+    <label>Ligne</label><br>
+    <select name="line">
+      <option value="">(Toutes)</option>
+      {% for l in lignes %}
+        <option value="{{ l }}" {% if filters.line == l %}selected{% endif %}>{{ l }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Machine</label><br>
+    <select name="machine">
+      <option value="">(Toutes)</option>
+      {% for l, machines in machines_par_ligne.items() %}
+        {% for m in machines %}
+          <option value="{{ m }}" {% if filters.machine == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label>Date début</label><br>
+    <input type="date" name="start_date" value="{{ filters.start_date }}">
+  </div>
+  <div>
+    <label>Date fin</label><br>
+    <input type="date" name="end_date" value="{{ filters.end_date }}">
+  </div>
+  <div>
+    <button type="submit" class="btne">
+    <i class="fa-solid fa-right-to-bracket"></i> Filtrer
+    </button>
+    <a href="{{ url_for('index') }}" style="margin-left:320px; color:var(--red-dark)">Réinitialiser</a>
+  </div>
+</form>
+<div class="container">
+  <section class="hero">
+    <h1>Plateforme PMP</h1>
+    <p>Supervision de la maintenance préventive, suivie des indicateurs clés et motivation des équipes.</p>
+  </section>
+  <!-- KPI globaux -->
+  <div class="kpi-container">
+    <div class="kpi-box">
+      <i class="fa-solid fa-screwdriver-wrench fa-2x" style="color:var(--red-dark);"></i>
+      <h3>Tâches totales</h3>
+      <div class="kpi-value">{{ total_taches }}</div>
+    </div>
+    <div class="kpi-box">
+      <i class="fa-solid fa-check-circle fa-2x" style="color:var(--red-dark);"></i>
+      <h3>Tâches réalisées</h3>
+      <div class="kpi-value">{{ taches_realisees }}</div>
+    </div>
+    <div class="kpi-box">
+      <i class="fa-solid fa-gauge-high fa-2x" style="color:var(--red-dark);"></i>
+      <h3>Taux de réalisation</h3>
+      <div class="kpi-value" style="color:{{ taux_couleur }};">
+    {{ taux_realisation }}%
 </div>
+
+    </div>
+  </div>
+
+  <!-- Tops et critiques -->
+
+  <div class="grid">
+    <div class="card">
+      <h2><i class="fa-solid fa-user-tie"></i> Top 3 opérateurs</h2>
+      <table>
+        <thead><tr><th>Nom</th><th>Score</th></tr></thead>
+        <tbody>
+          {% for op in top_operateurs %}
+          <tr><td>{{ op.nom }}</td><td>{{ op.score }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+<div class="card">
+  <h2><i class="fa-solid fa-user-gear"></i> Top 3 techniciens</h2>
+  <table>
+    <thead><tr><th>Nom</th><th>Score</th></tr></thead>
+    <tbody>
+      {% for tech in top_techniciens %}
+      <tr><td>{{ tech.nom }}</td><td>{{ tech.score }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+ <h2><i class="fa-solid fa-triangle-exclamation"></i> Actions préventives critiques</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Ligne</th>
+      <th>Machine</th>
+      <th>Points</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for act in actions_critiques %}
+    <tr>
+      <td>{{ act.ligne }}</td>
+      <td>{{ act.machine }}</td>
+      <td>{{ act.points }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+  <div class="cta">
+    <button class="btn" onclick="location.href='{{ url_for('login') }}'">
+      <i class="fa-solid fa-right-to-bracket"></i> Accéder à la plateforme
+    </button>
+  </div>
+</div>
+
+<img src="{{ url_for('static', filename='images/coca_bottle.png') }}" alt="Coca-Cola" class="coca-bottle">
+
+<div class="footer">© {{ current_year or 2025 }} Coca-Cola x Cobomi Maintenance System • Made with ❤️ by Maryam</div>
+
+<script>
+  const c=document.getElementById('fx'),ctx=c.getContext('2d');
+  let w,h,bubbles=[];
+  function resize(){w=c.width=innerWidth;h=c.height=innerHeight;}
+  addEventListener('resize',resize);resize();
+  for(let i=0;i<130;i++){bubbles.push({x:Math.random()*w,y:Math.random()*h,r:Math.random()*5+1.5,s:Math.random()*1+0.4,drift:Math.random()*0.4-0.2,alpha:Math.random()*0.6+0.3});}
+  function draw(){
+    ctx.clearRect(0,0,w,h);
+    const g=ctx.createLinearGradient(0,h,0,0);
+    g.addColorStop(0,'rgba(255,90,90,0.08)');
+    g.addColorStop(1,'rgba(255,0,0,0.05)');
+    ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+    bubbles.forEach(b=>{b.y-=b.s;b.x+=b.drift;if(b.y<-10){b.y=h+10;b.x=Math.random()*w;}
+      ctx.beginPath();
+      const glow=ctx.createRadialGradient(b.x,b.y,0,b.x,b.y,b.r*2);
+      glow.addColorStop(0,`rgba(255,80,80,${b.alpha})`);
+      glow.addColorStop(1,'rgba(255,0,0,0)');
+      ctx.fillStyle=glow;
+      ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+</script>
 
 </body>
 </html>
