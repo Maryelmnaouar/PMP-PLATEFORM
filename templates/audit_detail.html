@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Audit {{ a.sga_name }}{% endblock %}
+{% block heading %}Audit {{ a.level }} — {{ a.sga_name }}{% endblock %}
+{% block subheading %}Étape {{ a.am_step }} · {{ a.audit_date|d }} · auditeur {{ a.auditor }}{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-h"><h3>Score : <span class="pill" style="background:{{ '#17a45a' if a.score >= threshold else '#d71920' }};font-size:14px">{{ a.score|int }}% — {{ 'Conforme' if a.score >= threshold else 'Non conforme' }}</span></h3><button class="btn grey" onclick="window.print()">🖨 Imprimer</button></div>
+  <table><tr><th>Critère</th><th>Note</th><th>Preuve</th></tr>
+  {% for i in items %}<tr><td>{{ i.criterion }}</td><td><b>{{ i.note }}</b>/5</td><td>{{ i.proof or '—' }}</td></tr>{% endfor %}</table>
+  {% if a.comment %}<p><b>Commentaire :</b> {{ a.comment }}</p>{% endif %}
+</div>
+<a class="btn grey" href="{{ url_for('audits') }}">← Retour aux audits</a>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_ui.html" import status_pill, type_pill with context %}
+{% block title %}{{ 'Accueil' if is_home else 'Tableau de bord' }}{% endblock %}
+{% block heading %}{{ 'Tableau de bord global' if me.role in ('Administrateur','Groupe OE') else 'Tableau de bord' }} — {{ me.role }}{% endblock %}
+{% block subheading %}Bonjour {{ me.name.split(' ')[0] }} ! Indicateurs {{ 'de toutes les usines' if me.role in ('Administrateur','Groupe OE') else 'de votre périmètre' }}{% endblock %}
+{% block content %}
+<form class="filters" method="get">
+  <div class="field"><label class="lbl">Usine</label><select name="plant" onchange="this.form.submit()"><option value="">Toutes</option>{% for p in plants %}<option value="{{ p.id }}" {{ 'selected' if f.plant==p.id|string }}>{{ p.name }}</option>{% endfor %}</select></div>
+  <div class="field"><label class="lbl">Ligne</label><select name="line" onchange="this.form.submit()"><option value="">Toutes</option>{% for l in lines %}<option value="{{ l.id }}" {{ 'selected' if f.line==l.id|string }}>{{ l.name }}</option>{% endfor %}</select></div>
+  <div class="field"><label class="lbl">SGA</label><select name="sga" onchange="this.form.submit()"><option value="">Toutes</option>{% for s in sgas %}<option value="{{ s.id }}" {{ 'selected' if f.sga==s.id|string }}>{{ s.name }}</option>{% endfor %}</select></div>
+  <div class="field"><label class="lbl">Chef d'équipe / Leader</label><select name="chef" onchange="this.form.submit()"><option value="">Tous</option>{% for c in chefs %}<option value="{{ c.id }}" {{ 'selected' if f.chef==c.id|string }}>{{ c.name }} ({{ c.role }})</option>{% endfor %}</select></div>
+  <div class="field"><label class="lbl">Opérateur / Technicien</label><select name="user" onchange="this.form.submit()"><option value="">Tous</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if f.user==u.id|string }}>{{ u.name }} ({{ u.role }})</option>{% endfor %}</select></div>
+  <div class="field"><label class="lbl">Période</label><select name="period" onchange="this.form.submit()">{% for k,l in [('semaine','Cette semaine'),('mois','30 derniers jours'),('trimestre','90 derniers jours'),('tout','Tout')] %}<option value="{{ k }}" {{ 'selected' if f.period==k }}>{{ l }}</option>{% endfor %}</select></div>
+  <a class="btn grey" href="?">Réinitialiser</a>
+</form>
+<div class="grid g5" style="margin-bottom:16px">
+  <div class="kpi k-blu"><div class="ic">#</div><div><b>{{ d.total }}</b><span>TAGs émis</span><small>{{ d.open }} ouverts</small></div></div>
+  <div class="kpi k-grn"><div class="ic">✓</div><div><b>{{ d.treat_rate }}%</b><span>Taux de traitement TAGs</span><small>{{ d.treated }} traités / contre-mesures</small></div></div>
+  <div class="kpi k-pur"><div class="ic">%</div><div><b>{{ d.real_rate }}%</b><span>Réalisation checklists</span><small>{{ d.done }} / {{ d.planned }} tâches</small></div></div>
+  <div class="kpi k-yel"><div class="ic">⇄</div><div><b>{{ d.transfer }}%</b><span>Transfert RCM → AM</span><small>activités transférées</small></div></div>
+  <div class="kpi k-red"><div class="ic">A</div><div><b>{{ d.audit_avg ~ '%' if d.audit_avg else '—' }}</b><span>Score audit AM moyen</span><small>{{ d.to_confirm }} travaux à confirmer</small></div></div>
+</div>
+<div class="grid g3">
+  <div class="card">
+    <h3>TAGs par type</h3>
+    {% set tot = d.total or 1 %}
+    {% set a = d.by_type[0].n*100/tot %}{% set b = d.by_type[1].n*100/tot %}
+    <div class="row" style="gap:20px;flex-wrap:nowrap">
+      <div class="donut" style="background:{% if d.total %}conic-gradient(#1687e8 0 {{ a }}%, #d71920 {{ a }}% {{ a+b }}%, #f4c400 {{ a+b }}% 100%){% else %}#eef1f4{% endif %}"><div>{{ d.total }}<small>TAGs</small></div></div>
+      <div class="small" style="line-height:2">{% for x in d.by_type %}<div><span class="dot" style="background:{{ x.t.color }}"></span>{{ x.t.label }} ({{ x.t.color_name }}) : <b>{{ x.n }}</b> · {{ (100*x.treated/x.n)|round|int if x.n else 0 }}% traités</div>{% endfor %}</div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>TAGs par statut</h3>
+    {% set mx = (d.by_status|map(attribute='n')|max) or 1 %}
+    {% for x in d.by_status %}<div class="hbar"><span class="lab" style="width:110px">{{ status_pill(x.s) }}</span><span class="track"><i style="width:{{ 100*x.n/mx }}%;background:{{ STATUS_INFO[x.s].color }}"></i></span><span class="v">{{ x.n }}</span></div>{% endfor %}
+  </div>
+  <div class="card">
+    <h3>TAGs par type d'anomalie</h3>
+    {% set mx2 = (d.by_anomaly|map(attribute='n')|max) or 1 %}
+    {% for x in d.by_anomaly %}<div class="hbar"><span class="lab small" style="width:150px">{{ x.a }}</span><span class="track"><i style="width:{{ 100*x.n/mx2 }}%;background:#6b4fd8"></i></span><span class="v">{{ x.n }}</span></div>{% endfor %}
+  </div>
+</div>
+<div class="split">
+  <div class="card">
+    <h3>Classement des SGA</h3>
+    <div class="tbl-wrap"><table>
+      <tr><th>SGA</th><th>Étape AM</th><th>TAGs</th><th>Ouverts</th><th>Réalisation</th><th>Dernier audit</th></tr>
+      {% for r in d.sga_rows %}
+      <tr class="click" data-href="{{ url_for('sga_board', sga=r.s.id) }}"><td><b>{{ r.s.name }}</b><div class="small muted">{{ r.s.plant_name }} · {{ r.s.line_name }}</div></td><td><span class="step" style="font-size:11px;padding:2px 8px">Étape {{ r.s.am_step }}</span></td>
+        <td>{{ r.total }}</td><td>{{ r.open }}</td><td><div class="row" style="gap:6px;flex-wrap:nowrap"><div class="bar" style="width:70px"><i style="width:{{ r.rate }}%"></i></div>{{ r.rate }}%</div></td>
+        <td>{% if r.audit %}{{ r.audit.score|int }}% <span class="small muted">({{ r.audit.level }})</span>{% else %}—{% endif %}</td></tr>
+      {% endfor %}
+    </table></div>
+  </div>
+  <div class="card">
+    <h3>Évolution hebdomadaire des TAGs <span class="small muted"><span class="dot" style="background:#1687e8"></span>émis <span class="dot" style="background:#17a45a;margin-left:8px"></span>résolus</span></h3>
+    <div class="trend">
+      {% for w in d.trend %}<div class="wk"><div class="bars"><i style="height:{{ 140*w.created/d.trend_max }}px;background:#1687e8" title="{{ w.created }} émis"></i><i style="height:{{ 140*w.resolved/d.trend_max }}px;background:#17a45a" title="{{ w.resolved }} résolus"></i></div><small>{{ w.label }}</small></div>{% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

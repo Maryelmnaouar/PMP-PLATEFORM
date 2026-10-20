@@ -1,0 +1,29 @@
+{% macro status_pill(s) -%}
+<span class="pill" style="background:{{ STATUS_INFO[s].color if s in STATUS_INFO else '#6b7480' }};color:{{ STATUS_INFO[s].text if s in STATUS_INFO else '#fff' }}">{{ s }}</span>
+{%- endmacro %}
+{% macro type_pill(k) -%}
+{% set t = TAG_TYPE.get(k) %}<span class="pill" style="background:{{ t.color }};color:{{ '#1d1d1d' if k=='SAFETY' else '#fff' }}">{{ t.label }}</span>
+{%- endmacro %}
+{% macro task_pill(s) -%}
+{% set c = {'À réaliser':'#f08a00','En cours':'#1687e8','Réalisée':'#58c48a','Confirmée':'#0b5e34','Non réalisée':'#9aa3ad'} %}
+<span class="pill" style="background:{{ c.get(s,'#6b7480') }}">{{ 'Réalisée – à confirmer' if s=='Réalisée' else s }}</span>
+{%- endmacro %}
+{% macro a6(t, live=false) -%}
+<div class="a6 {{ t.type or 'AM' }}" id="{{ 'a6-preview' if live }}">
+  <div class="hole"></div>
+  <div class="code">{{ t.tag_code or '' }}</div>
+  <div class="ttl">ÉTIQUETTE {{ {'AM':'BLEUE','RCM':'ROUGE','SAFETY':'JAUNE'}.get(t.type or 'AM') }}</div>
+  <div class="ln"><u>Date</u> : {{ (t.created_at|d) if t.created_at else today_str }}</div>
+  <div class="ln"><u>Machine</u> : <span id="pv-machine">{{ (t.eq_name|short) if t.eq_name else '…' }}</span></div>
+  <div class="ln"><u>Organe</u> : <span id="pv-organe">{{ t.organe or '…' }}</span></div>
+  <div class="ln"><u>Type d'anomalie</u> : <span id="pv-atype">{{ t.anomaly_type or '…' }}</span></div>
+  <div class="ln" style="min-height:64px"><u>Description de l'anomalie</u> :<br><span id="pv-desc">{{ t.description or '…' }}</span></div>
+  <div class="ln"><u>Anomalie découverte par</u> : {{ t.observed_name or me.name }}</div>
+  <div class="ln"><u>Date d'observation</u> : <span id="pv-obs">{{ t.observed_at|d if t.observed_at else today_str }}</span></div>
+  <div class="ln"><u>N° OT (le cas échéant)</u> : <span id="pv-ot">{{ t.ot_number or '' }}</span></div>
+  {% if t.sap_notif %}<div class="ln"><u>N° avis SAP</u> : {{ t.sap_notif }}{% if t.sap_created_by %} ({{ t.sap_created_by }}){% endif %}</div>{% endif %}
+  <div class="ln"><u>Anomalie traitée par</u> : {{ t.treated_name or '' }}</div>
+  <div class="ln"><u>Date de début de traitement</u> : {{ t.treatment_start|d if t.treatment_start else '' }}</div>
+  <div class="ln"><u>Date de résolution de l'anomalie</u> : {{ t.resolved_at|d if t.resolved_at else '' }}</div>
+</div>
+{%- endmacro %}

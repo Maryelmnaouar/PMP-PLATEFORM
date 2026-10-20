@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Audits AM{% endblock %}
+{% block heading %}Audits AM — 3 niveaux{% endblock %}
+{% block subheading %}Self audit · Audit Plant Manager · Audit Groupe OE — seuil de conformité {{ threshold }} %{% endblock %}
+{% block content %}
+<div class="grid g3" style="margin-bottom:16px">
+  {% for lv in levels %}
+  <div class="card" style="border-top:5px solid {{ lv.color }};margin:0">
+    <h3>{{ loop.index }}. {{ lv.label }}</h3>
+    <div class="small">{{ lv.who }}<br><b>Périmètre :</b> {{ lv.scope }}</div>
+    {% if lv in allowed %}<a class="btn sm" style="margin-top:10px;background:{{ lv.color }}" href="{{ url_for('audit_new', level=lv.key) }}">+ Nouvel audit</a>{% else %}<div class="small muted" style="margin-top:10px">Consultation uniquement</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+<div class="card">
+  <h3>Validation de l'étape AM en cours</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>SGA</th><th>Étape</th>{% for lv in levels %}<th>{{ lv.label }}</th>{% endfor %}<th>Passage étape suivante</th></tr>
+    {% for r in status %}
+    <tr><td><b>{{ r.s.name }}</b></td><td><span class="step" style="font-size:11px;padding:2px 8px">Étape {{ r.s.am_step }}</span></td>
+      {% for lv in levels %}{% set a = r.lv[lv.key] %}<td>{% if a %}<span class="pill" style="background:{{ '#17a45a' if a.score >= threshold else '#d71920' }}">{{ a.score|int }}%</span> <span class="small muted">{{ a.audit_date|d }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>{% endfor %}
+      <td>{% if r.ready %}{% if is_admin() %}<form method="post" action="{{ url_for('sga_advance', sga_id=r.s.id) }}" onsubmit="return confirm('Valider le passage à l\'étape {{ r.s.am_step + 1 }} ?')"><button class="btn green sm">Valider l'étape {{ r.s.am_step + 1 }}</button></form>{% else %}<span class="chip auto">Prête</span>{% endif %}{% else %}<span class="small muted">3 audits ≥ {{ threshold }} % requis</span>{% endif %}</td></tr>
+    {% endfor %}
+  </table></div>
+</div>
+<div class="card">
+  <h3>Historique des audits</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Date</th><th>Niveau</th><th>SGA</th><th>Étape</th><th>Auditeur</th><th>Score</th><th></th></tr>
+    {% for a in rows %}<tr class="click" data-href="{{ url_for('audit_detail', audit_id=a.id) }}"><td>{{ a.audit_date|d }}</td><td>{{ a.level }}</td><td>{{ a.sga_name }}</td><td>{{ a.am_step }}</td><td>{{ a.auditor }}</td>
+      <td><span class="pill" style="background:{{ '#17a45a' if a.score >= threshold else '#d71920' }}">{{ a.score|int }}%</span></td><td><a class="btn ghost sm" href="{{ url_for('audit_detail', audit_id=a.id) }}">Voir</a></td></tr>
+    {% else %}<tr><td colspan="7" class="empty">Aucun audit.</td></tr>{% endfor %}
+  </table></div>
+</div>
+{% endblock %}
