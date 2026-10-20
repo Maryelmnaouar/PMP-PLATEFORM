@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_ui.html" import a6 with context %}
+{% block title %}Lancer un TAG{% endblock %}
+{% block heading %}Lancer un TAG{% endblock %}
+{% block subheading %}Les champs reprennent l'étiquette papier (format A6){% endblock %}
+{% block content %}
+<form method="post" enctype="multipart/form-data">
+<input type="hidden" name="task_item_id" value="{{ v.task_item_id or '' }}">
+<div class="form-a6">
+  <div class="card">
+    <div class="field"><label class="lbl">Type d'étiquette *</label>
+      <div class="typesel">
+        {% for t in TAG_TYPES %}
+        <input type="radio" name="type" id="ty-{{ t.key }}" value="{{ t.key }}" {{ 'checked' if (v.type or 'AM')==t.key }}>
+        <label for="ty-{{ t.key }}" style="background:{{ t.color }};color:{{ t.text }}">{{ t.label }} — {{ t.color_name }}<small>{{ t.hint }}</small></label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="field"><label class="lbl">Type d'anomalie *</label>
+      <select name="anomaly_type" id="anomaly_type" required><option value="">— Choisir —</option>{% for a in ANOMALY_TYPES %}<option {{ 'selected' if v.anomaly_type==a }}>{{ a }}</option>{% endfor %}</select></div>
+    <div class="grid g2">
+      <div class="field"><label class="lbl">Date</label><input type="text" value="{{ today_str }}" disabled></div>
+      <div class="field"><label class="lbl">Date d'observation *</label><input type="date" name="observed_at" id="observed_at" value="{{ v.observed_at or '' }}" required></div>
+    </div>
+    <div class="field"><label class="lbl">Machine *</label>
+      <select name="equipment_id" id="equipment_id" required><option value="">— Choisir la machine —</option>
+        {% for e in equipment %}<option value="{{ e.id }}" {{ 'selected' if v.equipment_id|string==e.id|string }}>{{ e.reference }} · {{ e.name|short }}{% if e.sga_name %} ({{ e.sga_name }}){% endif %}</option>{% endfor %}
+      </select></div>
+    <div class="field"><label class="lbl">Organe</label><input type="text" name="organe" id="organe" value="{{ v.organe or '' }}" placeholder="Ex. : vérin d'étirage, palier, chaîne…"></div>
+    <div class="field"><label class="lbl">Description de l'anomalie *</label><textarea name="description" id="description" required>{{ v.description or '' }}</textarea></div>
+    <div class="grid g2">
+      <div class="field"><label class="lbl">Anomalie découverte par</label><input type="text" value="{{ me.name }}" disabled></div>
+      <div class="field"><label class="lbl">N° OT (le cas échéant)</label><input type="text" name="ot_number" id="ot_number" value="{{ v.ot_number or '' }}"></div>
+    </div>
+    <div class="field"><label class="lbl">Photo de l'anomalie</label><input type="file" name="photo" accept="image/*" capture="environment"></div>
+    <p class="small muted">« Anomalie traitée par », « Date de début de traitement » et « Date de résolution » sont remplis automatiquement quand l'étiquette descend dans le tableau.</p>
+    <div class="row"><button class="btn red big">Créer le TAG</button><a class="btn grey" href="{{ url_for('tags_board') }}">Annuler</a></div>
+  </div>
+  <div><p class="lbl">Aperçu de l'étiquette</p>{{ a6({'type': v.type or 'AM', 'organe': v.organe, 'description': v.description}, live=true) }}</div>
+</div>
+</form>
+{% endblock %}
+{% block prescript %}document.addEventListener('DOMContentLoaded',()=>{const o=document.getElementById('observed_at');if(o&&!o.value)o.value=new Date().toISOString().slice(0,10);});{% endblock %}

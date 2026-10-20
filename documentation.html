@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Documentation{% endblock %}
+{% block heading %}Documentation par hiérarchie{% endblock %}
+{% block subheading %}Usine → Ligne → SGA → Équipement : SOP, OPL, checklists et fiches techniques (liens Drive){% endblock %}
+{% block content %}
+<div class="grid" style="grid-template-columns:320px minmax(0,1fr)">
+  <div class="card tree">
+    <h3>Arborescence</h3>
+    {% for p in tree %}
+    <details open><summary>🏭 {{ p.p.name }}</summary>
+      {% for l in p.lines %}
+      <details open><summary>📏 {{ l.l.name }}</summary>
+        {% for s in l.sgas %}
+        <details {{ 'open' if eq and eq.sga_id==s.s.id }}><summary>👥 {{ s.s.name }}</summary>
+          {% for e in s.eq %}<a href="?equipment={{ e.id }}" class="{{ 'on' if eq and eq.id==e.id }}">⚙️ {{ e.name|short }}</a>{% endfor %}
+        </details>
+        {% endfor %}
+        {% if l.orphans %}<details><summary>Sans SGA</summary>{% for e in l.orphans %}<a href="?equipment={{ e.id }}">⚙️ {{ e.name|short }}</a>{% endfor %}</details>{% endif %}
+      </details>
+      {% endfor %}
+    </details>
+    {% endfor %}
+  </div>
+  <div>
+    {% if eq %}
+    <div class="card">
+      <div class="small muted">{{ eq.plant_name }} › {{ eq.line_name }} › {{ eq.sga_name or 'Sans SGA' }} › {{ eq.name|short }}</div>
+      <h2 style="margin:6px 0 2px">{{ eq.name|short }}</h2><div class="muted small">Référence {{ eq.reference }}</div>
+      <div class="tabs" style="margin-top:14px">
+        <a href="?equipment={{ eq.id }}" class="{{ 'on' if not dtype }}">Tous ({{ docs|length + cls|length }})</a>
+        {% for k, l in DOC_TYPES if k != 'CHECK' %}<a href="?equipment={{ eq.id }}&type={{ k }}" class="{{ 'on' if dtype==k }}">{{ l }} ({{ docs|selectattr('doc_type','equalto',k)|list|length }})</a>{% endfor %}
+        <a href="?equipment={{ eq.id }}&type=CHECK" class="{{ 'on' if dtype=='CHECK' }}">Checklists ({{ cls|length }})</a>
+      </div>
+      <div class="tbl-wrap"><table>
+        <tr><th>Document</th><th>Type</th><th>Version</th><th>Mise à jour</th><th>Responsable</th><th></th></tr>
+        {% for d in docs if not dtype or d.doc_type==dtype %}
+        <tr><td><span class="doc-ic" style="background:{{ {'SOP':'#d71920','OPL':'#f08a00','TECH':'#1687e8'}.get(d.doc_type,'#17a45a') }}">{{ d.doc_type }}</span>{{ d.title }}</td><td>{{ dict(DOC_TYPES)[d.doc_type] }}</td><td>v{{ d.version }}</td><td>{{ d.updated_at|d }}</td><td>{{ d.owner }}</td>
+          <td style="white-space:nowrap"><a class="btn ghost sm" href="{{ d.url }}" target="_blank">Ouvrir</a>
+          {% if can('docs_manage') %}<form class="inline" method="post" action="{{ url_for('doc_delete', doc_id=d.id) }}" onsubmit="return confirm('Supprimer ce document ?')"><button class="btn grey sm">✕</button></form>{% endif %}</td></tr>
+        {% endfor %}
+        {% if not dtype or dtype=='CHECK' %}{% for c in cls %}
+        <tr><td><span class="doc-ic" style="background:#17a45a">CHK</span>{{ c.code }} · {{ c.name }}</td><td>Checklist</td><td>—</td><td>{{ c.created_at|d }}</td><td>{{ c.frequency }}</td><td><a class="btn ghost sm" href="{{ url_for('checklist_history', cid=c.id) }}">Voir</a></td></tr>
+        {% endfor %}{% endif %}
+      </table></div>
+    </div>
+    {% if can('docs_manage') %}
+    <form class="card" method="post" action="{{ url_for('doc_add') }}">
+      <h3>Ajouter un document</h3><input type="hidden" name="equipment_id" value="{{ eq.id }}">
+      <div class="grid g4">
+        <div class="field" style="grid-column:span 2"><label class="lbl">Titre *</label><input type="text" name="title" required></div>
+        <div class="field"><label class="lbl">Type</label><select name="doc_type">{% for k,l in DOC_TYPES if k!='CHECK' %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>
+        <div class="field"><label class="lbl">Version</label><input type="text" name="version" value="1.0"></div>
+        <div class="field" style="grid-column:span 3"><label class="lbl">Lien Google Drive (PDF)</label><input type="url" name="url" placeholder="https://drive.google.com/…"></div>
+        <div class="field"><label class="lbl">Responsable</label><input type="text" name="owner" value="Maintenance"></div>
+      </div>
+      <button class="btn">Ajouter</button>
+    </form>
+    {% endif %}
+    {% else %}
+    <div class="card empty">Choisissez un équipement dans l'arborescence pour voir ses documents.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

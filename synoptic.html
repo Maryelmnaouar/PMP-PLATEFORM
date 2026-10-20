@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Synoptique{% endblock %}
+{% block heading %}Synoptique de la ligne — état des TAGs{% endblock %}
+{% block subheading %}{{ sel.plant_name if sel }} · {{ sel.name if sel }} · TAGs ouverts (nouveaux + en cours) par équipement{% endblock %}
+{% block content %}
+<form class="filters" method="get"><div class="field"><label class="lbl">Ligne</label><select name="line" onchange="this.form.submit()">{% for l in lines %}<option value="{{ l.id }}" {{ 'selected' if line_id==l.id|string }}>{{ l.plant_name }} · {{ l.name }}</option>{% endfor %}</select></div>
+  <div class="row small" style="margin-left:auto">Bordure = TAG ouvert le plus critique : {% for t in TAG_TYPES %}<span><span class="dot" style="background:{{ t.color }}"></span>{{ t.label }}</span>{% endfor %}</div></form>
+<div class="card">
+  <div class="syn">
+    {% for x in data %}
+    <a class="eq {{ ('w-' ~ x.worst) if x.worst }}" href="{{ url_for('tags_board', equipment=x.e.id) }}">
+      <span class="small muted">{{ x.e.reference }}</span>
+      <b>{{ x.e.name|short }}</b>
+      <span class="small muted">{{ x.e.sga_name or '' }}</span>
+      <span class="cnt">{% for t in TAG_TYPES %}{% if x.counts[t.key] %}<span style="background:{{ t.color }};color:{{ t.text }}">{{ x.counts[t.key] }} {{ t.label }}</span>{% endif %}{% endfor %}{% if not x.total %}<span style="background:#d9f2e3;color:#0b5e34">OK</span>{% endif %}</span>
+    </a>
+    {% if not loop.last %}<span class="arrow">→</span>{% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

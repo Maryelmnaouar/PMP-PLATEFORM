@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_ui.html" import status_pill, type_pill with context %}
+{% block title %}Registre des TAGs{% endblock %}
+{% block heading %}Registre des TAGs{% endblock %}
+{% block subheading %}{{ rows|length }} TAG(s) · filtrables par type, statut et type d'anomalie{% endblock %}
+{% block content %}
+{% set show_status = true %}{% include "_tag_filters.html" %}
+<div class="card"><div class="tbl-wrap"><table>
+  <tr><th>Code</th><th>Type</th><th>Type d'anomalie</th><th>Machine / organe</th><th>Description</th><th>Découverte par</th><th>Date obs.</th><th>Traitée par</th><th>Statut</th></tr>
+  {% for t in rows %}
+  <tr class="click" data-href="{{ url_for('tag_detail', tag_id=t.id) }}"><td><b>{{ t.tag_code }}</b></td><td>{{ type_pill(t.type) }}</td><td class="small">{{ t.anomaly_type }}</td>
+    <td>{{ t.eq_name|short }}<div class="small muted">{{ t.organe }}</div></td><td class="small">{{ t.description[:60] }}{{ '…' if t.description|length>60 }}</td>
+    <td>{{ t.observed_name }}</td><td>{{ t.observed_at|d }}</td><td>{{ t.treated_name or '—' }}</td><td>{{ status_pill(t.status) }}</td></tr>
+  {% else %}<tr><td colspan="9" class="empty">Aucun TAG ne correspond aux filtres.</td></tr>{% endfor %}
+</table></div></div>
+{% endblock %}

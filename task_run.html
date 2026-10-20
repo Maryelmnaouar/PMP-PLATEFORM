@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_ui.html" import task_pill with context %}
+{% block title %}{{ t.cl_name }}{% endblock %}
+{% block heading %}Checklist — {{ t.cl_name }}{% endblock %}
+{% block subheading %}{{ t.eq_name|short }} · Organe : {{ t.organe or '—' }} · {{ t.frequency }} · durée standard {{ t.std }} min · {{ t.user_name }}{% endblock %}
+{% block content %}
+<div class="split">
+  <div class="card" style="border:2px solid var(--blue)">
+    <div class="card-h">
+      <h3>{{ task_pill(t.status) }} Échéance : {{ t.due_date|d }}</h3>
+      {% if t.sop_url %}<a class="btn ghost" href="{{ t.sop_url }}" target="_blank">📄 Ouvrir le SOP (Drive)</a>{% else %}<span class="small muted">Pas de SOP lié</span>{% endif %}
+    </div>
+    {% if t.reject_comment and t.status=='À réaliser' %}<div class="flash error">Tâche rejetée par le chef d'équipe : {{ t.reject_comment }}</div>{% endif %}
+    {% if t.countermeasure %}<div class="flash success" style="background:#e3f1ea">Contre-mesure : {{ t.countermeasure }}</div>{% endif %}
+    {% for i in items %}
+    <div class="check {{ 'ok' if i.ok==1 else ('nok' if i.ok==0 else '') }}">
+      <div class="box {{ 'ok' if i.ok==1 else ('nok' if i.ok==0 else '') }}">{{ '✓' if i.ok==1 else ('✕' if i.ok==0 else '') }}</div>
+      <div class="txt">{{ i.position }}. {{ i.text }}{% if i.tag_code %}<div class="small" style="color:var(--red)">Non conforme → <a href="{{ url_for('tag_detail', tag_id=i.tag_id) }}"><b>{{ i.tag_code }}</b></a></div>{% endif %}</div>
+      {% if i.ok==1 %}
+        <span class="btn green sm">Validé {{ i.validated_at[11:16] }}</span>
+        {% if editable %}<form class="inline" method="post" action="{{ url_for('task_item_reset', task_id=t.id, item_id=i.id) }}"><button class="btn grey sm" title="Annuler">↺</button></form>{% endif %}
+      {% elif i.ok==0 %}<span class="btn red sm">NOK {{ i.validated_at[11:16] }}</span>
+      {% elif editable %}
+        <form class="inline" method="post" action="{{ url_for('task_item', task_id=t.id, item_id=i.id) }}"><button class="btn sm">Valider</button></form>
+        <a class="btn red sm" href="{{ url_for('tag_new', equipment_id=t.equipment_id, organe=t.organe, description='Point non conforme : ' ~ i.text, task_item_id=i.id) }}">NOK → TAG</a>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% set n_ok = items|selectattr('ok','ne',none)|list|length %}
+    <div class="row" style="margin-top:14px">
+      <div class="sp"><div class="bar"><i style="width:{{ (100*n_ok/(items|length))|round|int if items else 0 }}%"></i></div><span class="small">{{ n_ok }} / {{ items|length }} points</span></div>
+      {% if editable %}<form method="post" action="{{ url_for('task_finish', task_id=t.id) }}"><button class="btn {{ 'green' if all_done else 'grey' }} big" {{ '' if all_done else 'disabled' }}>Terminer la tâche</button></form>{% endif %}
+    </div>
+    {% if t.status in ('Réalisée','Confirmée') %}<p class="small muted">Terminée le {{ t.completed_at|dt }} en {{ t.duration_min }} min{% if t.confirmed_at %} · confirmée le {{ t.confirmed_at|dt }}{% endif %}.</p>{% endif %}
+  </div>
+  <div>
+    <div class="card"><h3>Consignes</h3>
+      <table><tr><td class="muted">État machine</td><td><b>{{ t.machine_state or '—' }}</b></td></tr><tr><td class="muted">Nombre de personnes</td><td><b>{{ t.people }}</b></td></tr><tr><td class="muted">Durée standard</td><td><b>{{ t.std }} min</b></td></tr><tr><td class="muted">Code checklist</td><td>{{ t.cl_code }}</td></tr></table>
+      <p class="small muted">« Valider » horodate chaque point. « NOK → TAG » ouvre un TAG pré-rempli (machine, organe, description) et le rattache au point.</p>
+    </div>
+    <div class="card"><h3>Documents de l'équipement</h3>
+      {% for d in docs %}<a class="row" style="padding:5px 0" href="{{ d.url }}" target="_blank"><span class="doc-ic" style="background:{{ {'SOP':'#d71920','OPL':'#f08a00','TECH':'#1687e8'}.get(d.doc_type,'#17a45a') }}">{{ d.doc_type }}</span><span class="small">{{ d.title }}</span></a>{% else %}<div class="empty">Aucun document.</div>{% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
