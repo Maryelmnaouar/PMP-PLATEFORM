@@ -1,0 +1,2 @@
+{% macro cil_badge(k) -%}{% if k and k in CIL %}<span class="pill" style="background:{{ CIL[k].color }}" title="{{ CIL[k].fr }}">{{ CIL[k].key }} · {{ CIL[k].label }}</span>{% else %}<span class="muted">—</span>{% endif %}{%- endmacro %}
+{% macro cil_letters(s) -%}{% for k in (s or '').split(',') if k in CIL %}<span class="pill" style="background:{{ CIL[k].color }};padding:2px 7px" title="{{ CIL[k].label }}">{{ k }}</span> {% endfor %}{%- endmacro %}

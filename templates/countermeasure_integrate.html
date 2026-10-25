@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Intégrer une contre-mesure{% endblock %}
+{% block heading %}Intégrer la contre-mesure {{ ('du ' ~ m.tag_code) if m.tag_code }}{% endblock %}
+{% block subheading %}{{ m.eq_ref }} · {{ m.eq_name|short }} — « {{ m.countermeasure }} »{% endblock %}
+{% block content %}
+<form method="get" class="card" style="max-width:640px">
+  <h3>Dans quelle checklist CILT ?</h3>
+  <div class="field"><label class="lbl">Checklist de cette machine</label>
+    <select name="checklist_id" required>
+      {% for c in cls %}<option value="{{ c.id }}">{{ c.code }} · {{ c.name }}</option>{% endfor %}
+      <option value="new">+ Créer une nouvelle checklist pour cette machine</option>
+    </select></div>
+  <p class="small muted">Les tâches de la contre-mesure seront ajoutées à la checklist choisie. Vous pourrez les vérifier et les modifier avant d'enregistrer.</p>
+  <div class="row"><button class="btn">Continuer</button><a class="btn grey" href="{{ url_for('countermeasures') }}">Annuler</a></div>
+</form>
+{% endblock %}

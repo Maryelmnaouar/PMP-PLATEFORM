@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Intégration SAP{% endblock %}
+{% block heading %}Intégration SAP S/4HANA{% endblock %}
+{% block subheading %}Chaque TAG RCM / Safety est validé par le chef d'équipe production : il crée l'avis dans SAP et en saisit le numéro (obligatoire){% endblock %}
+{% block content %}
+<div class="grid g4" style="margin-bottom:16px">
+  <div class="kpi k-blu"><div class="ic">#</div><div><b>{{ stats.n or 0 }}</b><span>TAGs RCM / Safety</span></div></div>
+  <div class="kpi k-grn"><div class="ic">✓</div><div><b>{{ stats.sent or 0 }}</b><span>Avis SAP créés</span></div></div>
+  <div class="kpi k-yel"><div class="ic">OT</div><div><b>{{ stats.orders or 0 }}</b><span>OT reçus de SAP</span></div></div>
+  <div class="kpi k-pur"><div class="ic">!</div><div><b>{{ (stats.n or 0) - (stats.sent or 0) }}</b><span>TAGs en attente de validation</span></div></div>
+</div>
+
+<form method="post">
+<input type="hidden" name="mode" value="off">
+<div class="card">
+  <h3>Contenu des avis (informations à copier dans SAP)</h3>
+  <div class="grid g3">
+    <div class="field"><label class="lbl">Type d'avis pour un TAG RCM</label><input type="text" name="notif_type_rcm" value="{{ c.notif_type_rcm }}"></div>
+    <div class="field"><label class="lbl">Type d'avis pour un TAG Safety</label><input type="text" name="notif_type_safety" value="{{ c.notif_type_safety }}"></div>
+    <div class="field"><label class="lbl">Division (plant) SAP</label><input type="text" name="plant" value="{{ c.plant }}" placeholder="Ex. MA01"></div>
+    <div class="field"><label class="lbl">Priorité RCM</label><input type="text" name="prio_rcm" value="{{ c.prio_rcm }}"></div>
+    <div class="field"><label class="lbl">Priorité Safety</label><input type="text" name="prio_safety" value="{{ c.prio_safety }}"></div>
+    <div class="field"><label class="lbl">Poste de travail principal</label><input type="text" name="work_center" value="{{ c.work_center }}" placeholder="Ex. MECA-PET4"></div>
+  </div>
+  <p class="small muted">Texte court de l'avis : « N° TAG + description » (40 caractères). Texte long : type d'anomalie, machine, organe, description, découvert par, confirmé par. La machine est envoyée avec sa référence SAP (ex. 5001129).</p>
+</div>
+
+<button class="btn green big">Enregistrer les paramètres</button>
+</form>
+
+<div style="height:16px"></div>
+<div class="card">
+  <h3>Validateurs et utilisateurs SAP</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Nom</th><th>Rôle</th><th>Utilisateur SAP</th><th></th></tr>
+    {% for u in chefs %}<tr><td><b>{{ u.name }}</b></td><td>{{ u.role }}</td><td>{{ u.sap_user or '— à renseigner —' }}</td>
+      <td><a class="btn ghost sm" href="{{ url_for('user_edit', user_id=u.id) }}">Modifier</a></td></tr>{% endfor %}
+  </table></div>
+  <p class="small muted">L'utilisateur SAP se renseigne dans la fiche de chaque utilisateur. Seuls les profils ayant le droit « Valider les TAGs RCM / Safety » (par défaut : chef d'équipe production) peuvent valider.</p>
+</div>
+
+<div class="card">
+  <h3>Journal des échanges SAP</h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Date</th><th>TAG</th><th>Action</th><th>Résultat</th><th>Détail</th><th>Par</th></tr>
+    {% for l in logs %}<tr><td class="small">{{ l.at|dt }}</td><td>{% if l.tag_code %}<a href="{{ url_for('tag_detail', tag_id=l.tag_id) }}"><b>{{ l.tag_code }}</b></a>{% endif %}</td><td>{{ l.action }}</td>
+      <td>{% if l.ok %}<span class="chip auto">OK</span>{% else %}<span class="chip man" style="background:#fde1e1;color:#9b1016">Erreur</span>{% endif %}</td><td class="small">{{ l.message }}</td><td class="small">{{ l.user_name or 'Automatique' }}</td></tr>
+    {% else %}<tr><td colspan="6" class="empty">Aucun échange pour le moment.</td></tr>{% endfor %}
+  </table></div>
+</div>
+{% endblock %}

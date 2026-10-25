@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_cil.html" import cil_letters with context %}
+{% block title %}Checklists CILT{% endblock %}
+{% block heading %}Checklists CILT{% endblock %}
+{% block subheading %}Chaque checklist regroupe les tâches d'une machine (organe, Cleaning / Inspection / Lubrification / Serrage, outillage, temps, fréquence). Les tâches sont distribuées par l'administrateur.{% endblock %}
+{% block content %}
+<div class="filters">
+  <form method="get" class="row"><div class="field"><label class="lbl">SGA</label><select name="sga" onchange="this.form.submit()"><option value="">Toutes</option>{% for s in sgas %}<option value="{{ s.id }}" {{ 'selected' if sel_sga==s.id|string }}>{{ s.name }}</option>{% endfor %}</select></div></form>
+  <div class="sp"></div>
+  {% if can('checklists_manage') %}<a class="btn ghost" href="{{ url_for('countermeasures') }}">Contre-mesures{% if nav_cm %} ({{ nav_cm }} à intégrer){% endif %}</a>
+  <a class="btn ghost" href="{{ url_for('planning') }}">📅 Distribution des tâches</a>
+  <a class="btn" href="{{ url_for('checklist_new') }}">+ Nouvelle checklist</a>{% endif %}
+</div>
+<div class="card"><div class="tbl-wrap"><table>
+  <tr><th>Code</th><th>Checklist</th><th>Machine</th><th>Tâches</th><th>Types</th><th>Fréquences</th><th>Temps total</th><th>Activité</th><th>Responsable par défaut</th><th>Réalisation 30 j</th><th></th></tr>
+  {% for c in rows %}
+  <tr style="{{ 'opacity:.5' if not c.active }}">
+    <td><b>{{ c.code }}</b></td><td>{{ c.name }}{% if c.sop_url %} · <a href="{{ c.sop_url }}" target="_blank" class="small" style="color:var(--blue)">SOP</a>{% endif %}{% if c.n_cm %}<div class="small muted">{{ c.n_cm }} contre-mesure(s) intégrée(s)</div>{% endif %}</td>
+    <td>{{ c.eq_ref }} · {{ c.eq_name|short }}<div class="small muted">{{ c.sga_name or '' }}</div></td>
+    <td>{{ c.n_items }}</td><td style="white-space:nowrap">{{ cil_letters(c.types) }}</td><td class="small">{{ (c.freqs or '')|replace(',', ', ') }}</td>
+    <td>{{ c.total_min or 0 }} min</td>
+    <td>{% if c.transferred %}<span class="chip auto">RCM → AM</span>{% else %}<span class="chip {{ 'mix' if c.activity_type=='AM' else 'man' }}">{{ c.activity_type }}</span>{% endif %}</td>
+    <td>{{ c.user_name or '—' }}</td><td>{{ c.n_done }}/{{ c.n_planned }}</td>
+    <td style="white-space:nowrap"><a class="btn ghost sm" href="{{ url_for('checklist_history', cid=c.id) }}">Détail</a>
+      {% if can('checklists_manage') %}<a class="btn ghost sm" href="{{ url_for('checklist_edit', cid=c.id) }}">Modifier</a>
+      {% if c.activity_type=='RCM' and not c.transferred %}<button class="btn sm" style="background:#6b4fd8" onclick="document.getElementById('tr-form').action='{{ url_for('checklist_transfer', cid=c.id) }}';openModal('modal-transfer')">Transférer à AM</button>{% endif %}{% endif %}</td>
+  </tr>
+  {% else %}<tr><td colspan="11" class="empty">Aucune checklist. Créez la première avec « + Nouvelle checklist ».</td></tr>{% endfor %}
+</table></div></div>
+{% endblock %}
+{% block modals %}
+<div class="modal-bg" id="modal-transfer"><div class="modal">
+  <h3>Transférer l'activité RCM → AM</h3>
+  <form method="post" id="tr-form">
+    <p class="small muted">L'activité passe de la maintenance à l'opérateur et compte dans le « taux de transfert RCM → AM » du tableau SGA.</p>
+    <div class="field"><label class="lbl">Nouvel opérateur responsable</label><select name="assigned_to">{% for u in operators %}<option value="{{ u.id }}">{{ u.name }}</option>{% endfor %}</select></div>
+    <div class="row"><button class="btn">Transférer</button><button type="button" class="btn grey" onclick="closeModal('modal-transfer')">Annuler</button></div>
+  </form>
+</div></div>
+{% endblock %}

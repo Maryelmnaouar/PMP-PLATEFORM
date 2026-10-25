@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Nouvel audit{% endblock %}
+{% block heading %}Nouvel audit AM — {{ level }}{% endblock %}
+{% block subheading %}Grille de l'étape {{ s.am_step }} · notes de 0 à 5 · les preuves automatiques sont pré-remplies depuis la plateforme{% endblock %}
+{% block content %}
+<form method="get" class="filters">
+  <div class="field"><label class="lbl">Niveau d'audit</label><select name="level" onchange="this.form.submit()">{% for lv in allowed %}<option value="{{ lv.key }}" {{ 'selected' if level==lv.key }}>{{ lv.label }}</option>{% endfor %}</select></div>
+  <div class="field"><label class="lbl">SGA auditée</label><select name="sga" onchange="this.form.submit()">{% for x in sgas %}<option value="{{ x.id }}" {{ 'selected' if sga_id==x.id|string }}>{{ x.name }}</option>{% endfor %}</select></div>
+</form>
+<form method="post" class="card">
+  <input type="hidden" name="save" value="1"><input type="hidden" name="level" value="{{ level }}"><input type="hidden" name="sga" value="{{ sga_id }}">
+  <div class="tbl-wrap"><table>
+    <tr><th>Critère — étape {{ s.am_step }}</th><th style="width:130px">Note</th><th>Preuve</th></tr>
+    {% for crit, key in grid %}
+    <tr><td>{{ crit }}</td>
+      <td><select name="note_{{ loop.index0 }}" class="note">{% for n in range(0,6) %}<option {{ 'selected' if n==4 }}>{{ n }}</option>{% endfor %}</select></td>
+      <td>{% if key %}<span class="chip auto">AUTO</span> {{ proofs[key] }}<input type="hidden" name="proof_{{ loop.index0 }}" value="{{ proofs[key] }}">{% else %}<input type="text" name="proof_{{ loop.index0 }}" placeholder="Observation / preuve">{% endif %}</td></tr>
+    {% endfor %}
+    <tr><td colspan="3" class="right"><b>Score : <span id="score">—</span> % </b><span class="small muted">(seuil {{ threshold }} %)</span></td></tr>
+  </table></div>
+  <div class="field" style="margin-top:12px"><label class="lbl">Commentaire de l'auditeur</label><textarea name="comment"></textarea></div>
+  <button class="btn green big">Enregistrer l'audit</button>
+</form>
+{% endblock %}
+{% block prescript %}
+document.addEventListener('DOMContentLoaded',()=>{const ns=[...document.querySelectorAll('select.note')];const up=()=>{const s=ns.reduce((a,b)=>a+ +b.value,0);const v=Math.round(100*s/(5*ns.length));const e=document.getElementById('score');e.textContent=v;e.style.color=v>={{ threshold }}?'#17a45a':'#d71920';};ns.forEach(n=>n.addEventListener('change',up));up();});
+{% endblock %}

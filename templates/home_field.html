@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_ui.html" import status_pill, type_pill, task_pill with context %}
+{% block title %}Accueil{% endblock %}
+{% block heading %}Tableau de bord — {{ me.role }}{% endblock %}
+{% block subheading %}Bonjour {{ me.name.split(' ')[0] }} ! Vos tâches du jour et vos TAGs · {{ me_sgas }}{% endblock %}
+{% block content %}
+<div class="grid g4" style="margin-bottom:16px">
+  <div class="kpi k-red"><div class="ic">!</div><div><b>{{ k.open_tags }}</b><span>TAGs à traiter</span><small>émis ou affectés, non traités</small></div></div>
+  <div class="kpi k-yel"><div class="ic">✓</div><div><b>{{ k.planned - k.done }}</b><span>Tâches à réaliser</span><small>sur {{ k.planned }} planifiées cette semaine</small></div></div>
+  <div class="kpi k-grn"><div class="ic">%</div><div><b>{{ k.rate }}%</b><span>Taux de réalisation</span><small>{{ k.done }} / {{ k.planned }} tâches</small></div></div>
+  <div class="kpi k-blu"><div class="ic">5S</div><div><b>{{ k.score_5s ~ '%' if k.score_5s is not none else '—' }}</b><span>Score 5S</span><small>tableau SGA</small></div></div>
+</div>
+<div class="split">
+  <div class="card">
+    <div class="card-h"><h3>Mes tâches</h3><a class="small" style="color:var(--blue)" href="{{ url_for('my_tasks') }}">Voir toutes</a></div>
+    {% if tasks %}
+    <div class="tbl-wrap"><table>
+      <tr><th>Tâche</th><th>Équipement / organe</th><th>Avancement</th><th>Statut</th><th></th></tr>
+      {% for t in tasks %}
+      <tr class="click" data-href="{{ url_for('task_run', task_id=t.id) }}">
+        <td><b>{{ t.cl_name }}</b><div class="small muted">{{ (t.frequency or '')|replace(',', ', ') }} · {{ t.std or '—' }} min · échéance {{ t.due_date|d }}</div></td>
+        <td>{{ t.eq_name|short }}<div class="small muted">{{ t.organe }}</div></td>
+        <td><div class="bar" style="width:80px"><i style="width:{{ (100*t.n_done/t.n_items)|round|int if t.n_items else 0 }}%"></i></div><span class="small">{{ t.n_done }}/{{ t.n_items }}</span></td>
+        <td>{{ task_pill(t.status) }}{% if t.reject_comment and t.status=='À réaliser' %}<div class="small" style="color:var(--red)">Rejetée : {{ t.reject_comment }}</div>{% endif %}</td>
+        <td><a class="btn ghost sm" href="{{ url_for('task_run', task_id=t.id) }}">Ouvrir</a></td>
+      </tr>
+      {% endfor %}
+    </table></div>
+    {% else %}<div class="empty">Aucune tâche planifiée pour vous.</div>{% endif %}
+  </div>
+  <div>
+    <div class="card">
+      <div class="card-h"><h3>TAGs de ma SGA</h3><a class="small" style="color:var(--blue)" href="{{ url_for('tags_board') }}">Tableau des anomalies</a></div>
+      {% for t in tags %}
+      <div class="row" style="padding:8px 0;border-bottom:1px solid #eef1f4;cursor:pointer" onclick="location='{{ url_for('tag_detail', tag_id=t.id) }}'">
+        {{ type_pill(t.type) }}<div class="sp"><b>{{ t.tag_code }}</b> {{ t.description[:48] }}{{ '…' if t.description|length > 48 }}<div class="small muted">{{ t.eq_name|short }} · {{ t.organe }}</div></div>{{ status_pill(t.status) }}
+      </div>
+      {% else %}<div class="empty">Aucun TAG.</div>{% endfor %}
+    </div>
+    <div class="card">
+      <h3>Documentation rapide</h3>
+      {% for d in docs %}<a class="row" style="padding:6px 0" href="{{ d.url }}" target="_blank"><span class="doc-ic" style="background:{{ {'SOP':'#d71920','OPL':'#f08a00','TECH':'#1687e8'}.get(d.doc_type,'#17a45a') }}">{{ d.doc_type }}</span><span class="small">{{ d.title }}</span></a>{% else %}<div class="empty">Aucun document.</div>{% endfor %}
+      <a class="small" style="color:var(--blue)" href="{{ url_for('documentation') }}">Toute la documentation →</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

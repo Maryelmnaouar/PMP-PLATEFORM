@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_cil.html" import cil_badge with context %}
+{% from "_ui.html" import type_pill with context %}
+{% block title %}Contre-mesures{% endblock %}
+{% block heading %}Contre-mesures{% endblock %}
+{% block subheading %}Actions préventives issues des TAGs, à intégrer dans les checklists CILT{% endblock %}
+{% block content %}
+<div class="tabs">
+  <a href="?status=À intégrer" class="{{ 'on' if st=='À intégrer' }}">À intégrer ({{ counts.get('À intégrer', 0) }})</a>
+  <a href="?status=Intégrée" class="{{ 'on' if st=='Intégrée' }}">Intégrées ({{ counts.get('Intégrée', 0) }})</a>
+  <a href="?status=toutes" class="{{ 'on' if st not in ('À intégrer','Intégrée') }}">Toutes</a>
+</div>
+<div class="card"><div class="tbl-wrap"><table>
+  <tr><th>TAG</th><th>Machine / organe</th><th>Contre-mesure</th><th>Tâche(s)</th><th>Type</th><th>Outillage</th><th>Temps</th><th>Fréquence</th><th>Date</th><th>Statut</th><th></th></tr>
+  {% for m in rows %}
+  <tr><td>{% if m.tag_code %}<a href="{{ url_for('tag_detail', tag_id=m.tag_id) }}"><b>{{ m.tag_code }}</b></a> {{ type_pill(m.tag_type) if m.tag_type }}{% else %}—{% endif %}</td>
+    <td>{{ m.eq_ref }} · {{ m.eq_name|short }}<div class="small muted">{{ m.organe or '' }}</div></td>
+    <td>{{ m.countermeasure }}</td><td class="small" style="white-space:pre-line">{{ m.tasks or '' }}</td>
+    <td>{{ cil_badge(m.cil_type) }}</td><td class="small">{{ m.tooling or '—' }}</td><td>{{ m.duration_min or '—' }} min</td><td>{{ m.frequency or '—' }}</td>
+    <td class="small">{{ m.created_at|d }}<div class="muted">{{ m.author or '' }}</div></td>
+    <td>{% if m.status=='Intégrée' %}<span class="chip auto">Intégrée</span><div class="small muted">{{ m.cl_code or '' }}</div>{% else %}<span class="chip man">À intégrer</span>{% endif %}</td>
+    <td>{% if m.status!='Intégrée' and can('checklists_manage') %}<a class="btn sm" href="{{ url_for('countermeasure_integrate', mid=m.id) }}">Intégrer dans une checklist</a>{% elif m.checklist_id %}<a class="btn ghost sm" href="{{ url_for('checklist_history', cid=m.checklist_id) }}">Checklist</a>{% endif %}</td></tr>
+  {% else %}<tr><td colspan="11" class="empty">Aucune contre-mesure dans cette liste.</td></tr>{% endfor %}
+</table></div></div>
+{% endblock %}

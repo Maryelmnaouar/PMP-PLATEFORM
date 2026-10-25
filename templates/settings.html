@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Paramètres{% endblock %}
+{% block heading %}Paramètres — référentiel{% endblock %}
+{% block subheading %}Usine → Ligne → Équipement · chaque SGA regroupe des équipements d'une même ligne{% endblock %}
+{% block content %}
+<div class="tabs">
+  {% for k,l,n in [('plants','Usines',plants|length),('lines','Lignes de production',lines|length),('sga','SGA',sgas|length),('equipment','Équipements',eqs|length)] %}<a href="?tab={{ k }}" class="{{ 'on' if tab==k }}">{{ l }} ({{ n }})</a>{% endfor %}
+  <a href="{{ url_for('users') }}">Utilisateurs & accès →</a><a href="{{ url_for('admin_backup') }}">⬇ Sauvegarder la base</a><a href="{{ url_for('checklists') }}">Checklists →</a>
+</div>
+{% if tab=='plants' %}
+<form class="card" method="post" action="{{ url_for('settings_save', entity='plant') }}"><h3>Créer une usine</h3>
+  <div class="grid g4" style="align-items:end"><div class="field"><label class="lbl">Code *</label><input type="text" name="code" required></div><div class="field"><label class="lbl">Nom *</label><input type="text" name="name" required></div><div class="field"><label class="lbl">Ville</label><input type="text" name="city"></div><button class="btn">+ Créer</button></div></form>
+<div class="card"><table><tr><th>Code</th><th>Usine</th><th>Ville</th><th>Lignes</th><th></th></tr>
+  {% for p in plants %}<tr><td>{{ p.code }}</td><td><b>{{ p.name }}</b></td><td>{{ p.city }}</td><td>{{ p.n_lines }}</td><td class="right"><a class="btn ghost sm" href="{{ url_for('settings_edit', entity='plant', item_id=p.id) }}">Modifier</a> <form class="inline" method="post" action="{{ url_for('settings_delete', entity='plant', item_id=p.id) }}" onsubmit="return confirm('Supprimer ?')"><button class="btn grey sm">✕</button></form></td></tr>{% endfor %}</table></div>
+{% elif tab=='lines' %}
+<form class="card" method="post" action="{{ url_for('settings_save', entity='line') }}"><h3>Créer une ligne de production</h3>
+  <div class="grid g4" style="align-items:end"><div class="field"><label class="lbl">Usine *</label><select name="plant_id" required>{% for p in plants %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></div><div class="field"><label class="lbl">Code</label><input type="text" name="code"></div><div class="field"><label class="lbl">Nom *</label><input type="text" name="name" required></div><button class="btn">+ Créer</button></div></form>
+<div class="card"><table><tr><th>Usine</th><th>Code</th><th>Ligne</th><th>SGA</th><th>Équipements</th><th></th></tr>
+  {% for l in lines %}<tr><td>{{ l.plant_name }}</td><td>{{ l.code }}</td><td><b>{{ l.name }}</b></td><td>{{ l.n_sga }}</td><td>{{ l.n_eq }}</td><td class="right"><a class="btn ghost sm" href="{{ url_for('settings_edit', entity='line', item_id=l.id) }}">Modifier</a> <form class="inline" method="post" action="{{ url_for('settings_delete', entity='line', item_id=l.id) }}" onsubmit="return confirm('Supprimer ?')"><button class="btn grey sm">✕</button></form></td></tr>{% endfor %}</table></div>
+{% elif tab=='sga' %}
+<form class="card" method="post" action="{{ url_for('settings_save', entity='sga') }}"><h3>Créer une SGA</h3>
+  <div class="grid g4" style="align-items:end"><div class="field"><label class="lbl">Ligne *</label><select name="line_id" required>{% for l in lines %}<option value="{{ l.id }}">{{ l.plant_name }} · {{ l.name }}</option>{% endfor %}</select></div><div class="field"><label class="lbl">Nom *</label><input type="text" name="name" required></div><div class="field"><label class="lbl">Étape AM</label><select name="am_step">{% for i in range(1,8) %}<option>{{ i }}</option>{% endfor %}</select></div><button class="btn">+ Créer</button></div>
+  <p class="small muted">Après création, cliquez sur « Modifier » pour cocher les équipements couverts par la SGA.</p></form>
+<div class="card"><table><tr><th>SGA</th><th>Usine / ligne</th><th>Étape AM</th><th>Équipements</th><th>Utilisateurs</th><th></th></tr>
+  {% for s in sgas %}<tr><td><b>{{ s.name }}</b></td><td>{{ s.plant_name }} · {{ s.line_name }}</td><td>{{ s.am_step }}</td><td>{{ s.n_eq }}</td><td>{{ s.n_users }}</td><td class="right"><a class="btn ghost sm" href="{{ url_for('settings_edit', entity='sga', item_id=s.id) }}">Modifier / équipements</a> <form class="inline" method="post" action="{{ url_for('settings_delete', entity='sga', item_id=s.id) }}" onsubmit="return confirm('Supprimer ?')"><button class="btn grey sm">✕</button></form></td></tr>{% endfor %}</table></div>
+{% else %}
+<form class="card" method="post" action="{{ url_for('settings_save', entity='equipment') }}"><h3>Créer un équipement</h3>
+  <div class="grid g5" style="align-items:end">
+    <div class="field"><label class="lbl">Usine *</label><select data-cascade="plant"><option value="">— Usine —</option>{% for p in plants %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}</select></div>
+    <div class="field"><label class="lbl">Ligne *</label><select name="line_id" data-cascade="line" required><option value="">— choisir l'usine —</option></select></div>
+    <div class="field"><label class="lbl">SGA</label><select name="sga_id" data-cascade="sga"><option value="">— Aucune SGA —</option></select></div>
+    <div class="field"><label class="lbl">Référence</label><input type="text" name="reference"></div>
+    <div class="field"><label class="lbl">Désignation *</label><input type="text" name="name" required></div>
+  </div>
+  <input type="hidden" name="position" value="{{ eqs|length + 1 }}"><button class="btn">+ Créer</button></form>
+<div class="card"><div class="tbl-wrap"><table><tr><th>#</th><th>Référence</th><th>Désignation</th><th>Usine / ligne</th><th>SGA</th><th></th></tr>
+  {% for e in eqs %}<tr><td>{{ e.position }}</td><td>{{ e.reference }}</td><td><b>{{ e.name }}</b></td><td>{{ e.plant_name }} · {{ e.line_name }}</td><td>{{ e.sga_name or '—' }}</td><td class="right" style="white-space:nowrap"><a class="btn ghost sm" href="{{ url_for('settings_edit', entity='equipment', item_id=e.id) }}">Modifier</a> <form class="inline" method="post" action="{{ url_for('settings_delete', entity='equipment', item_id=e.id) }}" onsubmit="return confirm('Supprimer ?')"><button class="btn grey sm">✕</button></form></td></tr>{% endfor %}</table></div></div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_ui.html" import task_pill with context %}
+{% from "_cil.html" import cil_badge with context %}
+{% block title %}{{ cl.code }}{% endblock %}
+{% block heading %}{{ cl.code }} — {{ cl.name }}{% endblock %}
+{% block subheading %}{{ cl.eq_name|short }} · {{ items|length }} tâche(s) · {{ cl.machine_state or '' }}{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-h"><h3>Tâches de la checklist</h3>{% if can('checklists_manage') %}<a class="btn ghost sm" href="{{ url_for('checklist_edit', cid=cl.id) }}">Modifier</a>{% endif %}</div>
+  <div class="tbl-wrap"><table>
+    <tr><th>#</th><th>Organe</th><th>Type</th><th>Tâche</th><th>Outillage</th><th>Temps</th><th>Fréquence</th><th>Dernière distribution</th></tr>
+    {% for i in items %}<tr><td>{{ i.position }}</td><td>{{ i.organe or '—' }}</td><td>{{ cil_badge(i.cil_type) }}</td><td>{{ i.text }}</td><td>{{ i.tooling or '—' }}</td><td>{{ i.duration_min or '—' }} min</td><td>{{ i.frequency }}</td><td>{{ i.last_due|d if i.last_due else '—' }}</td></tr>{% endfor %}
+  </table></div>
+</div>
+<div class="card"><h3>Ordres de travail distribués</h3><div class="tbl-wrap"><table>
+  <tr><th>Échéance</th><th>Affecté à</th><th>Tâches</th><th>Terminé le</th><th>Durée réelle</th><th>Statut</th></tr>
+  {% for t in rows %}<tr class="click" data-href="{{ url_for('task_run', task_id=t.id) }}"><td>{{ t.due_date|d }}</td><td>{{ t.user_name }}</td><td>{{ t.n_done }}/{{ t.n_items }}</td><td>{{ t.completed_at|dt }}</td><td>{{ (t.duration_min ~ ' min') if t.duration_min else '—' }}</td><td>{{ task_pill(t.status) }}</td></tr>
+  {% else %}<tr><td colspan="6" class="empty">Aucune tâche distribuée pour cette checklist.</td></tr>{% endfor %}
+</table></div></div>
+<a class="btn grey" href="{{ url_for('checklists') }}">← Retour aux checklists</a>
+{% endblock %}

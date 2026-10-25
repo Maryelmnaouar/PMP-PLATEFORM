@@ -1,0 +1,15 @@
+{% if can('tag_validate') and to_validate %}
+<div class="card" style="border:2px solid #0d1f4f">
+  <div class="card-h"><h3>TAGs RCM / Safety à valider → avis SAP <span class="pill" style="background:#0d1f4f">{{ to_validate|length }}</span></h3>
+    <span class="small muted">Créez l'avis dans SAP avec les informations à copier, puis saisissez son N° (obligatoire) pour libérer le TAG.</span></div>
+  <div class="tbl-wrap"><table>
+    <tr><th>TAG</th><th>Type</th><th>Machine / organe</th><th>Description</th><th>Découvert par</th><th>Date</th><th></th></tr>
+    {% for t in to_validate %}
+    <tr><td><a href="{{ url_for('tag_detail', tag_id=t.id) }}"><b>{{ t.tag_code }}</b></a></td><td>{{ type_pill(t.type) }}</td>
+      <td>{{ t.eq_ref }} · {{ t.eq_name|short }}<div class="small muted">{{ t.organe }}</div></td><td class="small">{{ t.description[:70] }}</td>
+      <td>{{ t.observed_name }}</td><td class="small">{{ t.created_at|dt }}</td>
+      <td style="white-space:nowrap"><a class="btn sm" style="background:#0d1f4f" href="{{ url_for('tag_detail', tag_id=t.id, validate=1) }}">Valider → avis SAP</a></td></tr>
+    {% endfor %}
+  </table></div>
+</div>
+{% endif %}

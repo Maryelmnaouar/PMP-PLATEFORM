@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "_ui.html" import task_pill with context %}
+{% from "_cil.html" import cil_badge with context %}
+{% block title %}Distribution des tâches{% endblock %}
+{% block heading %}Distribution des tâches CILT{% endblock %}
+{% block subheading %}Période : {{ periods[kind][0] }} du {{ start.strftime('%d/%m/%Y') }} au {{ end.strftime('%d/%m/%Y') }} · fréquences {{ periods[kind][1]|join(' et ')|lower }}{% endblock %}
+{% block content %}
+<div class="filters">
+  <div class="tabs" style="margin:0">{% for k, p in periods.items() %}<a href="?period={{ k }}&date={{ ref.isoformat() }}" class="{{ 'on' if kind==k }}">{{ p[0] }} <span class="small" style="opacity:.75">({{ p[1]|join(', ')|lower }})</span></a>{% endfor %}</div>
+  <div class="sp"></div>
+  <a class="btn grey" href="?period={{ kind }}&date={{ prev_ref.isoformat() }}">← Précédente</a>
+  <form method="get" class="row"><input type="hidden" name="period" value="{{ kind }}"><input type="date" name="date" value="{{ ref.isoformat() }}" onchange="this.form.submit()" style="width:auto"></form>
+  <a class="btn grey" href="?period={{ kind }}&date={{ next_ref.isoformat() }}">Suivante →</a>
+</div>
+<form method="post" class="card">
+  <input type="hidden" name="period" value="{{ kind }}"><input type="hidden" name="date" value="{{ ref.isoformat() }}">
+  <div class="card-h"><h3>Tâches à distribuer <span class="pill" style="background:var(--blue)">{{ rows|length }}</span></h3>
+    {% if rows %}<div class="row"><label class="row small"><input type="checkbox" id="sel-all" checked> Tout sélectionner</label><button class="btn green">Distribuer la sélection</button></div>{% endif %}</div>
+  <p class="small muted" style="margin-top:0">Une tâche quotidienne crée un ordre de travail par jour de la semaine. Les tâches d'une même checklist, d'une même personne et d'une même date sont regroupées dans un seul ordre de travail. Une tâche en retard est reprise au début de la période.</p>
+  <div class="tbl-wrap"><table>
+    <tr><th></th><th>Machine / checklist</th><th>Organe</th><th>Type</th><th>Tâche</th><th>Outillage</th><th>Temps</th><th>Fréquence</th><th>Échéance(s)</th><th>Personne concernée *</th></tr>
+    {% for r in rows %}{% set it = r.i %}
+    <tr><td><input type="checkbox" name="sel" value="{{ it.id }}" class="sel" checked></td>
+      <td><b>{{ it.eq_name|short }}</b><div class="small muted">{{ it.cl_code }} · {{ it.cl_name }}</div></td>
+      <td>{{ it.organe or '—' }}</td><td>{{ cil_badge(it.cil_type) }}</td><td>{{ it.text }}</td><td class="small">{{ it.tooling or '—' }}</td>
+      <td>{{ it.duration_min or '—' }} min</td><td>{{ it.frequency }}</td>
+      <td class="small">{% if r.dates|length > 2 %}{{ r.dates|length }}× du {{ r.dates[0].strftime('%d/%m') }} au {{ r.dates[-1].strftime('%d/%m') }}{% else %}{% for d in r.dates %}{{ d.strftime('%d/%m/%Y') }}{{ ', ' if not loop.last }}{% endfor %}{% endif %}</td>
+      <td><select name="assignee_{{ it.id }}" style="min-width:170px"><option value="">— Choisir —</option>{% for u in people %}<option value="{{ u.id }}" {{ 'selected' if u.id==r.assignee }}>{{ u.name }} · {{ u.role }}</option>{% endfor %}</select></td></tr>
+    {% else %}<tr><td colspan="10" class="empty">Toutes les tâches de cette période sont déjà distribuées (ou aucune checklist n'a de tâche à cette fréquence).</td></tr>{% endfor %}
+  </table></div>
+</form>
+<div class="card">
+  <h3>Ordres de travail de la période <span class="pill" style="background:var(--dark)">{{ done|length }}</span></h3>
+  <div class="tbl-wrap"><table>
+    <tr><th>Échéance</th><th>Machine / checklist</th><th>Affecté à</th><th>Tâches</th><th>Temps</th><th>Statut</th><th></th></tr>
+    {% for t in done %}<tr><td>{{ t.due_date|d }}</td><td>{{ t.eq_name|short }}<div class="small muted">{{ t.cl_name }}</div></td><td>{{ t.user_name }}</td>
+      <td>{{ t.n_done }}/{{ t.n_items }}</td><td>{{ t.std or '—' }} min</td><td>{{ task_pill(t.status) }}</td>
+      <td style="white-space:nowrap"><a class="btn ghost sm" href="{{ url_for('task_run', task_id=t.id) }}">Voir</a>
+        {% if t.status=='À réaliser' and not t.n_done %}<form class="inline" method="post" action="{{ url_for('planning_cancel', task_id=t.id) }}" onsubmit="return confirm('Annuler cet ordre de travail ?')"><button class="btn grey sm">Annuler</button></form>{% endif %}</td></tr>
+    {% else %}<tr><td colspan="7" class="empty">Aucun ordre de travail distribué pour cette période.</td></tr>{% endfor %}
+  </table></div>
+</div>
+{% endblock %}
+{% block prescript %}document.addEventListener('DOMContentLoaded',()=>{const a=document.getElementById('sel-all');if(a)a.addEventListener('change',()=>document.querySelectorAll('.sel').forEach(c=>c.checked=a.checked));});{% endblock %}

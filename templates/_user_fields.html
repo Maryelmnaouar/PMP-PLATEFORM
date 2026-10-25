@@ -1,0 +1,15 @@
+<div class="grid g3">
+  <div class="field"><label class="lbl">Nom complet *</label><input type="text" name="name" value="{{ u.name if u else '' }}" required></div>
+  <div class="field"><label class="lbl">Identifiant *</label><input type="text" name="username" value="{{ u.username if u else '' }}" required></div>
+  <div class="field"><label class="lbl">E-mail</label><input type="email" name="email" value="{{ u.email if u and u.email else '' }}"></div>
+  <div class="field"><label class="lbl">Type d'utilisateur *</label><select name="role" id="role">{% for r in ROLES %}<option {{ 'selected' if u and u.role==r }}>{{ r }}</option>{% endfor %}</select></div>
+  <div class="field"><label class="lbl">Usine</label><select name="plant_id"><option value="">—</option>{% for p in plants %}<option value="{{ p.id }}" {{ 'selected' if (u and u.plant_id==p.id) or (not u and loop.first) }}>{{ p.name }}</option>{% endfor %}</select></div>
+  <div class="field"><label class="lbl">Utilisateur SAP S/4HANA (si licence)</label><input type="text" name="sap_user" value="{{ u.sap_user if u and u.sap_user else '' }}" placeholder="Ex. FIDRISSI" style="text-transform:uppercase"></div>
+  <div class="field"><label class="lbl">Mot de passe provisoire {{ '(laisser vide pour ne pas changer)' if u else '*' }}</label><input type="password" name="password" {{ '' if u else 'required' }}></div>
+</div>
+<label class="lbl">SGA rattachées (une ou plusieurs)</label>
+<div class="perm-grid" style="margin-bottom:12px">{% for s in sgas %}<label><input type="checkbox" name="sga_ids" value="{{ s.id }}" {{ 'checked' if my_sgas and s.id in my_sgas }}> {{ s.name }} <span class="small muted">({{ s.line_name }})</span></label>{% endfor %}</div>
+<div class="row" style="margin-bottom:8px"><label class="lbl" style="margin:0">Droits d'accès</label>
+  <select name="perm_mode" id="perm_mode" style="width:auto"><option value="default" {{ 'selected' if not custom }}>Par défaut selon le type</option><option value="custom" {{ 'selected' if custom }}>Personnalisés</option></select>
+  <span class="small muted">Administrateur = tous les droits.</span></div>
+<div class="perm-grid">{% for k,l in PERMS %}<label><input type="checkbox" name="perm_{{ k }}" data-key="{{ k }}" {{ 'checked' if perms and k in perms }}> {{ l }}</label>{% endfor %}</div>

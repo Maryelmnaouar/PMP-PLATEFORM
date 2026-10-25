@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}AssetPilot AM{% endblock %} · AssetPilot</title>
+<link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+<meta name="theme-color" content="#17202b">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AssetPilot">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+<link rel="icon" type="image/png" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="app">
+  {% set ep = request.endpoint or '' %}
+  <aside class="side">
+    <div class="side-logo"><img src="{{ url_for('static', filename='img/logo-ecbc.png') }}" alt="Equatorial Coca-Cola Bottling Company"></div>
+    <div class="brand"><div class="logo">A</div><div><b>ASSETPILOT</b><small>Maintenance Autonome</small></div></div>
+    <a class="nav {{ 'on' if ep=='home' }}" href="{{ url_for('home') }}">Accueil</a>
+    {% if can('tasks_exec') %}<a class="nav {{ 'on' if ep in ('my_tasks','task_run') }}" href="{{ url_for('my_tasks') }}">Mes tâches {% if nav_tasks %}<span class="badge">{{ nav_tasks }}</span>{% endif %}</a>{% endif %}
+    <a class="nav {{ 'on' if ep in ('tags_board','tag_detail','tag_new','tag_countermeasure') }}" href="{{ url_for('tags_board') }}">Suivi des anomalies</a>
+    <a class="nav {{ 'on' if ep=='tags_list' }}" href="{{ url_for('tags_list') }}">Registre des TAGs</a>
+    <a class="nav {{ 'on' if ep.startswith('checklist') }}" href="{{ url_for('checklists') }}">Checklists CILT</a>
+    <a class="nav {{ 'on' if ep.startswith('countermeasure') }}" href="{{ url_for('countermeasures') }}">Contre-mesures {% if nav_cm %}<span class="badge">{{ nav_cm }}</span>{% endif %}</a>
+    {% if can('checklists_manage') %}<a class="nav {{ 'on' if ep.startswith('planning') }}" href="{{ url_for('planning') }}">Distribution des tâches</a>{% endif %}
+    <a class="nav {{ 'on' if ep=='documentation' }}" href="{{ url_for('documentation') }}">SOP / Documentation</a>
+    <a class="nav {{ 'on' if ep=='synoptic' }}" href="{{ url_for('synoptic') }}">Synoptique ligne</a>
+    <a class="nav {{ 'on' if ep=='sga_board' }}" href="{{ url_for('sga_board') }}">Tableau SGA</a>
+    <a class="nav {{ 'on' if ep.startswith('audit') }}" href="{{ url_for('audits') }}">Audits AM</a>
+    {% if can('pdr_view') %}<a class="nav {{ 'on' if ep=='pdr' }}" href="{{ url_for('pdr') }}">Gestion PDR</a>{% endif %}
+    {% if can('dashboard_global') or me.role in ("Chef d'équipe Production","Chef d'équipe Maintenance","Leader SGA") %}<a class="nav {{ 'on' if ep=='dashboard' }}" href="{{ url_for('dashboard') }}">Tableau de bord</a>{% endif %}
+    {% if can('settings') %}
+    <div class="navt">ADMINISTRATION</div>
+    <a class="nav {{ 'on' if ep.startswith('settings') }}" href="{{ url_for('settings') }}">Paramètres</a>
+    <a class="nav {{ 'on' if ep in ('users','user_edit') }}" href="{{ url_for('users') }}">Utilisateurs & accès</a>
+    <a class="nav {{ 'on' if ep.startswith('sap_') }}" href="{{ url_for('sap_settings') }}">Intégration SAP</a>
+    {% endif %}
+    <div class="sidefoot">{{ me.name }}<br>{{ me.role }}<br><a href="{{ url_for('account') }}" style="color:#fff;font-weight:700">Mon compte</a> · <a href="{{ url_for('logout') }}" style="color:#fff;font-weight:700">Se déconnecter</a></div>
+  </aside>
+  <main>
+    <header class="top">
+      <button class="burger" aria-label="Menu">☰</button>
+      <div class="sp"><h1>{% block heading %}{% endblock %}</h1><p>{% block subheading %}{% endblock %}</p></div>
+      <div class="who">
+        <img class="head-logo" src="{{ url_for('static', filename='img/logo-ecbc.png') }}" alt="ECBC">
+        {% if can('tags_create') %}<a class="btn red" href="{{ url_for('tag_new') }}">+ Lancer un TAG</a>{% endif %}
+        <div class="av">{{ me.name[0] }}</div>
+        <div class="nm"><b>{{ me.name }}</b><small>{{ me.role }}{% if me_sgas %} · {{ me_sgas if me_sgas|length < 40 else 'Toutes SGA' }}{% endif %}</small></div>
+      </div>
+    </header>
+    <div class="page">
+      <div class="print-head"><img src="{{ url_for('static', filename='img/logo-ecbc.png') }}" alt="ECBC"><div><b>ASSETPILOT — Maintenance Autonome</b><br><span>Equatorial Coca-Cola Bottling Company</span></div></div>
+      {% with msgs = get_flashed_messages(with_categories=true) %}{% for c, m in msgs %}<div class="flash {{ c }}">{{ m }}</div>{% endfor %}{% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+{% block modals %}{% endblock %}
+<script>{% block prescript %}{% endblock %}</script>
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

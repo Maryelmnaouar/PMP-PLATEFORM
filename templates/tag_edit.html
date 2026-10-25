@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Modifier {{ t.tag_code }}{% endblock %}
+{% block heading %}Modifier {{ t.tag_code }}{% endblock %}
+{% block subheading %}Réservé à l'administrateur · chaque modification est tracée dans l'historique du TAG{% endblock %}
+{% block content %}
+<form method="post" enctype="multipart/form-data" class="card">
+  <div class="field"><label class="lbl">Type d'étiquette</label>
+    <div class="typesel">{% for tt in TAG_TYPES %}<input type="radio" name="type" id="ty-{{ tt.key }}" value="{{ tt.key }}" {{ 'checked' if t.type==tt.key }}><label for="ty-{{ tt.key }}" style="background:{{ tt.color }};color:{{ tt.text }}">{{ tt.label }}</label>{% endfor %}</div></div>
+  <div class="grid g3">
+    <div class="field"><label class="lbl">Type d'anomalie</label><select name="anomaly_type">{% for a in ANOMALY_TYPES %}<option {{ 'selected' if t.anomaly_type==a }}>{{ a }}</option>{% endfor %}</select></div>
+    <div class="field"><label class="lbl">Machine</label><select name="equipment_id">{% for e in equipment %}<option value="{{ e.id }}" {{ 'selected' if e.id==t.equipment_id }}>{{ e.reference }} · {{ e.name|short }}</option>{% endfor %}</select></div>
+    <div class="field"><label class="lbl">Organe</label><input type="text" name="organe" value="{{ t.organe or '' }}"></div>
+    <div class="field"><label class="lbl">Découverte par</label><select name="observed_by"><option value="">—</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if u.id==t.observed_by }}>{{ u.name }}</option>{% endfor %}</select></div>
+    <div class="field"><label class="lbl">Date d'observation</label><input type="date" name="observed_at" value="{{ (t.observed_at or '')[:10] }}"></div>
+    <div class="field"><label class="lbl">Statut</label><select name="status">{% for s in STATUSES %}<option {{ 'selected' if t.status==s }}>{{ s }}</option>{% endfor %}</select></div>
+    <div class="field"><label class="lbl">Traitée par</label><select name="treated_by"><option value="">—</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if u.id==t.treated_by }}>{{ u.name }}</option>{% endfor %}</select></div>
+    <div class="field"><label class="lbl">N° d'avis SAP (RCM / Safety)</label><input type="text" name="sap_notif" value="{{ t.sap_notif or '' }}"></div>
+    <div class="field"><label class="lbl">N° d'OT (RCM / Safety)</label><input type="text" name="ot_number" value="{{ t.ot_number or '' }}"></div>
+  </div>
+  <div class="field"><label class="lbl">Description</label><textarea name="description" required>{{ t.description }}</textarea></div>
+  <div class="field"><label class="lbl">Contre-mesure</label><textarea name="countermeasure">{{ t.countermeasure or '' }}</textarea></div>
+  <div class="grid g2">
+    <div class="field"><label class="lbl">Remplacer la photo</label><input type="file" name="photo" accept="image/*"></div>
+    {% if t.photo %}<div class="field"><label class="lbl">Photo actuelle</label><label class="row small"><input type="checkbox" name="remove_photo" value="1"> Supprimer la photo</label><img class="photo" style="max-height:140px" src="{{ url_for('uploads', filename=t.photo) }}"></div>{% endif %}
+  </div>
+  <div class="row"><button class="btn green big">Enregistrer</button><a class="btn grey" href="{{ url_for('tag_detail', tag_id=t.id) }}">Annuler</a></div>
+</form>
+{% endblock %}

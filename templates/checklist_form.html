@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier' if cl else 'Nouvelle' }} checklist{% endblock %}
+{% block heading %}{{ ('Modifier la checklist ' ~ cl.code) if cl else 'Nouvelle checklist CILT' }}{% endblock %}
+{% block subheading %}Choisissez la machine, puis ajoutez les tâches : organe, type (Cleaning / Inspection / Lubrification / Serrage), outillage, temps et fréquence.{% endblock %}
+{% block content %}
+{% if cm %}<div class="flash success">Intégration de la contre-mesure {{ ('du ' ~ cm.tag_code) if cm.tag_code }} : « {{ cm.countermeasure }} ». Ses tâches sont ajoutées en bas du tableau, vérifiez-les puis enregistrez.</div>{% endif %}
+<form method="post" class="card" id="cl-form">
+  {% if v.from_cm %}<input type="hidden" name="from_cm" value="{{ v.from_cm }}">{% endif %}
+  <div class="grid g3">
+    <div class="field"><label class="lbl">Nom de la checklist *</label><input type="text" name="name" value="{{ v.name or '' }}" required placeholder="Ex. CILT Souffleuse — moules"></div>
+    <div class="field"><label class="lbl">Machine *</label><select name="equipment_id" id="cl-equipment" required><option value="">— Choisir la machine —</option>{% for e in equipment %}<option value="{{ e.id }}" {{ 'selected' if v.equipment_id|string==e.id|string }}>{{ e.reference }} · {{ e.name|short }} ({{ e.sga_name or 'sans SGA' }})</option>{% endfor %}</select></div>
+    <div class="field"><label class="lbl">Responsable par défaut</label><select name="assigned_to"><option value="">— Aucun —</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if v.assigned_to|string==u.id|string }}>{{ u.name }} · {{ u.role }}</option>{% endfor %}</select></div>
+    <div class="field"><label class="lbl">État machine</label><select name="machine_state">{% for m in MACHINE_STATES %}<option {{ 'selected' if v.machine_state==m }}>{{ m }}</option>{% endfor %}</select></div>
+    <div class="field"><label class="lbl">Nombre de personnes</label><input type="number" min="1" name="people" value="{{ v.people or 1 }}"></div>
+    <div class="field"><label class="lbl">Type d'activité</label><select name="activity_type"><option value="AM" {{ 'selected' if v.activity_type=='AM' }}>AM (opérateur)</option><option value="RCM" {{ 'selected' if v.activity_type=='RCM' }}>RCM (maintenance)</option></select></div>
+    <div class="field" style="grid-column:span 2"><label class="lbl">SOP — lien Google Drive vers le PDF standard</label><input type="url" name="sop_url" value="{{ v.sop_url or '' }}" placeholder="https://drive.google.com/file/d/…/view"></div>
+    <div class="field"><label class="lbl">Statut</label><select name="active"><option value="1" {{ 'selected' if v.active|string != '0' }}>Active</option><option value="0" {{ 'selected' if v.active|string == '0' }}>Désactivée</option></select></div>
+  </div>
+  <h3 style="margin:8px 0 10px">Tâches à réaliser</h3>
+  <datalist id="organes"></datalist>
+  <div class="tbl-wrap"><table id="items-table">
+    <tr><th style="width:15%">Organe</th><th style="width:13%">Type *</th><th>Tâche à réaliser *</th><th style="width:15%">Outillage</th><th style="width:8%">Temps (min) *</th><th style="width:12%">Fréquence *</th><th></th></tr>
+    {% for it in (items or [{}]) %}
+    <tr class="item-row">
+      <td><input type="hidden" name="item_id" value="{{ it.id or '' }}"><input type="text" name="item_organe" list="organes" value="{{ it.organe or '' }}" placeholder="Organe"></td>
+      <td><select name="item_type">{% for c in CIL_TYPES %}<option value="{{ c[0] }}" {{ 'selected' if it.cil_type==c[0] }}>{{ c[0] }} · {{ c[1] }}</option>{% endfor %}</select></td>
+      <td><input type="text" name="item_text" value="{{ it.text or '' }}" placeholder="Ex. Nettoyer les porte-moules"></td>
+      <td><input type="text" name="item_tooling" value="{{ it.tooling or '' }}" placeholder="Ex. chiffon, clé de 13"></td>
+      <td><input type="number" min="1" name="item_duration" value="{{ it.duration_min or 5 }}"></td>
+      <td><select name="item_frequency">{% for fq in FREQUENCIES %}<option {{ 'selected' if (it.frequency or 'Hebdomadaire')==fq }}>{{ fq }}</option>{% endfor %}</select></td>
+      <td><button type="button" class="btn grey sm del-row" title="Supprimer la tâche">✕</button></td>
+    </tr>
+    {% endfor %}
+  </table></div>
+  <div class="row" style="margin:10px 0 16px"><button type="button" class="btn ghost" id="add-row">+ Ajouter une tâche</button><span class="small muted">Temps total : <b id="total-min">0</b> min</span></div>
+  <div class="row"><button class="btn green big">Enregistrer la checklist</button><a class="btn grey" href="{{ url_for('checklists') }}">Annuler</a></div>
+</form>
+{% endblock %}
+{% block prescript %}
+document.addEventListener('DOMContentLoaded', () => {
+  const tbl = document.getElementById('items-table'), eq = document.getElementById('cl-equipment');
+  const total = () => { let t = 0; tbl.querySelectorAll('[name=item_duration]').forEach(i => { if (i.closest('tr').querySelector('[name=item_text]').value.trim()) t += (+i.value || 0); }); document.getElementById('total-min').textContent = t; };
+  const bind = tr => { tr.querySelector('.del-row').onclick = () => { if (tbl.querySelectorAll('.item-row').length > 1) tr.remove(); else tr.querySelectorAll('input[type=text]').forEach(i => i.value = ''); total(); };
+                       tr.querySelectorAll('input').forEach(i => i.addEventListener('input', total)); };
+  tbl.querySelectorAll('.item-row').forEach(bind);
+  document.getElementById('add-row').onclick = () => {
+    const rows = tbl.querySelectorAll('.item-row'), src = rows[rows.length - 1], tr = src.cloneNode(true);
+    tr.querySelector('[name=item_id]').value = ''; tr.querySelector('[name=item_text]').value = ''; tr.querySelector('[name=item_tooling]').value = '';
+    tr.querySelector('[name=item_type]').value = src.querySelector('[name=item_type]').value;
+    tr.querySelector('[name=item_frequency]').value = src.querySelector('[name=item_frequency]').value;
+    src.after(tr); bind(tr); tr.querySelector('[name=item_text]').focus(); total();
+  };
+  const loadOrganes = () => { if (!eq.value) return; fetch('/api/organes?equipment_id=' + eq.value).then(r => r.json()).then(list => {
+    document.getElementById('organes').innerHTML = list.map(o => '<option value="' + o.replace(/"/g, '&quot;') + '">').join(''); }); };
+  eq.addEventListener('change', loadOrganes); loadOrganes(); total();
+});
+{% endblock %}

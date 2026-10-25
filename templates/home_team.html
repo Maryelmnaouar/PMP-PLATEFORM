@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "_ui.html" import status_pill, type_pill, task_pill with context %}
+{% block title %}Accueil{% endblock %}
+{% block heading %}Tableau de bord — {{ me.role }}{% endblock %}
+{% block subheading %}Suivi de l'équipe{% if can('confirm') %} et confirmation des travaux{% endif %}{% endblock %}
+{% block content %}
+<form class="filters" method="get">
+  <div class="field"><label class="lbl">SGA</label><select name="sga" onchange="this.form.submit()"><option value="">Toutes mes SGA</option>{% for s in sgas %}<option value="{{ s.id }}" {{ 'selected' if sel_sga==s.id|string }}>{{ s.name }}</option>{% endfor %}</select></div>
+  <div class="field"><label class="lbl">Membre</label><select name="member" onchange="this.form.submit()"><option value="">Tous</option>{% for m in members %}<option value="{{ m.id }}" {{ 'selected' if sel_member==m.id|string }}>{{ m.name }} ({{ m.role }})</option>{% endfor %}</select></div>
+  <div class="field"><label class="lbl">Période</label><select name="period" onchange="this.form.submit()">{% for k,l in [('semaine','Cette semaine'),('mois','30 derniers jours'),('trimestre','90 derniers jours')] %}<option value="{{ k }}" {{ 'selected' if period==k }}>{{ l }}</option>{% endfor %}</select></div>
+</form>
+<div class="grid g5" style="margin-bottom:16px">
+  <div class="kpi k-blu"><div class="ic">#</div><div><b>{{ kpi.tags }}</b><span>TAGs émis</span><small>sur la période</small></div></div>
+  <div class="kpi k-red"><div class="ic">!</div><div><b>{{ kpi.new }}</b><span>Nouveaux</span></div></div>
+  <div class="kpi k-yel"><div class="ic">⟳</div><div><b>{{ kpi.open }}</b><span>En cours</span></div></div>
+  <div class="kpi k-grn"><div class="ic">✓</div><div><b>{{ kpi.treated }}</b><span>Traités</span>{% if can('confirm') %}<small>{{ kpi.to_confirm }} à confirmer</small>{% endif %}</div></div>
+  <div class="kpi k-pur"><div class="ic">%</div><div><b>{{ kpi.rate }}%</b><span>Taux de réalisation</span><small>tâches de l'équipe</small></div></div>
+</div>
+{% include '_to_validate.html' %}
+<div class="{{ 'split' if can('confirm') else '' }}">
+  <div class="card">
+    <h3>Performance de l'équipe</h3>
+    <div class="tbl-wrap"><table>
+      <tr><th>Membre</th><th>Rôle</th><th>SGA</th><th>Tâches</th><th>Taux</th><th>5S</th><th>TAGs émis</th><th>TAGs ouverts</th></tr>
+      {% for p in perf %}
+      <tr><td><b>{{ p.m.name }}</b></td><td>{{ p.m.role }}</td><td class="small">{{ p.sga }}</td><td>{{ p.k.done }}/{{ p.k.planned }}</td>
+        <td><div class="row" style="gap:6px;flex-wrap:nowrap"><div class="bar" style="width:70px"><i style="width:{{ p.k.rate }}%;background:{{ '#17a45a' if p.k.rate>=80 else ('#f08a00' if p.k.rate>=50 else '#d71920') }}"></i></div>{{ p.k.rate }}%</div></td>
+        <td>{{ p.k.score_5s ~ '%' if p.k.score_5s is not none else '—' }}</td><td>{{ p.k.emitted }}</td><td>{{ p.k.open_tags }}</td></tr>
+      {% else %}<tr><td colspan="8" class="empty">Aucun membre dans ce périmètre.</td></tr>{% endfor %}
+    </table></div>
+  </div>
+  {% if can('confirm') %}
+  <div class="card" style="border:2px solid var(--red)">
+    <h3>Travaux à confirmer <span class="pill" style="background:var(--red)">{{ to_confirm_tasks|length + to_confirm_tags|length }}</span></h3>
+    <div class="tbl-wrap"><table>
+      <tr><th>Tâche / TAG</th><th>Par</th><th>Date</th><th>Action</th></tr>
+      {% for t in to_confirm_tasks %}
+      <tr><td><a href="{{ url_for('task_run', task_id=t.id) }}"><b>{{ t.cl_name }}</b></a><div class="small muted">{{ t.eq_name|short }} · {{ t.n_done }}/{{ t.n_items }} points · {{ t.duration_min }} min</div></td>
+        <td>{{ t.user_name }}</td><td class="small">{{ t.completed_at|dt }}</td>
+        <td style="white-space:nowrap"><form class="inline" method="post" action="{{ url_for('confirm_task', task_id=t.id) }}"><button class="btn green sm">Confirmer</button></form>
+          <form class="inline" method="post" action="{{ url_for('confirm_task', task_id=t.id) }}" data-reject><input type="hidden" name="action" value="reject"><input type="hidden" name="comment"><button class="btn grey sm">Rejeter</button></form></td></tr>
+      {% endfor %}
+      {% for t in to_confirm_tags %}
+      <tr><td><a href="{{ url_for('tag_detail', tag_id=t.id) }}"><b>{{ t.tag_code }}</b> → {{ t.status }}</a><div class="small muted">{{ t.description[:50] }} · {{ t.eq_name|short }}</div></td>
+        <td>{{ t.user_name }}</td><td class="small">{{ t.resolved_at|dt }}</td>
+        <td style="white-space:nowrap"><form class="inline" method="post" action="{{ url_for('confirm_tag', tag_id=t.id) }}"><button class="btn green sm">Confirmer</button></form>
+          <form class="inline" method="post" action="{{ url_for('confirm_tag', tag_id=t.id) }}" data-reject><input type="hidden" name="action" value="reject"><input type="hidden" name="comment"><button class="btn grey sm">Rejeter</button></form></td></tr>
+      {% endfor %}
+      {% if not to_confirm_tasks and not to_confirm_tags %}<tr><td colspan="4" class="empty">Rien à confirmer pour le moment.</td></tr>{% endif %}
+    </table></div>
+    <p class="small muted">Rejeter = motif obligatoire ; la tâche revient « À réaliser » chez l'opérateur, le TAG revient « En cours ».</p>
+  </div>
+  {% endif %}
+</div>
+{% if my_tasks %}
+<div class="card"><h3>Mes propres tâches</h3>
+  <table>{% for t in my_tasks %}<tr class="click" data-href="{{ url_for('task_run', task_id=t.id) }}"><td><b>{{ t.cl_name }}</b></td><td>{{ t.eq_name|short }}</td><td>{{ task_pill(t.status) }}</td></tr>{% endfor %}</table>
+</div>
+{% endif %}
+{% endblock %}
