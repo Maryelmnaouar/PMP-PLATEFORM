@@ -35,7 +35,8 @@ Ouvrir `http://127.0.0.1:5000`.
 | Variable | Rôle | Valeur conseillée |
 |---|---|---|
 | `SECRET_KEY` | Clé de chiffrement des sessions | Longue chaîne aléatoire (générée automatiquement par Render) |
-| `DATA_DIR` | Dossier de la base SQLite et des photos | Render : `/var/data` · local : vide (dossier du projet) |
+| `DATABASE_URL` | Base PostgreSQL où les données sont enregistrées | Render : *Internal Database URL* de votre base PostgreSQL · local : vide |
+| `DATA_DIR` | Dossier de travail de la base SQLite et des photos | Render avec PostgreSQL : inutile · local : vide (dossier du projet) |
 | `ADMIN_USERNAME` | Identifiant de l'administrateur créé au 1er démarrage | ex. `melmnaouar` |
 | `ADMIN_PASSWORD` | Son mot de passe initial | Vide = mot de passe provisoire affiché dans les logs |
 | `ADMIN_NAME` | Nom affiché de l'administrateur | ex. `Maryam Elmnaouar` |
@@ -92,8 +93,12 @@ Les variables `ADMIN_*` et `SEED_BASE_DATA` ne servent qu'à la **création** de
 ## 5. Déployer sur Render
 
 ### Ce qu'il faut savoir avant
-- La base SQLite et les photos doivent être sur un **disque persistant**. Sur le plan **gratuit**, Render efface les fichiers à chaque redémarrage ou déploiement, et vous perdriez toutes les données. Le fichier `render.yaml` utilise donc le plan **0.5c-512mb (7 $/mois)** avec un **disque de 1 Go** (environ 0,25 $/mois).
-- Avec un disque, l'application tourne sur **une seule instance**. Chaque déploiement provoque une courte coupure de quelques secondes. C'est adapté à l'usage d'une usine.
+- **Les données doivent être dans PostgreSQL.** Render efface les fichiers du service à chaque déploiement, redémarrage ou mise en veille. Avec la variable `DATABASE_URL`, AssetPilot enregistre sa base et les photos des TAGs dans PostgreSQL après **chaque modification**, et les recharge au démarrage. Rien n'est perdu.
+- AssetPilot n'utilise que ses propres tables (`assetpilot_store`, `assetpilot_files`). Les autres tables de la base PostgreSQL ne sont ni lues ni modifiées.
+- Une **copie par jour** est conservée 14 jours dans PostgreSQL : **Paramètres → ⬆ Restaurer une sauvegarde**.
+- Sécurité au démarrage : si PostgreSQL est injoignable, le service ne démarre pas, plutôt que de repartir d'une base vide.
+- Une base PostgreSQL **gratuite** de Render expire au bout de 30 jours : prenez un plan payant pour la base.
+- Sans `DATABASE_URL`, il faut un disque persistant (`DATA_DIR=/var/data`). Sinon, un bandeau rouge avertit l'administrateur que les données seront effacées.
 
 ### Étapes (déploiement automatique avec `render.yaml`)
 1. Créez un compte sur [render.com](https://render.com) et connectez votre compte **GitHub**.
@@ -103,7 +108,7 @@ Les variables `ADMIN_*` et `SEED_BASE_DATA` ne servent qu'à la **création** de
    - `ADMIN_PASSWORD`, votre mot de passe initial ;
    - `ADMIN_NAME`, par exemple `Maryam Elmnaouar`.
    `SECRET_KEY` est générée automatiquement.
-4. **Apply**. Render installe l'application, crée le disque `/var/data` et démarre le service.
+4. **Apply**. Render installe l'application, crée la base PostgreSQL et démarre le service.
 5. Ouvrez l'adresse fournie (`https://assetpilot-am.onrender.com` ou similaire) et connectez-vous avec le compte administrateur.
 
 ### Étapes (sans Blueprint, par l'interface)
@@ -114,13 +119,12 @@ Les variables `ADMIN_*` et `SEED_BASE_DATA` ne servent qu'à la **création** de
 | Runtime | Python |
 | Build Command | `pip install -r requirements.txt` |
 | Start Command | `gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 120` |
-| Instance | 0.5c-512mb (ou supérieur) |
+| Instance | Gratuite possible (mise en veille après 15 min) ou payante pour un démarrage immédiat |
 | Health Check Path | `/healthz` |
-| Disque | Advanced → **Add Disk** : mount path `/var/data`, taille 1 Go |
-| Environment | Variables du § 2, avec `DATA_DIR=/var/data` et `SESSION_COOKIE_SECURE=1` |
+| Environment | Variables du § 2 : `DATABASE_URL` (Internal Database URL de la base PostgreSQL), `SECRET_KEY`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_NAME`, `SESSION_COOKIE_SECURE=1` |
 
 ### Après la mise en ligne
-- **Mises à jour** : chaque `git push` sur `main` redéploie automatiquement. La base sur le disque est **conservée**.
+- **Mises à jour** : chaque `git push` redéploie automatiquement. Les données dans PostgreSQL sont **conservées**.
 - **Sauvegardes** : **Paramètres → ⬇ Sauvegarder la base** télécharge une copie complète. Faites-le régulièrement, par exemple chaque semaine.
 - **Nom de domaine** (facultatif) : Render → Settings → Custom Domains, par exemple `assetpilot.votre-entreprise.com`. Le HTTPS est fourni automatiquement.
 - **Tablettes** : une fois en ligne en HTTPS, on peut installer AssetPilot sur l'écran d'accueil (Safari → Partager → « Sur l'écran d'accueil », ou Chrome → « Installer l'application »).
@@ -136,14 +140,15 @@ Les variables `ADMIN_*` et `SEED_BASE_DATA` ne servent qu'à la **création** de
 ```
 ├── app.py                  # application Flask (routes, droits, tâches, indicateurs)
 ├── sap_integration.py      # intégration SAP S/4HANA (Fiori prérempli / API OAuth)
+├── pg_store.py             # enregistrement des données dans PostgreSQL (DATABASE_URL)
 ├── requirements.txt        # Flask, requests, gunicorn
-├── render.yaml             # déploiement Render (service web + disque persistant)
+├── render.yaml             # déploiement Render (service web + base PostgreSQL)
 ├── .python-version         # Python 3.13
 ├── .env.example            # modèle de configuration
 ├── docs/GUIDE_INTEGRATION_SAP.md
 ├── static/                 # CSS, JS, icônes, manifeste de l'application installable
 ├── templates/              # pages HTML (Jinja)
-└── uploads/                # photos des TAGs en local (sur Render : /var/data/uploads)
+└── uploads/                # photos des TAGs en local (sur Render : rechargées depuis PostgreSQL)
 ```
 
 ## 7. Sécurité

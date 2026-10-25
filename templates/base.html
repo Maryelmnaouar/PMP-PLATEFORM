@@ -54,6 +54,7 @@
     </header>
     <div class="page">
       <div class="print-head"><img src="{{ url_for('static', filename='img/logo-ecbc.png') }}" alt="ECBC"><div><b>ASSETPILOT — Maintenance Autonome</b><br><span>Equatorial Coca-Cola Bottling Company</span></div></div>
+      {% if is_admin() and storage_warning %}<div class="flash error"><b>Données non protégées :</b> {{ storage_warning }}</div>{% endif %}
       {% with msgs = get_flashed_messages(with_categories=true) %}{% for c, m in msgs %}<div class="flash {{ c }}">{{ m }}</div>{% endfor %}{% endwith %}
       {% block content %}{% endblock %}
     </div>

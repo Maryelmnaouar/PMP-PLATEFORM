@@ -5,7 +5,7 @@
 {% block content %}
 <div class="tabs">
   {% for k,l,n in [('plants','Usines',plants|length),('lines','Lignes de production',lines|length),('sga','SGA',sgas|length),('equipment','Équipements',eqs|length)] %}<a href="?tab={{ k }}" class="{{ 'on' if tab==k }}">{{ l }} ({{ n }})</a>{% endfor %}
-  <a href="{{ url_for('users') }}">Utilisateurs & accès →</a><a href="{{ url_for('admin_backup') }}">⬇ Sauvegarder la base</a><a href="{{ url_for('checklists') }}">Checklists →</a>
+  <a href="{{ url_for('users') }}">Utilisateurs & accès →</a><a href="{{ url_for('admin_backup') }}">⬇ Sauvegarder la base</a><a href="{{ url_for('admin_restore') }}">⬆ Restaurer une sauvegarde</a><a href="{{ url_for('checklists') }}">Checklists →</a>
 </div>
 {% if tab=='plants' %}
 <form class="card" method="post" action="{{ url_for('settings_save', entity='plant') }}"><h3>Créer une usine</h3>

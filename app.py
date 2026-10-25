@@ -18,6 +18,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import sap_integration as sap
+import pg_store
 
 
 def _load_dotenv(path):
@@ -610,7 +611,7 @@ def user_sga_names(user_id):
 
 @app.context_processor
 def inject():
-    ctx = dict(can=can, is_admin=is_admin, me=g.get("user"), TAG_TYPES=TAG_TYPES, TAG_TYPE=TAG_TYPE, STATUSES=STATUSES,
+    ctx = dict(can=can, is_admin=is_admin, me=g.get("user"), storage_warning=storage_warning(), TAG_TYPES=TAG_TYPES, TAG_TYPE=TAG_TYPE, STATUSES=STATUSES,
                STATUS_INFO=STATUS_INFO, ANOMALY_TYPES=ANOMALY_TYPES, FREQUENCIES=FREQUENCIES, MACHINE_STATES=MACHINE_STATES,
                DOC_TYPES=DOC_TYPES, ROLES=ROLES, PERMS=PERMS, PDR_COLORS=PDR_COLORS, today_str=today().strftime("%d/%m/%Y"), today_iso=today().isoformat(),
                CIL_TYPES=CIL_TYPES, CIL=CIL)
@@ -1077,6 +1078,7 @@ def save_photo(file):
         return ""
     name = secure_filename("tag_%s_%s%s" % (dt.datetime.now().strftime("%Y%m%d%H%M%S%f"), g.user["id"], ext))
     file.save(os.path.join(UPLOADS, name))
+    pg_store.save_file(name, os.path.join(UPLOADS, name))
     return name
 
 
@@ -1364,6 +1366,7 @@ def tag_delete(tag_id):
             os.remove(os.path.join(UPLOADS, t["photo"]))
         except OSError:
             pass
+        pg_store.delete_file(t["photo"])
     flash("%s supprimé." % t["tag_code"], "success")
     return redirect(url_for("tags_board"))
 
@@ -2271,6 +2274,75 @@ def admin_backup():
     return send_file(tmp.name, as_attachment=True, download_name=name, mimetype="application/octet-stream")
 
 
+def storage_warning():
+    """Avertit si la base n'est pas sur un disque persistant (Render sans disque = données effacées à chaque déploiement)."""
+    if pg_store.enabled():
+        err = pg_store.status()["last_error"]
+        return ("Dernier enregistrement dans PostgreSQL en échec (%s). Nouvel essai automatique chaque minute." % err) if err else None
+    if os.environ.get("RENDER") and not os.environ.get("DATA_DIR"):
+        return ("La base de données n'est pas sur un disque persistant : Render l'efface à chaque déploiement ou redémarrage. "
+                "Ajoutez un disque monté sur /var/data et la variable DATA_DIR=/var/data, puis restaurez votre sauvegarde.")
+    if os.environ.get("RENDER") and not os.path.ismount(DATA_DIR):
+        return ("Le dossier %s n'est pas un disque persistant : les données seront effacées au prochain déploiement. "
+                "Vérifiez le disque du service sur Render (Disks → mount path %s)." % (DATA_DIR, DATA_DIR))
+    return None
+
+
+@app.route("/admin/restore", methods=["GET", "POST"])
+def admin_restore():
+    """Restauration d'une sauvegarde téléchargée par « Sauvegarder la base » (administrateur uniquement)."""
+    if not is_admin():
+        abort(403)
+    if request.method == "POST":
+        import tempfile, shutil
+        day = request.form.get("day")
+        f = request.files.get("backup")
+        data = pg_store.read_copy(day) if day and pg_store.enabled() else None
+        if not data and (not f or not f.filename):
+            flash("Choisissez le fichier de sauvegarde (.db).", "error")
+            return redirect(url_for("admin_restore"))
+        tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        tmp.close()
+        if data:
+            with open(tmp.name, "wb") as fh:
+                fh.write(data)
+        else:
+            f.save(tmp.name)
+        try:
+            src = sqlite3.connect(tmp.name)
+            version = src.execute("SELECT value FROM meta WHERE key='schema'").fetchone()
+            n_users = src.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        except sqlite3.Error:
+            os.unlink(tmp.name)
+            flash("Ce fichier n'est pas une sauvegarde AssetPilot valide.", "error")
+            return redirect(url_for("admin_restore"))
+        if not version or version[0] not in MIGRATABLE_VERSIONS + (SCHEMA_VERSION,):
+            src.close(); os.unlink(tmp.name)
+            flash("Version de sauvegarde non prise en charge (%s)." % (version[0] if version else "inconnue"), "error")
+            return redirect(url_for("admin_restore"))
+        # copie de sécurité de la base actuelle, puis remplacement
+        close_db(None)
+        keep = DB + ".avant_restauration_%s" % dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        if os.path.exists(DB):
+            shutil.copy2(DB, keep)
+            pg_store.save_named(DB, "avant-restauration")
+        dst = sqlite3.connect(DB)
+        src.backup(dst)
+        dst.close(); src.close(); os.unlink(tmp.name)
+        init_db()  # mise à jour éventuelle vers la version actuelle, sans perte de données
+        pg_store.save_db(DB)
+        session.clear()
+        flash("Sauvegarde restaurée (%d utilisateurs). Reconnectez-vous avec vos identifiants de la sauvegarde." % n_users, "success")
+        return redirect(url_for("login"))
+    copies = []
+    if pg_store.enabled():
+        try:
+            copies = pg_store.daily_copies()
+        except Exception as e:
+            flash("Copies PostgreSQL illisibles : %s" % e, "error")
+    return render_template("restore.html", warning=storage_warning(), copies=copies)
+
+
 @app.route("/healthz")
 def healthz():
     return "ok", 200
@@ -2303,8 +2375,27 @@ SAP = sap.register(app, dict(q=q, ex=ex, now=now, can=can, is_admin=is_admin, re
                              chef_roles=CHEF_ROLES, team_ids=lambda u: [m["id"] for m in team_members(u)] if u["role"] in CHEF_ROLES else [],
                              scope_sga_ids=scope_sga_ids, in_clause=in_clause))
 
+@app.after_request
+def persist_changes(resp):
+    """Avec DATABASE_URL : chaque modification de la base est aussitôt enregistrée dans PostgreSQL."""
+    conn = g.get("db")
+    if conn is not None and pg_store.enabled() and conn.total_changes:
+        conn.commit()
+        pg_store.save_db(DB)
+    return resp
+
+
 os.makedirs(UPLOADS, exist_ok=True)
+if pg_store.enabled():
+    # Une erreur ici arrête le démarrage : on ne crée JAMAIS une base vide qui écraserait celle de PostgreSQL.
+    if not pg_store.load_db(DB):
+        print("PostgreSQL ne contient pas encore de base AssetPilot : elle sera créée puis enregistrée.")
 init_db()
+if pg_store.enabled():
+    if not pg_store.save_db(DB):
+        raise RuntimeError("Impossible d'enregistrer la base dans PostgreSQL (DATABASE_URL). Démarrage interrompu.")
+    print("Données AssetPilot enregistrées dans PostgreSQL ; %d photo(s) rechargée(s)." % pg_store.load_files(UPLOADS))
+    pg_store.start_watch(DB)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
