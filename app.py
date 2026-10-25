@@ -37,8 +37,8 @@ BASE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.abspath(os.environ.get("DATA_DIR", BASE))      # sur Render : le disque persistant
 DB = os.path.join(DATA_DIR, "assetpilot.db")
 UPLOADS = os.path.join(DATA_DIR, "uploads")
-SCHEMA_VERSION = "6.2"
-MIGRATABLE_VERSIONS = ("6.0", "6.1")  # mises à jour sans perte de données
+SCHEMA_VERSION = "6.3"
+MIGRATABLE_VERSIONS = ("6.0", "6.1", "6.2")  # mises à jour sans perte de données
 
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)   # derrière le proxy HTTPS de Render
@@ -71,6 +71,8 @@ ROLES = [
 ]
 FIELD_ROLES = ("Opérateur", "Technicien")
 TEAM_ROLES = ("Chef d'équipe Production", "Chef d'équipe Maintenance", "Leader SGA")
+CHEF_ROLES = ("Chef d'équipe Production", "Chef d'équipe Maintenance")
+CHEF_OF = {"Opérateur": "Chef d'équipe Production", "Technicien": "Chef d'équipe Maintenance"}
 PLANT_ROLES = ("Plant Manager", "Responsable magasin", "Responsable maintenance", "Expert ligne")
 GLOBAL_ROLES = ("Administrateur", "Groupe OE")
 
@@ -219,7 +221,8 @@ CREATE TABLE IF NOT EXISTS equipment(
 CREATE TABLE IF NOT EXISTS users(
     id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, username TEXT UNIQUE NOT NULL,
     email TEXT, role TEXT NOT NULL, password_hash TEXT NOT NULL, plant_id INTEGER REFERENCES plants(id),
-    permissions TEXT, active INTEGER DEFAULT 1, must_change_password INTEGER DEFAULT 0);
+    permissions TEXT, active INTEGER DEFAULT 1, must_change_password INTEGER DEFAULT 0,
+    supervisor_id INTEGER REFERENCES users(id) ON DELETE SET NULL);
 CREATE TABLE IF NOT EXISTS user_sga(
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, sga_id INTEGER REFERENCES sga(id) ON DELETE CASCADE,
     PRIMARY KEY(user_id, sga_id));
@@ -411,6 +414,22 @@ def migrate_62(conn, upgrade=False):
     conn.commit()
 
 
+def migrate_63(conn, upgrade=False):
+    """6.2 → 6.3 : chaque opérateur / technicien est rattaché directement à son chef d'équipe."""
+    if "supervisor_id" not in _cols(conn, "users"):
+        conn.execute("ALTER TABLE users ADD COLUMN supervisor_id INTEGER")
+        upgrade = True
+    if upgrade:
+        # proposition de départ : le chef d'équipe unique partageant une SGA avec l'opérateur / le technicien
+        for role, chef_role in (("Opérateur", "Chef d'équipe Production"), ("Technicien", "Chef d'équipe Maintenance")):
+            for u in conn.execute("SELECT id FROM users WHERE role=? AND supervisor_id IS NULL", (role,)).fetchall():
+                chefs = conn.execute("""SELECT DISTINCT c.id FROM users c JOIN user_sga a ON a.user_id=c.id JOIN user_sga b ON b.sga_id=a.sga_id
+                                        WHERE b.user_id=? AND c.role=? AND c.active=1""", (u["id"], chef_role)).fetchall()
+                if len(chefs) == 1:
+                    conn.execute("UPDATE users SET supervisor_id=? WHERE id=?", (chefs[0]["id"], u["id"]))
+    conn.commit()
+
+
 def init_db():
     os.makedirs(os.path.dirname(DB), exist_ok=True)
     if os.path.exists(DB):
@@ -422,11 +441,13 @@ def init_db():
         if row and row[0] == SCHEMA_VERSION:
             sap.migrate(conn)
             migrate_62(conn)
+            migrate_63(conn)
             conn.close()
             return
         if row and row[0] in MIGRATABLE_VERSIONS:
             sap.migrate(conn)
-            migrate_62(conn, upgrade=True)
+            migrate_62(conn, upgrade=row[0] in ("6.0", "6.1"))
+            migrate_63(conn, upgrade=True)
             conn.execute("UPDATE meta SET value=? WHERE key='schema'", (SCHEMA_VERSION,))
             conn.commit()
             conn.close()
@@ -441,6 +462,7 @@ def init_db():
     seed(conn)
     sap.migrate(conn)
     migrate_62(conn)
+    migrate_63(conn)
     conn.commit()
     conn.close()
 
@@ -522,6 +544,11 @@ def scope_sga_ids(u=None):
         return None
     if u["role"] in PLANT_ROLES:
         return [r["id"] for r in q("SELECT s.id FROM sga s JOIN lines l ON l.id=s.line_id WHERE l.plant_id=?", (u["plant_id"],))]
+    if u["role"] in CHEF_ROLES:
+        # ses propres SGA + les SGA des membres de son équipe
+        return [r["sga_id"] for r in q("""SELECT sga_id FROM user_sga WHERE user_id=? UNION
+                                          SELECT us.sga_id FROM user_sga us JOIN users m ON m.id=us.user_id
+                                          WHERE m.supervisor_id=? AND m.active=1""", (u["id"], u["id"]))]
     return [r["sga_id"] for r in q("SELECT sga_id FROM user_sga WHERE user_id=?", (u["id"],))]
 
 
@@ -546,8 +573,15 @@ def scoped_equipment():
 
 
 def team_members(u=None, sga_id=None):
-    """Membres suivis par un chef d'équipe / leader SGA."""
+    """Membres suivis : pour un chef d'équipe, les opérateurs / techniciens rattachés à lui ; pour un leader SGA, sa SGA."""
     u = u or g.user
+    if u["role"] in CHEF_ROLES:
+        sql = "SELECT DISTINCT m.* FROM users m WHERE m.active=1 AND m.supervisor_id=?"
+        args = [u["id"]]
+        if sga_id:
+            sql += " AND m.id IN (SELECT user_id FROM user_sga WHERE sga_id=?)"
+            args.append(int(sga_id))
+        return q(sql + " ORDER BY m.role, m.name", args)
     ids = scope_sga_ids(u)
     if sga_id:
         ids = [int(sga_id)] if ids is None or int(sga_id) in ids else []
@@ -1144,7 +1178,11 @@ def tag_validate(tag_id):
     """Validation d'un TAG RCM / Safety par le chef d'équipe production : le N° de l'avis SAP créé est obligatoire."""
     t = load_tag(tag_id)
     ids = scope_sga_ids()
-    if not (is_admin() or ids is None or t["sga_id"] in ids):
+    team = [m["id"] for m in team_members()] if g.user["role"] in CHEF_ROLES else []
+    other_chef = q("""SELECT s.id FROM users o JOIN users s ON s.id=o.supervisor_id
+                      WHERE o.id=? AND s.role=? AND s.id!=?""", (t["observed_by"], g.user["role"], g.user["id"]), one=True)
+    in_scope = (ids is None or t["sga_id"] in ids) and not (g.user["role"] in CHEF_ROLES and other_chef)
+    if not (is_admin() or in_scope or t["observed_by"] in team):
         abort(403)
     back = url_for("tag_detail", tag_id=tag_id, validate=1)
     if not needs_sap(t):
@@ -2110,12 +2148,17 @@ def settings_delete(entity, item_id):
 def users():
     if request.method == "POST":
         return save_user(None)
-    rows = q("SELECT u.*, p.name plant_name FROM users u LEFT JOIN plants p ON p.id=u.plant_id ORDER BY u.active DESC, "
+    rows = q("SELECT u.*, p.name plant_name, sv.name chef_name FROM users u LEFT JOIN plants p ON p.id=u.plant_id "
+             "LEFT JOIN users sv ON sv.id=u.supervisor_id ORDER BY u.active DESC, "
              "CASE u.role WHEN 'Administrateur' THEN 0 ELSE 1 END, u.role, u.name")
     data = [{"u": r, "sgas": user_sga_names(r["id"]), "n_perms": len(json.loads(r["permissions"] or "[]"))} for r in rows]
     return render_template("users.html", data=data, plants=q("SELECT * FROM plants"),
                            sgas=q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id ORDER BY s.name"),
-                           role_defaults=ROLE_DEFAULTS)
+                           role_defaults=ROLE_DEFAULTS, chefs=chef_list(), chef_of=CHEF_OF)
+
+
+def chef_list():
+    return q("SELECT id, name, role FROM users WHERE active=1 AND role IN (?,?) ORDER BY role DESC, name", CHEF_ROLES)
 
 
 def save_user(user_id):
@@ -2149,6 +2192,15 @@ def save_user(user_id):
         flash("Cet identifiant existe déjà.", "error")
         return redirect(request.referrer or url_for("users"))
     ex("UPDATE users SET sap_user=? WHERE id=?", ((f.get("sap_user") or "").strip().upper() or None, user_id))
+    sup = f.get("supervisor_id") if role in CHEF_OF else None
+    if sup and not q("SELECT 1 FROM users WHERE id=? AND role IN (?,?)", (sup,) + CHEF_ROLES, one=True):
+        sup = None
+    ex("UPDATE users SET supervisor_id=? WHERE id=?", (sup or None, user_id))
+    if role in CHEF_ROLES and f.get("team_form"):
+        members = [int(x) for x in f.getlist("team_ids")]
+        ex("UPDATE users SET supervisor_id=NULL WHERE supervisor_id=?", (user_id,))
+        for mid in members:
+            ex("UPDATE users SET supervisor_id=? WHERE id=?", (user_id, mid))
     ex("DELETE FROM user_sga WHERE user_id=?", (user_id,))
     for s in f.getlist("sga_ids"):
         ex("INSERT OR IGNORE INTO user_sga(user_id,sga_id) VALUES(?,?)", (user_id, int(s)))
@@ -2168,9 +2220,16 @@ def user_edit(user_id):
     perms = set(json.loads(u["permissions"] or "[]"))
     custom = sorted(perms) != sorted(ROLE_DEFAULTS.get(u["role"], []))
     my_sgas = [r["sga_id"] for r in q("SELECT sga_id FROM user_sga WHERE user_id=?", (user_id,))]
+    team_pool, team_ids = [], []
+    if u["role"] in CHEF_ROLES:
+        member_role = "Opérateur" if u["role"] == "Chef d'équipe Production" else "Technicien"
+        team_pool = q("""SELECT m.*, sv.name chef_name, (SELECT GROUP_CONCAT(s.name, ', ') FROM user_sga us JOIN sga s ON s.id=us.sga_id
+                         WHERE us.user_id=m.id) sgas FROM users m LEFT JOIN users sv ON sv.id=m.supervisor_id
+                         WHERE m.active=1 AND m.role=? ORDER BY m.name""", (member_role,))
+        team_ids = [m["id"] for m in team_pool if m["supervisor_id"] == u["id"]]
     return render_template("user_edit.html", u=u, perms=perms, custom=custom, my_sgas=my_sgas, plants=q("SELECT * FROM plants"),
                            sgas=q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id ORDER BY s.name"),
-                           role_defaults=ROLE_DEFAULTS)
+                           role_defaults=ROLE_DEFAULTS, chefs=chef_list(), chef_of=CHEF_OF, team_pool=team_pool, team_ids=team_ids)
 
 
 # ---------------------------------------------------------------------------
@@ -2241,6 +2300,7 @@ def api_sgas():
 
 
 SAP = sap.register(app, dict(q=q, ex=ex, now=now, can=can, is_admin=is_admin, require=require, load_tag=load_tag,
+                             chef_roles=CHEF_ROLES, team_ids=lambda u: [m["id"] for m in team_members(u)] if u["role"] in CHEF_ROLES else [],
                              scope_sga_ids=scope_sga_ids, in_clause=in_clause))
 
 os.makedirs(UPLOADS, exist_ok=True)

@@ -7,6 +7,8 @@
   <div class="field"><label class="lbl">Utilisateur SAP S/4HANA (si licence)</label><input type="text" name="sap_user" value="{{ u.sap_user if u and u.sap_user else '' }}" placeholder="Ex. FIDRISSI" style="text-transform:uppercase"></div>
   <div class="field"><label class="lbl">Mot de passe provisoire {{ '(laisser vide pour ne pas changer)' if u else '*' }}</label><input type="password" name="password" {{ '' if u else 'required' }}></div>
 </div>
+<div class="field" id="chef-field" style="max-width:420px"><label class="lbl">Chef d'équipe (pour un opérateur ou un technicien)</label>
+  <select name="supervisor_id" id="supervisor_id"><option value="">— Aucun —</option>{% for c in chefs %}<option value="{{ c.id }}" data-role="{{ c.role }}" {{ 'selected' if u and u.supervisor_id==c.id }}>{{ c.name }} ({{ c.role }})</option>{% endfor %}</select></div>
 <label class="lbl">SGA rattachées (une ou plusieurs)</label>
 <div class="perm-grid" style="margin-bottom:12px">{% for s in sgas %}<label><input type="checkbox" name="sga_ids" value="{{ s.id }}" {{ 'checked' if my_sgas and s.id in my_sgas }}> {{ s.name }} <span class="small muted">({{ s.line_name }})</span></label>{% endfor %}</div>
 <div class="row" style="margin-bottom:8px"><label class="lbl" style="margin:0">Droits d'accès</label>

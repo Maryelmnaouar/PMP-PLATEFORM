@@ -26,7 +26,7 @@
       <tr><td><b>{{ p.m.name }}</b></td><td>{{ p.m.role }}</td><td class="small">{{ p.sga }}</td><td>{{ p.k.done }}/{{ p.k.planned }}</td>
         <td><div class="row" style="gap:6px;flex-wrap:nowrap"><div class="bar" style="width:70px"><i style="width:{{ p.k.rate }}%;background:{{ '#17a45a' if p.k.rate>=80 else ('#f08a00' if p.k.rate>=50 else '#d71920') }}"></i></div>{{ p.k.rate }}%</div></td>
         <td>{{ p.k.score_5s ~ '%' if p.k.score_5s is not none else '—' }}</td><td>{{ p.k.emitted }}</td><td>{{ p.k.open_tags }}</td></tr>
-      {% else %}<tr><td colspan="8" class="empty">Aucun membre dans ce périmètre.</td></tr>{% endfor %}
+      {% else %}<tr><td colspan="8" class="empty">{% if me.role in ("Chef d'équipe Production", "Chef d'équipe Maintenance") %}Aucun membre rattaché à votre équipe. L'administrateur doit renseigner le chef d'équipe dans la fiche de chaque {{ 'opérateur' if me.role=="Chef d'équipe Production" else 'technicien' }}.{% else %}Aucun membre dans ce périmètre.{% endif %}</td></tr>{% endfor %}
     </table></div>
   </div>
   {% if can('confirm') %}

@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+# Données (jamais sur GitHub)
+*.db
+*.db-journal
+data/
+uploads/*
+!uploads/.gitkeep
+# Secrets
+.env

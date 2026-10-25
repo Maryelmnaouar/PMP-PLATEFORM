@@ -360,6 +360,16 @@ def create_notification(t, chef):
 def pending_validation(user):
     """TAGs RCM / Safety nouveaux, pas encore validés, dans le périmètre du chef."""
     clause, args = H["in_clause"]("t.sga_id", H["scope_sga_ids"](user))
+    team = H["team_ids"](user) if "team_ids" in H else []
+    if user["role"] in H.get("chef_roles", ()):
+        # Un chef valide les TAGs émis par SON équipe, et ceux de son périmètre dont l'émetteur
+        # n'est rattaché à aucun autre chef du même rôle (TAG émis par un leader, un technicien…).
+        other = ("NOT EXISTS (SELECT 1 FROM users o JOIN users s ON s.id=o.supervisor_id "
+                 "WHERE o.id=t.observed_by AND s.role=? AND s.id!=?)")
+        clause, args = "(%s AND %s)" % (clause, other), args + [user["role"], user["id"]]
+        if team:
+            c2, a2 = H["in_clause"]("t.observed_by", team)
+            clause, args = "(%s OR %s)" % (clause, c2), args + a2
     return H["q"]("""SELECT t.*, e.name eq_name, e.reference eq_ref, ob.name observed_name FROM tags t
                      JOIN equipment e ON e.id=t.equipment_id LEFT JOIN users ob ON ob.id=t.observed_by
                      WHERE """ + clause + """ AND t.type IN ('RCM','SAFETY') AND t.validated_at IS NULL

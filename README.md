@@ -46,7 +46,7 @@ Les variables `ADMIN_*` et `SEED_BASE_DATA` ne servent qu'à la **création** de
 
 ## 3. Mise en place après le premier démarrage (administrateur)
 1. **Paramètres → SGA** : créer les SGA et cocher les équipements de chacune.
-2. **Utilisateurs & accès** : créer les comptes, avec leur type, leurs SGA, leurs droits et, pour les chefs d'équipe, leur **utilisateur SAP**.
+2. **Utilisateurs & accès** : créer les comptes, avec leur type, leurs SGA, leurs droits et, pour les chefs d'équipe, leur **utilisateur SAP**. Rattacher chaque opérateur (et chaque technicien) à **son chef d'équipe** (voir § 3 ter).
 3. **Checklists préventives** : créer les checklists et les affecter aux opérateurs et techniciens.
 4. **SOP / Documentation** : ajouter les liens Google Drive des SOP, OPL et fiches techniques.
 5. **Intégration SAP** : choisir le mode (désactivé par défaut) et saisir l'adresse du Fiori de l'entreprise. Détails dans `docs/GUIDE_INTEGRATION_SAP.md`.
@@ -64,6 +64,16 @@ Les variables `ADMIN_*` et `SEED_BASE_DATA` ne servent qu'à la **création** de
 - **Contre-mesures** : elles sont enregistrées dans la page **Contre-mesures** et ne sont plus ajoutées automatiquement aux checklists. Depuis cette page, l'administrateur les **intègre** dans une checklist CILT existante ou nouvelle.
 - **Checklists CILT** : une checklist correspond à une machine et contient des tâches. Chaque tâche a un organe, un type (Cleaning / Inspection / Lubrification / Serrage), un outillage, un temps et une fréquence (quotidienne → annuelle).
 - **Distribution des tâches** : les tâches ne sont plus générées automatiquement. L'administrateur les **distribue** par semaine (fréquences quotidienne et hebdomadaire), par mois (mensuelle et trimestrielle) ou par année (semestrielle et annuelle), en choisissant la personne concernée. La plateforme retient la dernière personne choisie et la date de la dernière distribution.
+
+## 3 ter. Rattachement opérateur → chef d'équipe (V6.3)
+- Chaque **opérateur** est rattaché directement à son **chef d'équipe production**, et chaque **technicien** à son **chef d'équipe maintenance**, indépendamment de la SGA : deux opérateurs d'une même SGA peuvent avoir deux chefs différents.
+- Le rattachement se fait de deux façons :
+  - dans la fiche de l'opérateur, champ **« Chef d'équipe »** ;
+  - dans la fiche du chef, bloc **« Membres de son équipe »**, en cochant ses opérateurs. Un membre n'a qu'un seul chef : le cocher le retire de son chef précédent.
+- La liste **Utilisateurs & accès** affiche le chef de chacun, ou « à renseigner » s'il manque.
+- Le chef d'équipe voit sur son accueil la performance de **ses** membres et confirme **leurs** travaux.
+- Il valide les TAGs RCM / Safety émis par **son équipe**. Les TAGs de son périmètre émis par quelqu'un qui n'a pas de chef du même rôle (leader SGA, technicien, administrateur…) lui sont aussi proposés. Ceux des opérateurs d'un autre chef ne le sont pas.
+- **Mise à jour depuis la V6.2** : au premier démarrage, chaque opérateur ou technicien est rattaché automatiquement au chef **s'il n'y en a qu'un seul** sur ses SGA. Les autres restent « à renseigner ». Vérifiez la colonne « Chef d'équipe » après la mise à jour.
 
 ## 4. Mettre le projet sur GitHub
 

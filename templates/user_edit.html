@@ -4,6 +4,12 @@
 {% block content %}
 <form class="card" method="post">
   {% include "_user_fields.html" %}
+  {% if team_pool is defined and team_pool %}
+  <input type="hidden" name="team_form" value="1">
+  <h3 style="margin:16px 0 8px">Membres de son équipe</h3>
+  <p class="small muted" style="margin-top:0">Cochez les {{ 'opérateurs' if u.role=="Chef d'équipe Production" else 'techniciens' }} qui dépendent de {{ u.name }}. Un membre ne peut avoir qu'un seul chef d'équipe : le cocher ici le retire de son chef actuel.</p>
+  <div class="perm-grid">{% for m in team_pool %}<label><input type="checkbox" name="team_ids" value="{{ m.id }}" {{ 'checked' if m.id in team_ids }}> {{ m.name }} <span class="small muted">{{ m.sgas or '' }}{% if m.chef_name and m.supervisor_id != u.id %} · actuellement : {{ m.chef_name }}{% endif %}</span></label>{% endfor %}</div>
+  {% endif %}
   <div class="field" style="margin-top:12px;max-width:200px"><label class="lbl">Statut</label><select name="active"><option value="1" {{ 'selected' if u.active }}>Actif</option><option value="0" {{ 'selected' if not u.active }}>Inactif</option></select></div>
   <div class="row"><button class="btn green">Enregistrer</button><a class="btn grey" href="{{ url_for('users') }}">Annuler</a></div>
 </form>

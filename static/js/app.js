@@ -43,11 +43,20 @@
     const apply = () => {
       const custom = modeSel.value === 'custom';
       const isAdmin = roleSel.value === 'Administrateur';
-      $$('.perm-grid input').forEach(cb => {
+      $$('.perm-grid input[data-key]').forEach(cb => {
         if (!custom || isAdmin) cb.checked = isAdmin || (window.ROLE_DEFAULTS[roleSel.value] || []).includes(cb.dataset.key);
         cb.disabled = !custom || isAdmin;
       });
     };
+    const chefField = $('#chef-field'), supSel = $('#supervisor_id');
+    const CHEF_OF = {'Opérateur': "Chef d'équipe Production", 'Technicien': "Chef d'équipe Maintenance"};
+    const toggleChef = () => {
+      if (!chefField) return;
+      const want = CHEF_OF[roleSel.value];
+      chefField.style.display = want ? '' : 'none';
+      if (supSel) supSel.querySelectorAll('option[data-role]').forEach(o => { o.hidden = o.dataset.role !== want; if (o.hidden && o.selected) supSel.value = ''; });
+    };
+    roleSel.addEventListener('change', toggleChef); toggleChef();
     roleSel.addEventListener('change', apply);
     modeSel.addEventListener('change', apply);
     apply();
