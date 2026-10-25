@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Restaurer une sauvegarde{% if copies %}
+<div class="card" style="max-width:720px;margin-top:16px">
+  <h3>Copies automatiques (PostgreSQL)</h3>
+  <p class="small muted">Une copie de la base est gardée chaque jour pendant 14 jours. Restaurer une copie remet la plateforme dans l'état de ce jour-là, à l'heure indiquée.</p>
+  <div class="tbl-wrap"><table><tr><th>Jour</th><th>Dernier enregistrement</th><th>Taille</th><th></th></tr>
+  {% for c in copies %}<tr><td>{{ c.day }}</td><td class="small">{{ c.updated_at }}</td><td class="small">{{ (c.size/1024)|int }} Ko</td>
+    <td><form method="post" style="margin:0"><input type="hidden" name="day" value="{{ c.day }}"><button class="btn sm grey" onclick="return confirm('Remettre la plateforme dans l\'état du {{ c.day }} ?')">Restaurer</button></form></td></tr>{% endfor %}
+  </table></div>
+</div>
+{% endif %}
+{% endblock %}
+{% block heading %}Restaurer une sauvegarde{% if copies %}
+<div class="card" style="max-width:720px;margin-top:16px">
+  <h3>Copies automatiques (PostgreSQL)</h3>
+  <p class="small muted">Une copie de la base est gardée chaque jour pendant 14 jours. Restaurer une copie remet la plateforme dans l'état de ce jour-là, à l'heure indiquée.</p>
+  <div class="tbl-wrap"><table><tr><th>Jour</th><th>Dernier enregistrement</th><th>Taille</th><th></th></tr>
+  {% for c in copies %}<tr><td>{{ c.day }}</td><td class="small">{{ c.updated_at }}</td><td class="small">{{ (c.size/1024)|int }} Ko</td>
+    <td><form method="post" style="margin:0"><input type="hidden" name="day" value="{{ c.day }}"><button class="btn sm grey" onclick="return confirm('Remettre la plateforme dans l\'état du {{ c.day }} ?')">Restaurer</button></form></td></tr>{% endfor %}
+  </table></div>
+</div>
+{% endif %}
+{% endblock %}
+{% block subheading %}Remet la plateforme dans l'état d'un fichier téléchargé par « Sauvegarder la base »{% if copies %}
+<div class="card" style="max-width:720px;margin-top:16px">
+  <h3>Copies automatiques (PostgreSQL)</h3>
+  <p class="small muted">Une copie de la base est gardée chaque jour pendant 14 jours. Restaurer une copie remet la plateforme dans l'état de ce jour-là, à l'heure indiquée.</p>
+  <div class="tbl-wrap"><table><tr><th>Jour</th><th>Dernier enregistrement</th><th>Taille</th><th></th></tr>
+  {% for c in copies %}<tr><td>{{ c.day }}</td><td class="small">{{ c.updated_at }}</td><td class="small">{{ (c.size/1024)|int }} Ko</td>
+    <td><form method="post" style="margin:0"><input type="hidden" name="day" value="{{ c.day }}"><button class="btn sm grey" onclick="return confirm('Remettre la plateforme dans l\'état du {{ c.day }} ?')">Restaurer</button></form></td></tr>{% endfor %}
+  </table></div>
+</div>
+{% endif %}
+{% endblock %}
+{% block content %}
+{% if warning %}<div class="flash error" style="max-width:720px"><b>Attention :</b> {{ warning }}</div>{% endif %}
+<form class="card" method="post" enctype="multipart/form-data" style="max-width:720px">
+  <h3>Fichier de sauvegarde</h3>
+  <p class="small muted">Choisissez le fichier <code>assetpilot_sauvegarde_….db</code>. Toutes les données actuelles (utilisateurs, SGA, TAGs, checklists…) seront remplacées par celles de la sauvegarde. Une copie de la base actuelle est conservée sur le serveur. Vous serez ensuite déconnecté : reconnectez-vous avec les identifiants de la sauvegarde.</p>
+  <div class="field"><input type="file" name="backup" accept=".db" required></div>
+  <button class="btn" style="background:#d71920" onclick="return confirm('Remplacer toutes les données actuelles par cette sauvegarde ?')">Restaurer</button>
+  <a class="btn grey" href="{{ url_for('settings') }}">Annuler</a>
+</form>
+{% if copies %}
+<div class="card" style="max-width:720px;margin-top:16px">
+  <h3>Copies automatiques (PostgreSQL)</h3>
+  <p class="small muted">Une copie de la base est gardée chaque jour pendant 14 jours. Restaurer une copie remet la plateforme dans l'état de ce jour-là, à l'heure indiquée.</p>
+  <div class="tbl-wrap"><table><tr><th>Jour</th><th>Dernier enregistrement</th><th>Taille</th><th></th></tr>
+  {% for c in copies %}<tr><td>{{ c.day }}</td><td class="small">{{ c.updated_at }}</td><td class="small">{{ (c.size/1024)|int }} Ko</td>
+    <td><form method="post" style="margin:0"><input type="hidden" name="day" value="{{ c.day }}"><button class="btn sm grey" onclick="return confirm('Remettre la plateforme dans l\'état du {{ c.day }} ?')">Restaurer</button></form></td></tr>{% endfor %}
+  </table></div>
+</div>
+{% endif %}
+{% endblock %}
