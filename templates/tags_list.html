@@ -5,6 +5,7 @@
 {% block subheading %}{{ rows|length }} TAG(s) · filtrables par type, statut et type d'anomalie{% endblock %}
 {% block content %}
 {% set show_status = true %}{% include "_tag_filters.html" %}
+{% if is_admin() %}<div style="display:flex;justify-content:flex-end;margin:-4px 0 12px"><a class="btn green" href="{{ url_for('tags_export') }}{{ '?' + request.query_string.decode() if request.query_string }}">⬇ Exporter en Excel ({{ rows|length }} TAG{{ 's' if rows|length > 1 }})</a></div>{% endif %}
 <div class="card"><div class="tbl-wrap"><table>
   <tr><th>Code</th><th>Type</th><th>Type d'anomalie</th><th>Machine / organe</th><th>Description</th><th>Découverte par</th><th>Date obs.</th><th>Traitée par</th><th>Statut</th></tr>
   {% for t in rows %}
