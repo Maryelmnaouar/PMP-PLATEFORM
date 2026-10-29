@@ -1804,4 +1804,794 @@ def doc_add():
         flash("Équipement et titre obligatoires.", "error")
     else:
         ex("INSERT INTO documents(equipment_id,title,doc_type,version,owner,url,updated_at) VALUES(?,?,?,?,?,?,?)",
-           (f["equipment_id"], f["title"], f.get("doc_t
+           (f["equipment_id"], f["title"], f.get("doc_type", "SOP"), f.get("version", "1.0"), f.get("owner", ""),
+            f.get("url", ""), now()))
+        flash("Document ajouté.", "success")
+    return redirect(url_for("documentation", equipment=f.get("equipment_id", "")))
+
+
+@app.route("/documentation/<int:doc_id>/delete", methods=["POST"])
+@require("docs_manage")
+def doc_delete(doc_id):
+    d = q("SELECT * FROM documents WHERE id=?", (doc_id,), one=True) or abort(404)
+    ex("DELETE FROM documents WHERE id=?", (doc_id,))
+    flash("Document supprimé.", "success")
+    return redirect(url_for("documentation", equipment=d["equipment_id"]))
+
+
+# ---------------------------------------------------------------------------
+# Synoptique
+# ---------------------------------------------------------------------------
+@app.route("/synoptic")
+def synoptic():
+    lines = q("SELECT l.*, p.name plant_name FROM lines l JOIN plants p ON p.id=l.plant_id ORDER BY p.name, l.name")
+    line_id = request.args.get("line") or (str(lines[0]["id"]) if lines else "")
+    eqs = q("SELECT e.*, s.name sga_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id WHERE e.line_id=? ORDER BY e.position", (line_id or 0,))
+    data = []
+    for e in eqs:
+        tags = q("SELECT type, status FROM tags WHERE equipment_id=? AND status IN ('Nouveau','En cours')", (e["id"],))
+        counts = {tt["key"]: sum(1 for t in tags if t["type"] == tt["key"]) for tt in TAG_TYPES}
+        worst = "SAFETY" if counts["SAFETY"] else ("RCM" if counts["RCM"] else ("AM" if counts["AM"] else None))
+        data.append({"e": e, "counts": counts, "worst": worst, "total": len(tags)})
+    sel = next((l for l in lines if str(l["id"]) == str(line_id)), None)
+    return render_template("synoptic.html", lines=lines, line_id=str(line_id), data=data, sel=sel)
+
+
+# ---------------------------------------------------------------------------
+# Tableau SGA
+# ---------------------------------------------------------------------------
+def sga_board_data(sga_id):
+    s = q("SELECT s.*, l.name line_name, p.name plant_name FROM sga s JOIN lines l ON l.id=s.line_id JOIN plants p ON p.id=l.plant_id WHERE s.id=?",
+          (sga_id,), one=True)
+    if not s:
+        abort(404)
+    b = q("SELECT b.*, u.name updated_name FROM sga_board b LEFT JOIN users u ON u.id=b.updated_by WHERE b.sga_id=?", (sga_id,), one=True)
+    eqs = q("SELECT * FROM equipment WHERE sga_id=? ORDER BY position", (sga_id,))
+    eq_ids = [e["id"] for e in eqs]
+    ec, ea = in_clause("equipment_id", eq_ids)
+    members = q("SELECT u.* FROM users u JOIN user_sga us ON us.user_id=u.id WHERE us.sga_id=? AND u.active=1 AND u.role IN "
+                "('Leader SGA','Opérateur','Technicien') ORDER BY CASE u.role WHEN 'Leader SGA' THEN 0 WHEN 'Opérateur' THEN 1 ELSE 2 END, u.name", (sga_id,))
+    ws = week_bounds()[0].isoformat()
+    m30 = (today() - dt.timedelta(days=30)).isoformat()
+    cls = q("""SELECT c.*, u.name user_name,
+              (SELECT COUNT(*) FROM tasks k WHERE k.checklist_id=c.id AND k.due_date>=? AND k.due_date<=?) planned,
+              (SELECT COUNT(*) FROM tasks k WHERE k.checklist_id=c.id AND k.due_date>=? AND k.due_date<=? AND k.status IN ('Réalisée','Confirmée')) done,
+              (SELECT ROUND(AVG(k.duration_min)) FROM tasks k WHERE k.checklist_id=c.id AND k.duration_min IS NOT NULL AND k.due_date>=?) avg_dur,
+              (SELECT ROUND(AVG(x.s)) FROM (SELECT SUM(ti.duration_min) s FROM tasks k JOIN task_items ti ON ti.task_id=k.id
+                 WHERE k.checklist_id=c.id AND k.duration_min IS NOT NULL AND k.due_date>=? GROUP BY k.id) x) std_done,
+              (SELECT SUM(i.duration_min) FROM checklist_items i WHERE i.checklist_id=c.id) std,
+              (SELECT GROUP_CONCAT(DISTINCT i.frequency) FROM checklist_items i WHERE i.checklist_id=c.id) freqs,
+              (SELECT COUNT(*) FROM checklist_items i WHERE i.checklist_id=c.id) n_items
+              FROM checklists c LEFT JOIN users u ON u.id=c.assigned_to WHERE c.active=1 AND """ + in_clause("c.equipment_id", eq_ids)[0] + " ORDER BY c.code",
+            [m30, today().isoformat(), m30, today().isoformat(), m30, m30] + ea)
+    docs = q("SELECT * FROM documents WHERE " + ec + " ORDER BY title", ea)
+    tags = q("SELECT * FROM tags WHERE sga_id=?", (sga_id,))
+    def rate(tp):
+        sel = [t for t in tags if t["type"] == tp]
+        return pct(sum(1 for t in sel if t["status"] in ("Traité", "Contre-mesure")), len(sel)), len(sel)
+    rcm_open = sum(1 for c in cls if c["activity_type"] == "RCM" and not c["transferred"])
+    transferred = [c for c in cls if c["transferred"]]
+    planned = sum(c["planned"] for c in cls)
+    done = sum(c["done"] for c in cls)
+    audits = {lv["key"]: q("SELECT a.*, u.name auditor FROM audits a LEFT JOIN users u ON u.id=a.auditor_id WHERE a.sga_id=? AND a.level=? "
+                           "ORDER BY a.audit_date DESC, a.id DESC LIMIT 1", (sga_id, lv["key"]), one=True) for lv in AUDIT_LEVELS}
+    soc = [t for t in tags if t["anomaly_type"] in SOC_HTR_TYPES]
+    return {"s": s, "b": b, "eqs": eqs, "members": members, "cls": cls, "docs": docs,
+            "sop": [d for d in docs if d["doc_type"] == "SOP"], "opl": [d for d in docs if d["doc_type"] == "OPL"],
+            "tech": [d for d in docs if d["doc_type"] == "TECH"],
+            "am_rate": rate("AM"), "rcm_rate": rate("RCM"), "safety_rate": rate("SAFETY"),
+            "transferred": transferred, "transfer_rate": pct(len(transferred), len(transferred) + rcm_open),
+            "planned": planned, "done": done, "real_rate": pct(done, planned), "audits": audits,
+            "soc": [t for t in soc if t["anomaly_type"] == "Sources de contamination"],
+            "htr": [t for t in soc if t["anomaly_type"] != "Sources de contamination"],
+            "cm_count": sum(1 for t in tags if t["status"] == "Contre-mesure"), "tags_count": len(tags)}
+
+
+@app.route("/sga-board")
+def sga_board():
+    sgas = scoped_sgas() if not is_admin() else q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id ORDER BY s.name")
+    if not sgas:
+        sgas = q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id ORDER BY s.name")
+    sga_id = request.args.get("sga") or (str(sgas[0]["id"]) if sgas else None)
+    if not sga_id:
+        return render_template("message.html", title="Tableau SGA", message="Aucune SGA n'est encore créée.")
+    data = sga_board_data(sga_id)
+    editable = can("sga_board_edit") and (is_admin() or scope_sga_ids() is None or int(sga_id) in scope_sga_ids())
+    return render_template("sga_board.html", d=data, sgas=sgas, sga_id=str(sga_id), editable=editable,
+                           edit=request.args.get("edit") == "1" and editable)
+
+
+@app.route("/sga-board/<int:sga_id>", methods=["POST"])
+@require("sga_board_edit")
+def sga_board_save(sga_id):
+    ids = scope_sga_ids()
+    if not (is_admin() or ids is None or sga_id in ids):
+        abort(403)
+    fields = ["charte", "objectifs", "centrage", "score_5s", "plan_5s", "kaizen", "mtbf", "mttr", "pertes_cadence", "pannes",
+              "arrets_mineurs", "preparatifs"]
+    vals = []
+    for k in fields:
+        v = request.form.get(k, "").strip()
+        if k == "score_5s":
+            v = int(v) if v.isdigit() else None
+        vals.append(v)
+    if q("SELECT 1 FROM sga_board WHERE sga_id=?", (sga_id,), one=True):
+        ex("UPDATE sga_board SET " + ", ".join(k + "=?" for k in fields) + ", updated_at=?, updated_by=? WHERE sga_id=?",
+           vals + [now(), g.user["id"], sga_id])
+    else:
+        ex("INSERT INTO sga_board(sga_id," + ",".join(fields) + ",updated_at,updated_by) VALUES(" + ",".join("?" * (len(fields) + 3)) + ")",
+           [sga_id] + vals + [now(), g.user["id"]])
+    if request.form.get("am_step") and is_admin():
+        ex("UPDATE sga SET am_step=? WHERE id=?", (int(request.form["am_step"]), sga_id))
+    flash("Tableau SGA mis à jour.", "success")
+    return redirect(url_for("sga_board", sga=sga_id))
+
+
+# ---------------------------------------------------------------------------
+# Audits AM
+# ---------------------------------------------------------------------------
+def audit_auto_proofs(sga_id):
+    d = sga_board_data(sga_id)
+    b = d["b"]
+    upd = "—"
+    if b and b["updated_at"]:
+        days = (today() - dt.datetime.strptime(b["updated_at"][:10], "%Y-%m-%d").date()).days
+        upd = "MAJ il y a %d j" % days
+    tag_total = d["tags_count"]
+    treated = sum(1 for t in q("SELECT status FROM tags WHERE sga_id=?", (sga_id,)) if t["status"] in ("Traité", "Contre-mesure"))
+    times = [c for c in d["cls"] if c["avg_dur"]]
+    ci = "%d / %d min (réel / standard)" % (sum(c["avg_dur"] for c in times), sum((c["std_done"] or c["std"] or 0) for c in times)) if times else "—"
+    return {"tags_count": "%d TAGs émis" % tag_total, "tag_rate": "%d %% traités" % pct(treated, tag_total),
+            "soc_htr": "%d SOC · %d HTR" % (len(d["soc"]), len(d["htr"])), "sop_count": "%d SOP" % len(d["sop"]),
+            "board_update": upd, "cm_count": "%d contre-mesures" % d["cm_count"], "ci_time": ci,
+            "realization": "%d %% réalisées (30 j)" % d["real_rate"], "opl_count": "%d OPL" % len(d["opl"]),
+            "transfer": "%d %% transférées" % d["transfer_rate"]}
+
+
+def allowed_levels():
+    return [lv for lv in AUDIT_LEVELS if can(lv["perm"])]
+
+
+def audit_sgas_for(level):
+    if level == "Groupe OE" or is_admin():
+        return q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id ORDER BY s.name")
+    if level == "Plant Manager":
+        return q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id WHERE l.plant_id=? ORDER BY s.name",
+                 (g.user["plant_id"],))
+    return scoped_sgas()
+
+
+@app.route("/audits")
+def audits():
+    clause, args = in_clause("a.sga_id", scope_sga_ids())
+    rows = q("""SELECT a.*, s.name sga_name, u.name auditor FROM audits a JOIN sga s ON s.id=a.sga_id LEFT JOIN users u ON u.id=a.auditor_id
+               WHERE """ + clause + " ORDER BY a.audit_date DESC, a.id DESC", args)
+    status = []
+    sgas = scoped_sgas()
+    for s in sgas:
+        lv = {}
+        for L in AUDIT_LEVELS:
+            lv[L["key"]] = q("SELECT score, audit_date FROM audits WHERE sga_id=? AND level=? AND am_step=? ORDER BY audit_date DESC, id DESC LIMIT 1",
+                             (s["id"], L["key"], s["am_step"]), one=True)
+        ready = all(lv[L["key"]] and lv[L["key"]]["score"] >= AUDIT_THRESHOLD for L in AUDIT_LEVELS)
+        status.append({"s": s, "lv": lv, "ready": ready})
+    return render_template("audits.html", rows=rows, levels=AUDIT_LEVELS, allowed=allowed_levels(), status=status,
+                           threshold=AUDIT_THRESHOLD)
+
+
+@app.route("/audits/new", methods=["GET", "POST"])
+def audit_new():
+    allowed = allowed_levels()
+    if not allowed:
+        abort(403)
+    level = request.values.get("level") or allowed[0]["key"]
+    if level not in [lv["key"] for lv in allowed]:
+        abort(403)
+    sgas = audit_sgas_for(level)
+    sga_id = request.values.get("sga") or (str(sgas[0]["id"]) if sgas else "")
+    if not sga_id or int(sga_id) not in [s["id"] for s in sgas]:
+        abort(403)
+    s = q("SELECT * FROM sga WHERE id=?", (sga_id,), one=True)
+    grid = AUDIT_GRID.get(s["am_step"], AUDIT_GRID_DEFAULT)
+    proofs = audit_auto_proofs(sga_id)
+    if request.method == "POST" and request.form.get("save") == "1":
+        notes = []
+        for i, (crit, key) in enumerate(grid):
+            n = request.form.get("note_%d" % i, "")
+            notes.append(int(n) if n.isdigit() else 0)
+        score = round(sum(notes) / (5 * len(notes)) * 100)
+        aid = ex("INSERT INTO audits(level,sga_id,am_step,auditor_id,audit_date,score,comment) VALUES(?,?,?,?,?,?,?)",
+                 (level, sga_id, s["am_step"], g.user["id"], today().isoformat(), score, request.form.get("comment", "")))
+        for i, (crit, key) in enumerate(grid):
+            proof = request.form.get("proof_%d" % i, "").strip() or (proofs.get(key, "") if key else "")
+            ex("INSERT INTO audit_items(audit_id,criterion,note,proof) VALUES(?,?,?,?)", (aid, crit, notes[i], proof))
+        flash("Audit enregistré : score %d %%." % score, "success")
+        return redirect(url_for("audit_detail", audit_id=aid))
+    return render_template("audit_form.html", allowed=allowed, level=level, sgas=sgas, sga_id=str(sga_id), s=s, grid=grid,
+                           proofs=proofs, threshold=AUDIT_THRESHOLD)
+
+
+@app.route("/audits/<int:audit_id>")
+def audit_detail(audit_id):
+    a = q("SELECT a.*, s.name sga_name, u.name auditor FROM audits a JOIN sga s ON s.id=a.sga_id LEFT JOIN users u ON u.id=a.auditor_id WHERE a.id=?",
+          (audit_id,), one=True) or abort(404)
+    items = q("SELECT * FROM audit_items WHERE audit_id=? ORDER BY id", (audit_id,))
+    return render_template("audit_detail.html", a=a, items=items, threshold=AUDIT_THRESHOLD)
+
+
+@app.route("/sga/<int:sga_id>/advance", methods=["POST"])
+def sga_advance(sga_id):
+    if not is_admin():
+        abort(403)
+    ex("UPDATE sga SET am_step=MIN(am_step+1, 7) WHERE id=?", (sga_id,))
+    flash("La SGA passe à l'étape AM suivante.", "success")
+    return redirect(url_for("audits"))
+
+
+# ---------------------------------------------------------------------------
+# PDR
+# ---------------------------------------------------------------------------
+@app.route("/pdr")
+@require("pdr_view")
+def pdr():
+    parts = q("SELECT * FROM spare_parts ORDER BY reference")
+    st = request.args.get("status", "")
+    rows = q("""SELECT r.*, p.reference part_ref, p.stock, p.min_stock, e.name eq_name, t.tag_code, u.name requester
+               FROM pdr_requests r LEFT JOIN spare_parts p ON p.id=r.part_id LEFT JOIN equipment e ON e.id=r.equipment_id
+               LEFT JOIN tags t ON t.id=r.tag_id LEFT JOIN users u ON u.id=r.requester_id """ +
+             ("WHERE r.status=? " if st else "") + "ORDER BY r.id DESC", (st,) if st else ())
+    kpi = {"low": sum(1 for p in parts if p["stock"] <= p["min_stock"]),
+           "waiting": q("SELECT COUNT(*) n FROM pdr_requests WHERE status IN ('Demandée','Validée')", one=True)["n"],
+           "ordered": q("SELECT COUNT(*) n FROM pdr_requests WHERE status='Commandée'", one=True)["n"],
+           "received": q("SELECT COUNT(*) n FROM pdr_requests WHERE status='Réceptionnée' AND received_at>=?",
+                         ((today() - dt.timedelta(days=7)).isoformat(),), one=True)["n"]}
+    tags = q("SELECT t.id, t.tag_code, t.description FROM tags t WHERE t.status IN ('Nouveau','En cours') AND t.type='RCM' ORDER BY t.id DESC")
+    return render_template("pdr.html", parts=parts, rows=rows, kpi=kpi, tags=tags, st=st, statuses=PDR_STATUSES,
+                           equipment=q("SELECT * FROM equipment ORDER BY position"))
+
+
+@app.route("/pdr/request", methods=["POST"])
+@require("pdr_request")
+def pdr_request():
+    f = request.form
+    part = q("SELECT * FROM spare_parts WHERE id=?", (f.get("part_id") or 0,), one=True)
+    des = part["designation"] if part else f.get("designation", "").strip()
+    if not des or not f.get("qty"):
+        flash("Article et quantité obligatoires.", "error")
+        return redirect(url_for("pdr"))
+    n = q("SELECT COUNT(*)+41 n FROM pdr_requests", one=True)["n"]
+    ex("""INSERT INTO pdr_requests(code,part_id,designation,qty,equipment_id,tag_id,requester_id,status,comment,created_at)
+       VALUES(?,?,?,?,?,?,?, 'Demandée', ?, ?)""",
+       ("DA-%04d" % n, part["id"] if part else None, des, float(f["qty"]), f.get("equipment_id") or None, f.get("tag_id") or None,
+        g.user["id"], f.get("comment", ""), now()))
+    flash("Demande PDR créée.", "success")
+    return redirect(url_for("pdr"))
+
+
+@app.route("/pdr/<int:rid>/<action>", methods=["POST"])
+def pdr_action(rid, action):
+    r = q("SELECT * FROM pdr_requests WHERE id=?", (rid,), one=True) or abort(404)
+    if action in ("validate", "refuse") and can("pdr_validate") and r["status"] == "Demandée":
+        ex("UPDATE pdr_requests SET status=?, validated_by=?, validated_at=? WHERE id=?",
+           ("Validée" if action == "validate" else "Refusée", g.user["id"], now(), rid))
+    elif action == "order" and can("pdr_order") and r["status"] == "Validée":
+        ex("UPDATE pdr_requests SET status='Commandée', ordered_at=?, expected_date=? WHERE id=?",
+           (now(), request.form.get("expected_date") or (today() + dt.timedelta(days=7)).isoformat(), rid))
+    elif action == "receive" and can("pdr_order") and r["status"] == "Commandée":
+        ex("UPDATE pdr_requests SET status='Réceptionnée', received_at=? WHERE id=?", (now(), rid))
+        if r["part_id"]:
+            ex("UPDATE spare_parts SET stock=stock+? WHERE id=?", (r["qty"], r["part_id"]))
+    else:
+        abort(403)
+    flash("Demande %s mise à jour." % r["code"], "success")
+    return redirect(url_for("pdr"))
+
+
+@app.route("/pdr/part", methods=["POST"])
+def pdr_part():
+    if not (can("pdr_order") or is_admin()):
+        abort(403)
+    f = request.form
+    if f.get("id"):
+        ex("UPDATE spare_parts SET stock=?, min_stock=? WHERE id=?", (float(f.get("stock") or 0), float(f.get("min_stock") or 0), f["id"]))
+    elif f.get("reference") and f.get("designation"):
+        try:
+            ex("INSERT INTO spare_parts(reference,designation,stock,min_stock,unit,location) VALUES(?,?,?,?,?,?)",
+               (f["reference"], f["designation"], float(f.get("stock") or 0), float(f.get("min_stock") or 0), f.get("unit") or "pcs", f.get("location", "")))
+        except sqlite3.IntegrityError:
+            flash("Cette référence existe déjà.", "error")
+            return redirect(url_for("pdr"))
+    flash("Article enregistré.", "success")
+    return redirect(url_for("pdr"))
+
+
+# ---------------------------------------------------------------------------
+# Paramètres : usines, lignes, SGA, équipements
+# ---------------------------------------------------------------------------
+ENTITIES = {
+    "plant": {"table": "plants", "label": "usine"},
+    "line": {"table": "lines", "label": "ligne"},
+    "sga": {"table": "sga", "label": "SGA"},
+    "equipment": {"table": "equipment", "label": "équipement"},
+}
+
+
+@app.route("/settings")
+@require("settings")
+def settings():
+    tab = request.args.get("tab", "plants")
+    plants = q("SELECT p.*, (SELECT COUNT(*) FROM lines l WHERE l.plant_id=p.id) n_lines FROM plants p ORDER BY name")
+    lines = q("SELECT l.*, p.name plant_name, (SELECT COUNT(*) FROM equipment e WHERE e.line_id=l.id) n_eq, "
+              "(SELECT COUNT(*) FROM sga s WHERE s.line_id=l.id) n_sga FROM lines l JOIN plants p ON p.id=l.plant_id ORDER BY p.name, l.name")
+    sgas = q("SELECT s.*, l.name line_name, p.name plant_name, (SELECT COUNT(*) FROM equipment e WHERE e.sga_id=s.id) n_eq, "
+             "(SELECT COUNT(*) FROM user_sga us WHERE us.sga_id=s.id) n_users FROM sga s JOIN lines l ON l.id=s.line_id "
+             "JOIN plants p ON p.id=l.plant_id ORDER BY s.name")
+    eqs = q("SELECT e.*, l.name line_name, p.name plant_name, s.name sga_name FROM equipment e JOIN lines l ON l.id=e.line_id "
+            "JOIN plants p ON p.id=l.plant_id LEFT JOIN sga s ON s.id=e.sga_id ORDER BY p.name, l.name, e.position")
+    return render_template("settings.html", tab=tab, plants=plants, lines=lines, sgas=sgas, eqs=eqs)
+
+
+@app.route("/settings/<entity>", methods=["POST"])
+@app.route("/settings/<entity>/<int:item_id>", methods=["POST"])
+@require("settings")
+def settings_save(entity, item_id=None):
+    f = request.form
+    try:
+        if entity == "plant":
+            vals = (f["code"].strip(), f["name"].strip(), f.get("city", "").strip())
+            if item_id:
+                ex("UPDATE plants SET code=?, name=?, city=? WHERE id=?", vals + (item_id,))
+            else:
+                ex("INSERT INTO plants(code,name,city) VALUES(?,?,?)", vals)
+            tab = "plants"
+        elif entity == "line":
+            vals = (f["plant_id"], f.get("code", "").strip(), f["name"].strip())
+            if item_id:
+                ex("UPDATE lines SET plant_id=?, code=?, name=? WHERE id=?", vals + (item_id,))
+            else:
+                ex("INSERT INTO lines(plant_id,code,name) VALUES(?,?,?)", vals)
+            tab = "lines"
+        elif entity == "sga":
+            vals = (f["line_id"], f["name"].strip(), f.get("description", "").strip(), int(f.get("am_step") or 1))
+            if item_id:
+                ex("UPDATE sga SET line_id=?, name=?, description=?, am_step=? WHERE id=?", vals + (item_id,))
+                sid = item_id
+            else:
+                sid = ex("INSERT INTO sga(line_id,name,description,am_step,created_at) VALUES(?,?,?,?,?)", vals + (now(),))
+            eq_ids = [int(x) for x in f.getlist("equipment_ids")]
+            ex("UPDATE equipment SET sga_id=NULL WHERE sga_id=?", (sid,))
+            for e in eq_ids:
+                ex("UPDATE equipment SET sga_id=? WHERE id=?", (sid, e))
+                ex("UPDATE tags SET sga_id=? WHERE equipment_id=?", (sid, e))
+            tab = "sga"
+        elif entity == "equipment":
+            line = q("SELECT * FROM lines WHERE id=?", (f["line_id"],), one=True)
+            if not line:
+                raise ValueError("Ligne obligatoire")
+            sga_id = f.get("sga_id") or None
+            if sga_id:
+                s = q("SELECT * FROM sga WHERE id=?", (sga_id,), one=True)
+                if not s or s["line_id"] != line["id"]:
+                    raise ValueError("La SGA doit appartenir à la même ligne que l'équipement.")
+            vals = (f["line_id"], sga_id, f.get("reference", "").strip(), f["name"].strip(), int(f.get("position") or 0))
+            if item_id:
+                ex("UPDATE equipment SET line_id=?, sga_id=?, reference=?, name=?, position=? WHERE id=?", vals + (item_id,))
+                ex("UPDATE tags SET sga_id=?, line_id=? WHERE equipment_id=?", (sga_id, f["line_id"], item_id))
+            else:
+                ex("INSERT INTO equipment(line_id,sga_id,reference,name,position) VALUES(?,?,?,?,?)", vals)
+            tab = "equipment"
+        else:
+            abort(404)
+        flash("Enregistrement effectué.", "success")
+    except (KeyError, ValueError, sqlite3.IntegrityError) as e:
+        flash("Enregistrement impossible : %s" % e, "error")
+        tab = {"plant": "plants", "line": "lines", "sga": "sga", "equipment": "equipment"}.get(entity, "plants")
+    return redirect(url_for("settings", tab=tab))
+
+
+@app.route("/settings/<entity>/<int:item_id>/edit")
+@require("settings")
+def settings_edit(entity, item_id):
+    if entity not in ENTITIES:
+        abort(404)
+    item = q("SELECT * FROM %s WHERE id=?" % ENTITIES[entity]["table"], (item_id,), one=True) or abort(404)
+    ctx = dict(entity=entity, item=item, label=ENTITIES[entity]["label"], plants=q("SELECT * FROM plants ORDER BY name"),
+               lines=q("SELECT l.*, p.name plant_name FROM lines l JOIN plants p ON p.id=l.plant_id ORDER BY p.name, l.name"),
+               sgas=q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id ORDER BY s.name"))
+    if entity == "sga":
+        ctx["line_eq"] = q("SELECT e.*, s.name sga_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id WHERE e.line_id=? ORDER BY e.position",
+                           (item["line_id"],))
+    return render_template("settings_edit.html", **ctx)
+
+
+@app.route("/settings/<entity>/<int:item_id>/delete", methods=["POST"])
+@require("settings")
+def settings_delete(entity, item_id):
+    if entity not in ENTITIES:
+        abort(404)
+    table = ENTITIES[entity]["table"]
+    used = {
+        "plant": "SELECT COUNT(*) n FROM lines WHERE plant_id=?",
+        "line": "SELECT COUNT(*) n FROM equipment WHERE line_id=?",
+        "sga": "SELECT COUNT(*) n FROM equipment WHERE sga_id=?",
+        "equipment": "SELECT COUNT(*) n FROM tags WHERE equipment_id=?",
+    }[entity]
+    if q(used, (item_id,), one=True)["n"]:
+        flash("Suppression impossible : cet élément contient encore des données rattachées.", "error")
+    else:
+        ex("DELETE FROM %s WHERE id=?" % table, (item_id,))
+        flash("Élément supprimé.", "success")
+    return redirect(url_for("settings", tab={"plant": "plants", "line": "lines", "sga": "sga", "equipment": "equipment"}[entity]))
+
+
+# ---------------------------------------------------------------------------
+# Utilisateurs & accès
+# ---------------------------------------------------------------------------
+@app.route("/users", methods=["GET", "POST"])
+@require("settings")
+def users():
+    if request.method == "POST":
+        return save_user(None)
+    rows = q("SELECT u.*, p.name plant_name, sv.name chef_name FROM users u LEFT JOIN plants p ON p.id=u.plant_id "
+             "LEFT JOIN users sv ON sv.id=u.supervisor_id ORDER BY u.active DESC, "
+             "CASE u.role WHEN 'Administrateur' THEN 0 ELSE 1 END, u.role, u.name")
+    data = [{"u": r, "sgas": user_sga_names(r["id"]), "n_perms": len(json.loads(r["permissions"] or "[]"))} for r in rows]
+    return render_template("users.html", data=data, plants=q("SELECT * FROM plants"),
+                           sgas=q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id ORDER BY s.name"),
+                           role_defaults=ROLE_DEFAULTS, chefs=chef_list(), chef_of=CHEF_OF)
+
+
+def chef_list():
+    return q("SELECT id, name, role FROM users WHERE active=1 AND role IN (?,?) ORDER BY role DESC, name", CHEF_ROLES)
+
+
+def save_user(user_id):
+    f = request.form
+    role = f.get("role")
+    if role not in ROLES or not f.get("name") or not f.get("username"):
+        flash("Nom, identifiant et type d'utilisateur obligatoires.", "error")
+        return redirect(request.referrer or url_for("users"))
+    if role == "Administrateur":
+        perms = PERM_KEYS
+    elif f.get("perm_mode") == "custom":
+        perms = [p for p in PERM_KEYS if f.get("perm_" + p)]
+    else:
+        perms = ROLE_DEFAULTS[role]
+    try:
+        if user_id:
+            ex("UPDATE users SET name=?, username=?, email=?, role=?, plant_id=?, permissions=?, active=? WHERE id=?",
+               (f["name"].strip(), f["username"].strip(), f.get("email", ""), role, f.get("plant_id") or None, json.dumps(perms),
+                1 if f.get("active", "1") == "1" else 0, user_id))
+            if f.get("password"):
+                ex("UPDATE users SET password_hash=?, must_change_password=? WHERE id=?",
+                   (generate_password_hash(f["password"]), 0 if user_id == g.user["id"] else 1, user_id))
+        else:
+            if not f.get("password"):
+                flash("Mot de passe obligatoire à la création.", "error")
+                return redirect(url_for("users"))
+            user_id = ex("INSERT INTO users(name,username,email,role,password_hash,plant_id,permissions,active,must_change_password) VALUES(?,?,?,?,?,?,?,1,1)",
+                         (f["name"].strip(), f["username"].strip(), f.get("email", ""), role, generate_password_hash(f["password"]),
+                          f.get("plant_id") or None, json.dumps(perms)))
+    except sqlite3.IntegrityError:
+        flash("Cet identifiant existe déjà.", "error")
+        return redirect(request.referrer or url_for("users"))
+    ex("UPDATE users SET sap_user=? WHERE id=?", ((f.get("sap_user") or "").strip().upper() or None, user_id))
+    sup = f.get("supervisor_id") if role in CHEF_OF else None
+    if sup and not q("SELECT 1 FROM users WHERE id=? AND role IN (?,?)", (sup,) + CHEF_ROLES, one=True):
+        sup = None
+    ex("UPDATE users SET supervisor_id=? WHERE id=?", (sup or None, user_id))
+    if role in CHEF_ROLES and f.get("team_form"):
+        members = [int(x) for x in f.getlist("team_ids")]
+        ex("UPDATE users SET supervisor_id=NULL WHERE supervisor_id=?", (user_id,))
+        for mid in members:
+            ex("UPDATE users SET supervisor_id=? WHERE id=?", (user_id, mid))
+    ex("DELETE FROM user_sga WHERE user_id=?", (user_id,))
+    for s in f.getlist("sga_ids"):
+        ex("INSERT OR IGNORE INTO user_sga(user_id,sga_id) VALUES(?,?)", (user_id, int(s)))
+    flash("Utilisateur enregistré.", "success")
+    return redirect(url_for("users"))
+
+
+@app.route("/users/<int:user_id>", methods=["GET", "POST"])
+@require("settings")
+def user_edit(user_id):
+    u = q("SELECT * FROM users WHERE id=?", (user_id,), one=True) or abort(404)
+    if request.method == "POST":
+        if u["username"] == ADMIN_USER and request.form.get("role") != "Administrateur":
+            flash("Le compte administrateur principal doit rester administrateur.", "error")
+            return redirect(url_for("user_edit", user_id=user_id))
+        return save_user(user_id)
+    perms = set(json.loads(u["permissions"] or "[]"))
+    custom = sorted(perms) != sorted(ROLE_DEFAULTS.get(u["role"], []))
+    my_sgas = [r["sga_id"] for r in q("SELECT sga_id FROM user_sga WHERE user_id=?", (user_id,))]
+    team_pool, team_ids = [], []
+    if u["role"] in CHEF_ROLES:
+        member_role = "Opérateur" if u["role"] == "Chef d'équipe Production" else "Technicien"
+        team_pool = q("""SELECT m.*, sv.name chef_name, (SELECT GROUP_CONCAT(s.name, ', ') FROM user_sga us JOIN sga s ON s.id=us.sga_id
+                         WHERE us.user_id=m.id) sgas FROM users m LEFT JOIN users sv ON sv.id=m.supervisor_id
+                         WHERE m.active=1 AND m.role=? ORDER BY m.name""", (member_role,))
+        team_ids = [m["id"] for m in team_pool if m["supervisor_id"] == u["id"]]
+    return render_template("user_edit.html", u=u, perms=perms, custom=custom, my_sgas=my_sgas, plants=q("SELECT * FROM plants"),
+                           sgas=q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id ORDER BY s.name"),
+                           role_defaults=ROLE_DEFAULTS, chefs=chef_list(), chef_of=CHEF_OF, team_pool=team_pool, team_ids=team_ids)
+
+
+# ---------------------------------------------------------------------------
+# Divers
+# ---------------------------------------------------------------------------
+@app.route("/account", methods=["GET", "POST"])
+def account():
+    u = g.user
+    if request.method == "POST":
+        f = request.form
+        if not check_password_hash(u["password_hash"], f.get("current", "")):
+            flash("Mot de passe actuel incorrect.", "error")
+        elif len(f.get("new", "")) < 8:
+            flash("Le nouveau mot de passe doit contenir au moins 8 caractères.", "error")
+        elif f.get("new") != f.get("confirm"):
+            flash("Les deux nouveaux mots de passe ne sont pas identiques.", "error")
+        elif f.get("new") == f.get("current"):
+            flash("Le nouveau mot de passe doit être différent de l'actuel.", "error")
+        else:
+            ex("UPDATE users SET password_hash=?, must_change_password=0 WHERE id=?", (generate_password_hash(f["new"]), u["id"]))
+            flash("Mot de passe modifié.", "success")
+            return redirect(url_for("home"))
+    return render_template("account.html")
+
+
+@app.route("/admin/backup")
+def admin_backup():
+    """Téléchargement d'une copie cohérente de la base (administrateur uniquement)."""
+    if not is_admin():
+        abort(403)
+    import tempfile
+    from flask import send_file
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    tmp.close()
+    dst = sqlite3.connect(tmp.name)
+    db().backup(dst)
+    dst.close()
+    name = "assetpilot_sauvegarde_%s.db" % dt.datetime.now().strftime("%Y%m%d_%H%M")
+    return send_file(tmp.name, as_attachment=True, download_name=name, mimetype="application/octet-stream")
+
+
+# ---------------------------------------------------------------------------
+# Concours de nom de l'application
+# ---------------------------------------------------------------------------
+CONTEST_PHASES = [("propositions", "Propositions"), ("vote", "Vote"), ("resultats", "Résultats"), ("ferme", "Fermé")]
+CONTEST_MAX = 3
+
+
+def contest_phase():
+    r = q("SELECT value FROM meta WHERE key='contest_phase'", one=True)
+    return r["value"] if r else "propositions"
+
+
+def contest_state():
+    phase = contest_phase()
+    show_votes = phase == "resultats" or is_admin()
+    rows = q("""SELECT n.*, u.name author, (SELECT COUNT(*) FROM contest_votes v WHERE v.name_id=n.id) votes
+                FROM contest_names n LEFT JOIN users u ON u.id=n.user_id
+                WHERE n.hidden=0 OR ?=1 ORDER BY n.id""", (1 if is_admin() else 0,))
+    my_vote = q("SELECT name_id FROM contest_votes WHERE user_id=?", (g.user["id"],), one=True)
+    items = []
+    for r in rows:
+        items.append(dict(id=r["id"], name=r["name"], reason=r["reason"] or "", mine=r["user_id"] == g.user["id"],
+                          hidden=bool(r["hidden"]), votes=r["votes"] if show_votes else None,
+                          author=r["author"] if (phase == "resultats" or is_admin()) else None))
+    if show_votes:
+        ranking = sorted([i for i in items if not i["hidden"]], key=lambda i: (-i["votes"], i["id"]))
+    else:
+        ranking = []
+    return dict(phase=phase, phase_label=dict(CONTEST_PHASES)[phase], names=items, ranking=ranking[:5],
+                mine=sum(1 for i in items if i["mine"]), max=CONTEST_MAX, my_vote=my_vote["name_id"] if my_vote else None,
+                voters=q("SELECT COUNT(*) n FROM contest_votes", one=True)["n"],
+                participants=q("SELECT COUNT(DISTINCT user_id) n FROM contest_names WHERE hidden=0", one=True)["n"],
+                is_admin=is_admin())
+
+
+@app.route("/concours")
+def contest():
+    return render_template("contest.html", st=contest_state(), phases=CONTEST_PHASES)
+
+
+@app.route("/concours/data")
+def contest_data():
+    return jsonify(contest_state())
+
+
+@app.route("/concours/ecran")
+def contest_screen():
+    return render_template("contest_screen.html", st=contest_state(),
+                           link=request.host_url.rstrip("/") + url_for("contest"))
+
+
+@app.route("/concours/proposer", methods=["POST"])
+def contest_propose():
+    if contest_phase() != "propositions":
+        flash("Les propositions sont closes.", "error")
+        return redirect(url_for("contest"))
+    name = " ".join((request.form.get("name") or "").split())
+    reason = " ".join((request.form.get("reason") or "").split())[:200]
+    mine = q("SELECT COUNT(*) n FROM contest_names WHERE user_id=? AND hidden=0", (g.user["id"],), one=True)["n"]
+    if not (2 <= len(name) <= 30):
+        flash("Le nom doit faire entre 2 et 30 caractères.", "error")
+    elif mine >= CONTEST_MAX:
+        flash("Vous avez déjà fait vos %d propositions." % CONTEST_MAX, "error")
+    elif q("SELECT 1 FROM contest_names WHERE lower(name)=lower(?) AND hidden=0", (name,), one=True):
+        flash("« %s » a déjà été proposé : bonne idée, mais il faut en trouver un autre !" % name, "error")
+    else:
+        ex("INSERT INTO contest_names(name, reason, user_id, created_at) VALUES(?,?,?,?)", (name, reason, g.user["id"], now()))
+        flash("Merci ! « %s » est ajouté au mur des propositions." % name, "success")
+    return redirect(url_for("contest"))
+
+
+@app.route("/concours/retirer/<int:nid>", methods=["POST"])
+def contest_withdraw(nid):
+    n = q("SELECT * FROM contest_names WHERE id=?", (nid,), one=True)
+    if n and (n["user_id"] == g.user["id"] or is_admin()) and contest_phase() == "propositions":
+        ex("DELETE FROM contest_votes WHERE name_id=?", (nid,))
+        ex("DELETE FROM contest_names WHERE id=?", (nid,))
+        flash("Proposition retirée.", "success")
+    return redirect(url_for("contest"))
+
+
+@app.route("/concours/voter/<int:nid>", methods=["POST"])
+def contest_vote(nid):
+    if contest_phase() != "vote":
+        flash("Le vote n'est pas ouvert.", "error")
+        return redirect(url_for("contest"))
+    n = q("SELECT * FROM contest_names WHERE id=? AND hidden=0", (nid,), one=True)
+    if not n:
+        abort(404)
+    ex("INSERT OR REPLACE INTO contest_votes(user_id, name_id, voted_at) VALUES(?,?,?)", (g.user["id"], nid, now()))
+    flash("Votre vote pour « %s » est enregistré. Vous pouvez le changer jusqu'à la fin du vote." % n["name"], "success")
+    return redirect(url_for("contest"))
+
+
+@app.route("/concours/admin", methods=["POST"])
+def contest_admin():
+    if not is_admin():
+        abort(403)
+    phase = request.form.get("phase")
+    if phase in dict(CONTEST_PHASES):
+        ex("UPDATE meta SET value=? WHERE key='contest_phase'", (phase,))
+        flash("Concours : phase « %s »." % dict(CONTEST_PHASES)[phase], "success")
+    hide = request.form.get("toggle_hide")
+    if hide:
+        ex("UPDATE contest_names SET hidden=1-hidden WHERE id=?", (int(hide),))
+        ex("DELETE FROM contest_votes WHERE name_id IN (SELECT id FROM contest_names WHERE id=? AND hidden=1)", (int(hide),))
+    if request.form.get("reset_votes") == "1":
+        ex("DELETE FROM contest_votes")
+        flash("Votes remis à zéro.", "success")
+    return redirect(url_for("contest"))
+
+
+
+def storage_warning():
+    """Avertit si la base n'est pas sur un disque persistant (Render sans disque = données effacées à chaque déploiement)."""
+    if pg_store.enabled():
+        err = pg_store.status()["last_error"]
+        return ("Dernier enregistrement dans PostgreSQL en échec (%s). Nouvel essai automatique chaque minute." % err) if err else None
+    if os.environ.get("RENDER") and not os.environ.get("DATA_DIR"):
+        return ("La base de données n'est pas sur un disque persistant : Render l'efface à chaque déploiement ou redémarrage. "
+                "Ajoutez un disque monté sur /var/data et la variable DATA_DIR=/var/data, puis restaurez votre sauvegarde.")
+    if os.environ.get("RENDER") and not os.path.ismount(DATA_DIR):
+        return ("Le dossier %s n'est pas un disque persistant : les données seront effacées au prochain déploiement. "
+                "Vérifiez le disque du service sur Render (Disks → mount path %s)." % (DATA_DIR, DATA_DIR))
+    return None
+
+
+@app.route("/admin/restore", methods=["GET", "POST"])
+def admin_restore():
+    """Restauration d'une sauvegarde téléchargée par « Sauvegarder la base » (administrateur uniquement)."""
+    if not is_admin():
+        abort(403)
+    if request.method == "POST":
+        import tempfile, shutil
+        day = request.form.get("day")
+        f = request.files.get("backup")
+        data = pg_store.read_copy(day) if day and pg_store.enabled() else None
+        if not data and (not f or not f.filename):
+            flash("Choisissez le fichier de sauvegarde (.db).", "error")
+            return redirect(url_for("admin_restore"))
+        tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        tmp.close()
+        if data:
+            with open(tmp.name, "wb") as fh:
+                fh.write(data)
+        else:
+            f.save(tmp.name)
+        try:
+            src = sqlite3.connect(tmp.name)
+            version = src.execute("SELECT value FROM meta WHERE key='schema'").fetchone()
+            n_users = src.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        except sqlite3.Error:
+            os.unlink(tmp.name)
+            flash("Ce fichier n'est pas une sauvegarde AssetPilot valide.", "error")
+            return redirect(url_for("admin_restore"))
+        if not version or version[0] not in MIGRATABLE_VERSIONS + (SCHEMA_VERSION,):
+            src.close(); os.unlink(tmp.name)
+            flash("Version de sauvegarde non prise en charge (%s)." % (version[0] if version else "inconnue"), "error")
+            return redirect(url_for("admin_restore"))
+        # copie de sécurité de la base actuelle, puis remplacement
+        close_db(None)
+        keep = DB + ".avant_restauration_%s" % dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        if os.path.exists(DB):
+            shutil.copy2(DB, keep)
+            pg_store.save_named(DB, "avant-restauration")
+        dst = sqlite3.connect(DB)
+        src.backup(dst)
+        dst.close(); src.close(); os.unlink(tmp.name)
+        init_db()  # mise à jour éventuelle vers la version actuelle, sans perte de données
+        pg_store.save_db(DB)
+        session.clear()
+        flash("Sauvegarde restaurée (%d utilisateurs). Reconnectez-vous avec vos identifiants de la sauvegarde." % n_users, "success")
+        return redirect(url_for("login"))
+    copies = []
+    if pg_store.enabled():
+        try:
+            copies = pg_store.daily_copies()
+        except Exception as e:
+            flash("Copies PostgreSQL illisibles : %s" % e, "error")
+    return render_template("restore.html", warning=storage_warning(), copies=copies)
+
+
+@app.route("/healthz")
+def healthz():
+    return "ok", 200
+
+
+@app.route("/sw.js")
+def service_worker():
+    resp = send_from_directory(os.path.join(BASE, "static"), "sw.js", mimetype="application/javascript")
+    resp.headers["Service-Worker-Allowed"] = "/"
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
+@app.route("/uploads/<path:filename>")
+def uploads(filename):
+    return send_from_directory(UPLOADS, filename)
+
+
+@app.route("/api/lines")
+def api_lines():
+    return jsonify([dict(id=r["id"], name=r["name"]) for r in q("SELECT * FROM lines WHERE plant_id=? ORDER BY name", (request.args.get("plant_id", 0),))])
+
+
+@app.route("/api/sgas")
+def api_sgas():
+    return jsonify([dict(id=r["id"], name=r["name"]) for r in q("SELECT * FROM sga WHERE line_id=? ORDER BY name", (request.args.get("line_id", 0),))])
+
+
+SAP = sap.register(app, dict(q=q, ex=ex, now=now, can=can, is_admin=is_admin, require=require, load_tag=load_tag,
+                             chef_roles=CHEF_ROLES, team_ids=lambda u: [m["id"] for m in team_members(u)] if u["role"] in CHEF_ROLES else [],
+                             scope_sga_ids=scope_sga_ids, in_clause=in_clause))
+
+@app.after_request
+def persist_changes(resp):
+    """Avec DATABASE_URL : chaque modification de la base est aussitôt enregistrée dans PostgreSQL."""
+    conn = g.get("db")
+    if conn is not None and pg_store.enabled() and conn.total_changes:
+        conn.commit()
+        pg_store.save_db(DB)
+    return resp
+
+
+os.makedirs(UPLOADS, exist_ok=True)
+if pg_store.enabled():
+    # Une erreur ici arrête le démarrage : on ne crée JAMAIS une base vide qui écraserait celle de PostgreSQL.
+    if not pg_store.load_db(DB):
+        print("PostgreSQL ne contient pas encore de base AssetPilot : elle sera créée puis enregistrée.")
+init_db()
+if pg_store.enabled():
+    if not pg_store.save_db(DB):
+        raise RuntimeError("Impossible d'enregistrer la base dans PostgreSQL (DATABASE_URL). Démarrage interrompu.")
+    print("Données AssetPilot enregistrées dans PostgreSQL ; %d photo(s) rechargée(s)." % pg_store.load_files(UPLOADS))
+    pg_store.start_watch(DB)
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    print("AssetPilot — http://127.0.0.1:%d" % port)
+    app.run(debug=os.environ.get("FLASK_DEBUG") == "1", host="127.0.0.1", port=port)
