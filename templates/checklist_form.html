@@ -17,12 +17,11 @@
     <div class="field"><label class="lbl">Statut</label><select name="active"><option value="1" {{ 'selected' if v.active|string != '0' }}>Active</option><option value="0" {{ 'selected' if v.active|string == '0' }}>Désactivée</option></select></div>
   </div>
   <h3 style="margin:8px 0 10px">Tâches à réaliser</h3>
-  <datalist id="organes"></datalist>
   <div class="tbl-wrap"><table id="items-table">
     <tr><th style="width:15%">Organe</th><th style="width:13%">Type *</th><th>Tâche à réaliser *</th><th style="width:15%">Outillage</th><th style="width:8%">Temps (min) *</th><th style="width:12%">Fréquence *</th><th></th></tr>
     {% for it in (items or [{}]) %}
     <tr class="item-row">
-      <td><input type="hidden" name="item_id" value="{{ it.id or '' }}"><input type="text" name="item_organe" list="organes" value="{{ it.organe or '' }}" placeholder="Organe"></td>
+      <td><input type="hidden" name="item_id" value="{{ it.id or '' }}"><select name="item_organe" class="organe-select" data-organes-for="cl-equipment" data-current="{{ it.organe or '' }}"><option value="{{ it.organe or '' }}">{{ it.organe or '— Organe —' }}</option></select></td>
       <td><select name="item_type">{% for c in CIL_TYPES %}<option value="{{ c[0] }}" {{ 'selected' if it.cil_type==c[0] }}>{{ c[0] }} · {{ c[1] }}</option>{% endfor %}</select></td>
       <td><input type="text" name="item_text" value="{{ it.text or '' }}" placeholder="Ex. Nettoyer les porte-moules"></td>
       <td><input type="text" name="item_tooling" value="{{ it.tooling or '' }}" placeholder="Ex. chiffon, clé de 13"></td>
@@ -47,11 +46,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const rows = tbl.querySelectorAll('.item-row'), src = rows[rows.length - 1], tr = src.cloneNode(true);
     tr.querySelector('[name=item_id]').value = ''; tr.querySelector('[name=item_text]').value = ''; tr.querySelector('[name=item_tooling]').value = '';
     tr.querySelector('[name=item_type]').value = src.querySelector('[name=item_type]').value;
+    tr.querySelector('[name=item_organe]').value = '';
     tr.querySelector('[name=item_frequency]').value = src.querySelector('[name=item_frequency]').value;
     src.after(tr); bind(tr); tr.querySelector('[name=item_text]').focus(); total();
   };
-  const loadOrganes = () => { if (!eq.value) return; fetch('/api/organes?equipment_id=' + eq.value).then(r => r.json()).then(list => {
-    document.getElementById('organes').innerHTML = list.map(o => '<option value="' + o.replace(/"/g, '&quot;') + '">').join(''); }); };
-  eq.addEventListener('change', loadOrganes); loadOrganes(); total();
+  total();
 });
 {% endblock %}

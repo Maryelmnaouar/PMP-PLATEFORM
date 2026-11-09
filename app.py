@@ -18,6 +18,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import sap_integration as sap
+from organes_data import ORGANES
 import pg_store
 
 
@@ -415,6 +416,24 @@ def migrate_62(conn, upgrade=False):
     conn.commit()
 
 
+def migrate_organes(conn):
+    """Référentiel des organes par machine (codes SAP), complété à chaque démarrage sans rien supprimer."""
+    conn.execute("""CREATE TABLE IF NOT EXISTS organes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, equipment_id INTEGER NOT NULL REFERENCES equipment(id) ON DELETE CASCADE,
+        code TEXT UNIQUE, name TEXT NOT NULL, position INTEGER DEFAULT 0, active INTEGER DEFAULT 1)""")
+    eq = {r[1]: r[0] for r in conn.execute("SELECT id, reference FROM equipment").fetchall()}
+    for pos, (eq_ref, code, name) in enumerate(ORGANES):
+        if eq_ref in eq:
+            conn.execute("INSERT OR IGNORE INTO organes(equipment_id, code, name, position) VALUES(?,?,?,?)",
+                         (eq[eq_ref], code, name, pos))
+    conn.commit()
+
+
+def organe_label(o):
+    """Libellé enregistré sur les TAGs, checklists et contre-mesures : « Désignation (code SAP) »."""
+    return "%s (%s)" % (o["name"], o["code"]) if o["code"] else o["name"]
+
+
 def migrate_63(conn, upgrade=False):
     """6.2 → 6.3 : chaque opérateur / technicien est rattaché directement à son chef d'équipe."""
     if "supervisor_id" not in _cols(conn, "users"):
@@ -457,6 +476,7 @@ def init_db():
             sap.migrate(conn)
             migrate_62(conn)
             migrate_63(conn)
+            migrate_organes(conn)
             migrate_concours(conn)
             conn.close()
             return
@@ -464,6 +484,7 @@ def init_db():
             sap.migrate(conn)
             migrate_62(conn, upgrade=row[0] in ("6.0", "6.1"))
             migrate_63(conn, upgrade=True)
+            migrate_organes(conn)
             migrate_concours(conn)
             conn.execute("UPDATE meta SET value=? WHERE key='schema'", (SCHEMA_VERSION,))
             conn.commit()
@@ -480,6 +501,7 @@ def init_db():
     sap.migrate(conn)
     migrate_62(conn)
     migrate_63(conn)
+    migrate_organes(conn)
     migrate_concours(conn)
     conn.commit()
     conn.close()
@@ -1811,7 +1833,11 @@ def checklist_history(cid):
 
 @app.route("/api/organes")
 def api_organes():
+    """Organes de la machine : référentiel (liste déroulante). À défaut, organes déjà saisis sur cette machine."""
     eid = request.args.get("equipment_id", 0)
+    ref = q("SELECT code, name FROM organes WHERE equipment_id=? AND active=1 ORDER BY position, name", (eid,))
+    if ref:
+        return jsonify([organe_label(o) for o in ref])
     rows = q("""SELECT organe FROM (SELECT organe FROM tags WHERE equipment_id=? UNION SELECT i.organe FROM checklist_items i
                JOIN checklists c ON c.id=i.checklist_id WHERE c.equipment_id=? UNION SELECT organe FROM countermeasures WHERE equipment_id=?)
                WHERE organe IS NOT NULL AND organe!='' ORDER BY organe""", (eid, eid, eid))

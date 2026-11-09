@@ -26,7 +26,7 @@
       <select name="equipment_id" id="equipment_id" required><option value="">— Choisir la machine —</option>
         {% for e in equipment %}<option value="{{ e.id }}" {{ 'selected' if v.equipment_id|string==e.id|string }}>{{ e.reference }} · {{ e.name|short }}{% if e.sga_name %} ({{ e.sga_name }}){% endif %}</option>{% endfor %}
       </select></div>
-    <div class="field"><label class="lbl">Organe</label><input type="text" name="organe" id="organe" value="{{ v.organe or '' }}" placeholder="Ex. : vérin d'étirage, palier, chaîne…"></div>
+    <div class="field"><label class="lbl">Organe</label><select name="organe" id="organe" data-organes-for="equipment_id" data-current="{{ v.organe or '' }}"><option value="{{ v.organe or '' }}">{{ v.organe or '— Choisir d\'abord la machine —' }}</option></select></div>
     <div class="field"><label class="lbl">Description de l'anomalie *</label><textarea name="description" id="description" required>{{ v.description or '' }}</textarea></div>
     <div class="grid g2">
       <div class="field" style="grid-column:span 2"><label class="lbl">Anomalie découverte par *</label>

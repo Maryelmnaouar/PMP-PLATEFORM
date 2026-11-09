@@ -344,3 +344,41 @@ document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click'
   else fallback();
   function fallback() { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); done(); } catch (e) {} t.remove(); }
 }));
+
+
+// Organes : liste déroulante alimentée par le référentiel de la machine choisie
+(function () {
+  const cache = {};
+  function load(eqId) {
+    if (!cache[eqId]) cache[eqId] = fetch('/api/organes?equipment_id=' + encodeURIComponent(eqId)).then(r => r.ok ? r.json() : []);
+    return cache[eqId];
+  }
+  function fill(sel, eqId) {
+    const cur = sel.value || sel.dataset.current || '';
+    if (!eqId) { sel.innerHTML = ''; sel.add(new Option("— Choisir d'abord la machine —", '')); return; }
+    load(eqId).then(list => {
+      sel.innerHTML = '';
+      sel.add(new Option('— Choisir l\'organe —', ''));
+      if (cur && list.indexOf(cur) < 0) sel.add(new Option(cur + ' (ancienne saisie)', cur));
+      list.forEach(o => sel.add(new Option(o, o)));
+      sel.value = cur;
+      sel.dispatchEvent(new Event('input'));
+    });
+  }
+  window.fillOrganes = fill;
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('select[data-equipment]').forEach(sel => fill(sel, sel.dataset.equipment));
+    const groups = {};
+    document.querySelectorAll('select[data-organes-for]').forEach(sel => (groups[sel.dataset.organesFor] = groups[sel.dataset.organesFor] || []).push(sel));
+    Object.keys(groups).forEach(id => {
+      const eq = document.getElementById(id);
+      const all = () => document.querySelectorAll('select[data-organes-for="' + id + '"]');
+      all().forEach(sel => fill(sel, eq && eq.value));
+      if (eq) eq.addEventListener('change', () => all().forEach(sel => { sel.value = ''; sel.dataset.current = ''; fill(sel, eq.value); }));
+      // lignes ajoutées dynamiquement (checklists) : remplir à l'ajout
+      new MutationObserver(muts => muts.forEach(m => m.addedNodes.forEach(n => {
+        if (n.querySelectorAll) n.querySelectorAll('select[data-organes-for="' + id + '"]').forEach(sel => { sel.dataset.current = ''; fill(sel, eq && eq.value); });
+      }))).observe(document.body, { childList: true, subtree: true });
+    });
+  });
+})();

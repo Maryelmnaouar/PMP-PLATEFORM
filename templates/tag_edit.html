@@ -8,8 +8,8 @@
     <div class="typesel">{% for tt in TAG_TYPES %}<input type="radio" name="type" id="ty-{{ tt.key }}" value="{{ tt.key }}" {{ 'checked' if t.type==tt.key }}><label for="ty-{{ tt.key }}" style="background:{{ tt.color }};color:{{ tt.text }}">{{ tt.label }}</label>{% endfor %}</div></div>
   <div class="grid g3">
     <div class="field"><label class="lbl">Type d'anomalie</label><select name="anomaly_type">{% for a in ANOMALY_TYPES %}<option {{ 'selected' if t.anomaly_type==a }}>{{ a }}</option>{% endfor %}</select></div>
-    <div class="field"><label class="lbl">Machine</label><select name="equipment_id">{% for e in equipment %}<option value="{{ e.id }}" {{ 'selected' if e.id==t.equipment_id }}>{{ e.reference }} · {{ e.name|short }}</option>{% endfor %}</select></div>
-    <div class="field"><label class="lbl">Organe</label><input type="text" name="organe" value="{{ t.organe or '' }}"></div>
+    <div class="field"><label class="lbl">Machine</label><select name="equipment_id" id="edit-equipment">{% for e in equipment %}<option value="{{ e.id }}" {{ 'selected' if e.id==t.equipment_id }}>{{ e.reference }} · {{ e.name|short }}</option>{% endfor %}</select></div>
+    <div class="field"><label class="lbl">Organe</label><select name="organe" data-organes-for="edit-equipment" data-current="{{ t.organe or '' }}"><option value="{{ t.organe or '' }}">{{ t.organe or '—' }}</option></select></div>
     <div class="field"><label class="lbl">Découverte par</label><select name="observed_by"><option value="">—</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if u.id==t.observed_by }}>{{ u.name }}</option>{% endfor %}</select></div>
     <div class="field"><label class="lbl">Date d'observation</label><input type="date" name="observed_at" value="{{ (t.observed_at or '')[:10] }}"></div>
     <div class="field"><label class="lbl">Statut</label><select name="status">{% for s in STATUSES %}<option {{ 'selected' if t.status==s }}>{{ s }}</option>{% endfor %}</select></div>
