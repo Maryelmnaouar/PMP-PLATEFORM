@@ -1,41 +1,36 @@
 {% extends "base.html" %}
-{% block title %}Saisie des N° d'avis en masse{% endblock %}
-{% block heading %}Saisie des N° d'avis SAP en masse{% endblock %}
-{% block subheading %}Reprise ponctuelle : rattacher d'un coup les avis déjà créés dans SAP aux TAGs RCM / Safety{% endblock %}
+{% block title %}Import des N° d'avis{% endblock %}
+{% block heading %}Import Excel des N° d'avis SAP{% endblock %}
+{% block subheading %}Code TAG · N° avis · Traité par → le TAG est validé et passe « En cours de traitement »{% endblock %}
 {% block content %}
 <div class="card" style="max-width:980px">
   <h3>Comment faire</h3>
   <ol style="margin:0 0 6px 18px;line-height:1.7">
-    <li><a href="{{ url_for('bulk_notifications_template') }}"><b>Télécharger le modèle Excel</b></a> : il liste les <b>{{ pending }}</b> TAG{{ 's' if pending > 1 }} RCM / Safety qui n'ont pas encore d'avis.</li>
-    <li>Remplir la colonne jaune <b>« N° avis SAP »</b> (laisser vide si l'avis n'existe pas encore).</li>
-    <li>Charger le fichier ci-dessous <b>ou</b> copier-coller les deux colonnes « Code TAG » et « N° avis » depuis Excel.</li>
-    <li>Cliquer sur <b>Vérifier</b>, contrôler le résultat, puis sur <b>Importer</b>.</li>
+    <li><a href="{{ url_for('bulk_notifications_template') }}"><b>Télécharger le modèle Excel</b></a> : il liste les <b>{{ pending }}</b> TAG{{ 's' if pending > 1 }} RCM / Safety sans avis ou encore « découverts ».</li>
+    <li>Remplir les colonnes jaunes : <b>N° avis SAP</b> et <b>Traité par</b> (liste déroulante des personnes de la plateforme).</li>
+    <li>Charger le fichier, cliquer sur <b>Vérifier</b>, contrôler le résultat, puis sur <b>Importer</b>.</li>
   </ol>
-  <p class="small muted" style="margin:0">Les TAGs sans avis restent à valider normalement par les chefs d'équipe. Chaque import est tracé dans l'historique du TAG.</p>
+  <p class="small muted" style="margin:0">Ligne sans N° d'avis : ignorée (le TAG reste à valider par le chef d'équipe). Ligne sans « Traité par » : l'avis est enregistré, le statut ne change pas. Chaque import est tracé dans l'historique du TAG.</p>
 </div>
 
 <form class="card" method="post" enctype="multipart/form-data" style="max-width:980px">
-  <div class="grid" style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
-    <div class="field"><label class="lbl">Fichier Excel (.xlsx) ou CSV</label><input type="file" name="file" accept=".xlsx,.csv,.txt">
-      <p class="small muted">Colonne A : code TAG · colonne B : N° d'avis. Les autres colonnes sont ignorées.</p></div>
-    <div class="field"><label class="lbl">… ou copier-coller depuis Excel</label>
-      <textarea name="paste" rows="7" placeholder="TAG-0012	10004901&#10;TAG-0015	10004902&#10;18	10004903">{{ request.form.get('paste', '') }}</textarea></div>
-  </div>
-  <label style="display:flex;gap:8px;align-items:center;margin:4px 0 14px"><input type="checkbox" name="overwrite" value="1" {{ 'checked' if request.form.get('overwrite') }}> Remplacer le N° d'avis des TAGs qui en ont déjà un</label>
+  <div class="field" style="max-width:520px"><label class="lbl">Fichier Excel (.xlsx)</label><input type="file" name="file" accept=".xlsx,.csv" required>
+    <p class="small muted">Colonne A : Code TAG · colonne B : N° avis SAP · colonne C : Traité par. Les autres colonnes sont ignorées.</p></div>
+  <label style="display:flex;gap:8px;align-items:center;margin:4px 0 14px"><input type="checkbox" name="overwrite" value="1" {{ 'checked' if request.form.get('overwrite') }}> Remplacer le N° d'avis des TAGs qui en ont déjà un autre</label>
   <button class="btn grey" name="action" value="check">Vérifier</button>
-  <button class="btn green" name="action" value="import" onclick="return confirm('Enregistrer les N° d\'avis valides ?')">Importer</button>
+  <button class="btn green" name="action" value="import" onclick="return confirm('Enregistrer les lignes valides ?')">Importer</button>
 </form>
 
 {% if report is not none %}
 <div class="card" style="max-width:980px">
   <h3>{{ 'Résultat de l\'import' if done else 'Vérification' }} : {{ ok_count }} ligne{{ 's' if ok_count > 1 }} valide{{ 's' if ok_count > 1 }} sur {{ report|length }}</h3>
   {% if blanks %}<p class="small muted" style="margin-top:0">{{ blanks }} TAG{{ 's' if blanks > 1 }} sans N° d'avis ignoré{{ 's' if blanks > 1 }} : ils restent à valider par les chefs d'équipe.</p>{% endif %}
-  {% if not done and ok_count %}<p class="small muted" style="margin-top:0">Rien n'est encore enregistré : cliquez sur « Importer » pour enregistrer les lignes valides. Les autres sont ignorées.</p>{% endif %}
+  {% if not done and ok_count %}<p class="small muted" style="margin-top:0">Rien n'est encore enregistré : choisissez à nouveau le fichier et cliquez sur « Importer ». Les lignes en erreur sont ignorées.</p>{% endif %}
   <div class="tbl-wrap"><table>
-    <tr><th>Code TAG</th><th>N° avis</th><th>Résultat</th></tr>
+    <tr><th>Code TAG</th><th>N° avis</th><th>Traité par</th><th>Résultat</th></tr>
     {% for r in report %}
-    <tr><td>{% if r.tag %}<a href="{{ url_for('tag_detail', tag_id=r.tag.id) }}">{{ r.code }}</a>{% else %}{{ r.code }}{% endif %}</td><td>{{ r.notif or '—' }}</td>
-      <td>{% if r.ok %}<span class="chip" style="background:#e3f5e9;color:#1e7a43">{{ '✔ Enregistré' if done else '✔ ' + r.msg }}</span>{% elif r.skip %}<span class="chip">{{ r.msg }}</span>{% else %}<span class="chip" style="background:#fde3e7;color:#a30b24">✖ {{ r.msg }}</span>{% endif %}</td></tr>
+    <tr><td>{{ r.code }}</td><td>{{ r.notif or '—' }}</td><td>{{ r.who or '—' }}</td>
+      <td>{% if r.ok %}<span class="chip" style="background:#e3f5e9;color:#1e7a43">✔ {{ r.msg }}</span>{% elif r.skip %}<span class="chip">{{ r.msg }}</span>{% else %}<span class="chip" style="background:#fde3e7;color:#a30b24">✖ {{ r.msg }}</span>{% endif %}</td></tr>
     {% endfor %}
   </table></div>
 </div>

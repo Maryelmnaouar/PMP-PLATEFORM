@@ -1304,130 +1304,173 @@ def _norm_tag_code(v):
     return v
 
 
-def _bulk_rows_from_request():
-    """Lignes (code TAG, N° avis) depuis un fichier Excel/CSV ou un copier-coller de deux colonnes Excel."""
+def _plain(v):
+    """Minuscules sans accents ni espaces superflus, pour retrouver une personne par son nom."""
+    import unicodedata
+    v = unicodedata.normalize("NFKD", str(v or "")).encode("ascii", "ignore").decode()
+    return " ".join(v.lower().split())
+
+
+def _bulk_rows_from_file():
+    """Lignes (code TAG, N° avis, traité par) depuis un fichier Excel (.xlsx) ou CSV."""
     rows = []
     f = request.files.get("file")
-    if f and f.filename:
-        name = f.filename.lower()
-        if name.endswith(".xlsx"):
-            from openpyxl import load_workbook
-            ws = load_workbook(f.stream, read_only=True, data_only=True).active
-            for r in ws.iter_rows(values_only=True):
-                if r and len(r) >= 2:
-                    rows.append((str(r[0] or ""), str(r[1] if r[1] is not None else "")))
-                elif r and r[0]:
-                    rows.append((str(r[0]), ""))
-        else:
-            text = f.stream.read().decode("utf-8-sig", errors="replace")
-            for line in text.splitlines():
-                parts = [p for p in line.replace(";", "\t").replace(",", "\t").split("\t")]
-                rows.append((parts[0], parts[1] if len(parts) > 1 else ""))
+    if not f or not f.filename:
+        return None
+    if f.filename.lower().endswith(".xlsx"):
+        from openpyxl import load_workbook
+        ws = load_workbook(f.stream, read_only=True, data_only=True).worksheets[0]
+        for r in ws.iter_rows(values_only=True):
+            r = list(r or []) + [None, None, None]
+            rows.append(tuple("" if x is None else str(x) for x in r[:3]))
     else:
-        for line in (request.form.get("paste") or "").splitlines():
-            parts = line.replace(";", "\t").split("\t") if ("\t" in line or ";" in line) else line.split()
-            if parts and parts[0].strip():
-                rows.append((parts[0], parts[1] if len(parts) > 1 else ""))
+        text = f.stream.read().decode("utf-8-sig", errors="replace")
+        for line in text.splitlines():
+            parts = line.replace(";", "\t").replace(",", "\t").split("\t") + ["", "", ""]
+            rows.append(tuple(parts[:3]))
     # les nombres Excel peuvent arriver sous la forme « 10004901.0 »
-    return [(c.strip(), n.strip()[:-2] if n.strip().endswith(".0") else n.strip()) for c, n in rows]
+    return [(c.strip(), n.strip()[:-2] if n.strip().endswith(".0") else n.strip(), w.strip()) for c, n, w in rows]
 
 
 @app.route("/admin/avis-en-masse", methods=["GET", "POST"])
 def bulk_notifications():
-    """L'administrateur rattache d'un coup des N° d'avis SAP aux TAGs RCM / Safety (vérification puis import)."""
+    """Import Excel (administrateur) : Code TAG | N° avis SAP | Traité par.
+    Le N° d'avis est enregistré (le TAG est validé) et le TAG passe « En cours de traitement »."""
     if not is_admin():
         abort(403)
     report, done, blanks = None, False, 0
     if request.method == "POST":
         apply_now = request.form.get("action") == "import"
         overwrite = request.form.get("overwrite") == "1"
-        rows = _bulk_rows_from_request()
+        rows = _bulk_rows_from_file()
+        if rows is None:
+            flash("Choisissez le fichier Excel à importer.", "error")
+            return redirect(url_for("bulk_notifications"))
+        people = {}
+        for u in q("SELECT id, name, username FROM users WHERE active=1"):
+            people.setdefault(_plain(u["name"]), u)
+            people.setdefault(_plain(u["username"]), u)
         seen_codes, seen_notifs, report = set(), {}, []
-        for raw_code, raw_notif in rows:
+        for raw_code, raw_notif, raw_who in rows:
             code, notif = _norm_tag_code(raw_code), clean_ref(raw_notif)
-            if not code or code in ("CODE", "CODETAG", "TAG"):
+            if not code or not any(ch.isdigit() for ch in code):
                 continue  # ligne vide ou en-tête
             if not notif:
                 blanks += 1  # avis pas encore créé : le TAG reste à valider par le chef d'équipe
                 continue
-            line = dict(code=code, notif=notif, ok=False, msg="")
+            line = dict(code=code, notif=notif, who=raw_who, ok=False, msg="", set_notif=False, move=False)
             t = q("SELECT * FROM tags WHERE tag_code=?", (code,), one=True)
+            person = people.get(_plain(raw_who)) if raw_who else None
             if not t:
                 line["msg"] = "TAG introuvable"
             elif t["type"] not in sap.SAP_TYPES:
                 line["msg"] = "TAG AM : pas d'avis SAP"
             elif code in seen_codes:
-                line["msg"] = "TAG en double dans la liste"
+                line["msg"] = "TAG en double dans le fichier"
             elif notif in seen_notifs:
                 line["msg"] = "Avis déjà utilisé plus haut pour %s" % seen_notifs[notif]
-            elif t["sap_notif"] == notif:
-                line.update(msg="Déjà enregistré", skip=True)
-            elif t["sap_notif"] and not overwrite:
+            elif raw_who and not person:
+                line["msg"] = "« %s » : personne inconnue sur la plateforme" % raw_who
+            elif t["sap_notif"] and t["sap_notif"] != notif and not overwrite:
                 line["msg"] = "A déjà l'avis %s (cocher « remplacer » pour le changer)" % t["sap_notif"]
+            elif q("SELECT 1 FROM tags WHERE sap_notif=? AND id!=?", (notif, t["id"]), one=True):
+                line["msg"] = "Avis déjà rattaché au %s" % q("SELECT tag_code FROM tags WHERE sap_notif=? AND id!=?", (notif, t["id"]), one=True)["tag_code"]
             else:
-                dup = q("SELECT tag_code FROM tags WHERE sap_notif=? AND id!=?", (notif, t["id"]), one=True)
-                if dup:
-                    line["msg"] = "Avis déjà rattaché au %s" % dup["tag_code"]
-                else:
-                    line.update(ok=True, msg=("Remplace %s" % t["sap_notif"]) if t["sap_notif"] else "OK", tag=t)
+                line.update(tag=t, person=person, set_notif=t["sap_notif"] != notif, move=bool(person) and t["status"] == "Nouveau")
+                parts = []
+                if line["set_notif"]:
+                    parts.append(("avis remplacé (%s)" % t["sap_notif"]) if t["sap_notif"] else "avis enregistré")
+                if line["move"]:
+                    parts.append("→ En cours, traité par %s" % person["name"])
+                elif not person:
+                    parts.append("statut inchangé (« Traité par » vide)")
+                elif t["status"] != "Nouveau":
+                    parts.append("déjà « %s »" % t["status"])
+                line["ok"] = line["set_notif"] or line["move"]
+                line["msg"] = ", ".join(parts) if line["ok"] else "Déjà à jour"
+                line["skip"] = not line["ok"]
             seen_codes.add(code)
-            if notif:
-                seen_notifs.setdefault(notif, code)
+            seen_notifs.setdefault(notif, code)
             report.append(line)
         if apply_now:
-            n = 0
+            n_notif = n_move = 0
             for line in report:
                 if not line["ok"]:
                     continue
-                t = line["tag"]
-                ex("""UPDATE tags SET sap_notif=?, validated_by=COALESCE(validated_by, ?), validated_at=COALESCE(validated_at, ?),
-                      sap_created_by=COALESCE(sap_created_by, ?), sap_sent_at=COALESCE(sap_sent_at, ?),
-                      sap_status=COALESCE(sap_status, 'Avis créé'), updated_at=? WHERE id=?""",
-                   (line["notif"], g.user["id"], now(), g.user["name"], now(), now(), t["id"]))
+                t, person = line["tag"], line["person"]
+                if line["set_notif"]:
+                    ex("""UPDATE tags SET sap_notif=?, validated_by=COALESCE(validated_by, ?), validated_at=COALESCE(validated_at, ?),
+                          sap_created_by=COALESCE(sap_created_by, ?), sap_sent_at=COALESCE(sap_sent_at, ?),
+                          sap_status=COALESCE(sap_status, 'Avis créé'), updated_at=? WHERE id=?""",
+                       (line["notif"], g.user["id"], now(), g.user["name"], now(), now(), t["id"]))
+                    n_notif += 1
+                if line["move"]:
+                    ex("""UPDATE tags SET status='En cours', treated_by=?, treatment_start=COALESCE(treatment_start, ?),
+                          confirmed_by=NULL, confirmed_at=NULL, resolved_at=NULL, updated_at=? WHERE id=?""",
+                       (person["id"], now(), now(), t["id"]))
+                    n_move += 1
                 ex("INSERT INTO tag_history(tag_id,user_id,from_status,to_status,comment,at) VALUES(?,?,?,?,?,?)",
-                   (t["id"], g.user["id"], t["status"], t["status"], "Avis SAP %s saisi en masse par %s" % (line["notif"], g.user["name"]), now()))
-                n += 1
+                   (t["id"], g.user["id"], t["status"], "En cours" if line["move"] else t["status"],
+                    "Import Excel par %s : avis SAP %s%s" % (g.user["name"], line["notif"],
+                                                             ", traité par %s" % person["name"] if line["move"] else ""), now()))
             done = True
-            flash("%d avis enregistré%s." % (n, "s" if n > 1 else ""), "success" if n else "error")
-    pending = q("""SELECT COUNT(*) n FROM tags WHERE type IN ('RCM','SAFETY') AND (sap_notif IS NULL OR sap_notif='')""", one=True)["n"]
+            flash("Import terminé : %d avis enregistré%s, %d TAG%s passé%s en cours de traitement."
+                  % (n_notif, "s" if n_notif > 1 else "", n_move, "s" if n_move > 1 else "", "s" if n_move > 1 else ""),
+                  "success" if (n_notif or n_move) else "error")
+    pending = q("""SELECT COUNT(*) n FROM tags WHERE type IN ('RCM','SAFETY') AND (sap_notif IS NULL OR sap_notif='' OR status='Nouveau')""", one=True)["n"]
     return render_template("bulk_notifications.html", report=report, done=done, pending=pending, blanks=blanks,
                            ok_count=sum(1 for r in (report or []) if r["ok"]))
 
 
 @app.route("/admin/avis-en-masse/modele.xlsx")
 def bulk_notifications_template():
-    """Modèle Excel : la liste des TAGs RCM / Safety sans avis, avec une colonne « N° avis » à remplir."""
+    """Modèle Excel : TAGs RCM / Safety sans avis ou encore « découverts », avec les colonnes à remplir."""
     if not is_admin():
         abort(403)
     import io
     from flask import send_file
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill
-    rows = q("""SELECT t.tag_code, t.type, e.reference, e.name eq_name, t.organe, t.description, t.observed_at
+    from openpyxl.worksheet.datavalidation import DataValidation
+    rows = q("""SELECT t.tag_code, t.type, t.sap_notif, e.reference, e.name eq_name, t.organe, t.description, t.observed_at
                 FROM tags t JOIN equipment e ON e.id=t.equipment_id
-                WHERE t.type IN ('RCM','SAFETY') AND (t.sap_notif IS NULL OR t.sap_notif='') ORDER BY t.tag_code""")
+                WHERE t.type IN ('RCM','SAFETY') AND (t.sap_notif IS NULL OR t.sap_notif='' OR t.status='Nouveau')
+                ORDER BY t.tag_code""")
+    names = [u["name"] for u in active_users()]
     wb = Workbook()
     ws = wb.active
-    ws.title = "Avis à saisir"
-    head = ["Code TAG", "N° avis SAP", "Type", "Réf. machine", "Machine", "Organe", "Description", "Date d'observation"]
-    ws.append(head)
+    ws.title = "Import"
+    ws.append(["Code TAG", "N° avis SAP", "Traité par", "Type", "Réf. machine", "Machine", "Organe", "Description", "Date d'observation"])
     for r in rows:
-        ws.append([r["tag_code"], None, "Safety" if r["type"] == "SAFETY" else "RCM", r["reference"], r["eq_name"],
-                   r["organe"], r["description"], r["observed_at"]])
-    for i, w in enumerate([12, 16, 9, 14, 30, 18, 60, 16], 1):
+        ws.append([r["tag_code"], r["sap_notif"] or None, None, "Safety" if r["type"] == "SAFETY" else "RCM", r["reference"],
+                   r["eq_name"], r["organe"], r["description"], r["observed_at"]])
+    for i, w in enumerate([12, 16, 26, 9, 14, 30, 18, 60, 16], 1):
         c = ws.cell(row=1, column=i)
         c.font = Font(bold=True, color="FFFFFF")
-        c.fill = PatternFill("solid", fgColor="C8102E" if i == 2 else "1E1A1D")
+        c.fill = PatternFill("solid", fgColor="C8102E" if i in (2, 3) else "1E1A1D")
         ws.column_dimensions[c.column_letter].width = w
-    for row in ws.iter_rows(min_row=2, min_col=2, max_col=2):
+    last = max(ws.max_row, 2) + 200
+    for row in ws.iter_rows(min_row=2, max_row=last, min_col=2, max_col=3):
         for c in row:
-            c.number_format = "@"  # texte : Excel ne transforme pas les numéros
             c.fill = PatternFill("solid", fgColor="FFF4A8")
-    ws.freeze_panes = "C2"
+            if c.column == 2:
+                c.number_format = "@"  # texte : Excel ne transforme pas les numéros
+    # liste déroulante des personnes de la plateforme pour « Traité par »
+    ref = wb.create_sheet("Personnes")
+    for n in names:
+        ref.append([n])
+    ref.sheet_state = "hidden"
+    if names:
+        dv = DataValidation(type="list", formula1="=Personnes!$A$1:$A$%d" % len(names), allow_blank=True,
+                            showErrorMessage=True, errorTitle="Personne inconnue",
+                            error="Choisissez une personne de la liste (utilisateurs de la plateforme).")
+        ws.add_data_validation(dv)
+        dv.add("C2:C%d" % last)
+    ws.freeze_panes = "D2"
     out = io.BytesIO()
     wb.save(out)
     out.seek(0)
-    return send_file(out, as_attachment=True, download_name="avis_a_saisir_%s.xlsx" % dt.date.today().isoformat(),
+    return send_file(out, as_attachment=True, download_name="import_avis_%s.xlsx" % dt.date.today().isoformat(),
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
