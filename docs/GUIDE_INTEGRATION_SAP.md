@@ -1,29 +1,29 @@
-# AssetPilot — Guide d'intégration SAP S/4HANA (avis de maintenance)
+# MAKINTI — Guide d'intégration SAP S/4HANA (avis de maintenance)
 
-> **Fonctionnement actuel (V6.2) : saisie manuelle.** Un TAG RCM / Safety reste en « Anomalies découvertes » tant que le chef d'équipe production ne l'a pas validé. Pour valider, il crée l'avis dans SAP à partir des informations à copier proposées par AssetPilot, puis saisit le **N° de l'avis**, qui est obligatoire. Le **N° d'OT** et la personne ayant traité sont ensuite obligatoires pour passer le TAG en « Traité ».
+> **Fonctionnement actuel (V6.2) : saisie manuelle.** Un TAG RCM / Safety reste en « Anomalies découvertes » tant que le chef d'équipe production ne l'a pas validé. Pour valider, il crée l'avis dans SAP à partir des informations à copier proposées par MAKINTI, puis saisit le **N° de l'avis**, qui est obligatoire. Le **N° d'OT** et la personne ayant traité sont ensuite obligatoires pour passer le TAG en « Traité ».
 > Les modes Fiori prérempli et API décrits ci-dessous restent une évolution possible : le code est conservé, mais ils ne sont pas activés.
 
 ## 1. Objectif
-Les TAGs **RCM** (rouges) et **Safety** (jaunes) émis par les opérateurs dans AssetPilot deviennent des **avis de maintenance SAP PM**. Ils sont créés **au nom du chef d'équipe** qui valide le TAG. Les chefs d'équipe disposent déjà d'une licence S/4HANA et créent déjà des avis.
-Les TAGs AM (bleus) restent dans AssetPilot.
+Les TAGs **RCM** (rouges) et **Safety** (jaunes) émis par les opérateurs dans MAKINTI deviennent des **avis de maintenance SAP PM**. Ils sont créés **au nom du chef d'équipe** qui valide le TAG. Les chefs d'équipe disposent déjà d'une licence S/4HANA et créent déjà des avis.
+Les TAGs AM (bleus) restent dans MAKINTI.
 
 ```
-Opérateur (sans licence SAP) ──► TAG RCM / Safety dans AssetPilot
+Opérateur (sans licence SAP) ──► TAG RCM / Safety dans MAKINTI
 Chef d'équipe (licence S/4HANA) ──► « Valider et créer l'avis SAP »
-SAP ──► N° d'avis, puis N° d'OT et statut ──► AssetPilot (étiquette, tableau des anomalies)
-Avis clôturé dans SAP ──► TAG « Traité » dans AssetPilot
+SAP ──► N° d'avis, puis N° d'OT et statut ──► MAKINTI (étiquette, tableau des anomalies)
+Avis clôturé dans SAP ──► TAG « Traité » dans MAKINTI
 ```
 
 ## 2. Les modes (menu Administration → Intégration SAP)
 
 | Mode | Fonctionnement | Travail IT |
 |---|---|---|
-| **Fiori prérempli** (démarrage) | La création d'avis s'ouvre dans le Fiori de l'entreprise, préremplie. Le chef se connecte avec son identifiant SAP, enregistre, puis reporte le N° d'avis (et plus tard le N° d'OT) dans AssetPilot. | Confirmer le lien de l'application Fiori de création d'avis et ses paramètres |
+| **Fiori prérempli** (démarrage) | La création d'avis s'ouvre dans le Fiori de l'entreprise, préremplie. Le chef se connecte avec son identifiant SAP, enregistre, puis reporte le N° d'avis (et plus tard le N° d'OT) dans MAKINTI. | Confirmer le lien de l'application Fiori de création d'avis et ses paramètres |
 | **API directe** (cible) | Le chef relie une fois son compte SAP (OAuth 2.0). L'avis est ensuite créé directement à son nom. Le N° d'OT et le statut reviennent automatiquement (synchronisation toutes les 15 min). | Voir § 4 |
 
 ## 3. Contenu de l'avis envoyé
 
-| AssetPilot | Champ SAP (`API_MAINTNOTIFICATION` / `MaintenanceNotification`) |
+| MAKINTI | Champ SAP (`API_MAINTNOTIFICATION` / `MaintenanceNotification`) |
 |---|---|
 | Type RCM / Safety | `NotificationType` (paramétrable, ex. M2 / M1) |
 | N° TAG + description (40 car.) | `NotificationText` |
@@ -40,16 +40,16 @@ Les noms de champs sont à vérifier sur votre système : `…/API_MAINTNOTIFICA
 
 1. **Activer le service OData** `API_MAINTNOTIFICATION` sur la passerelle (transaction `/IWFND/MAINT_SERVICE`). La passerelle est déjà en service puisque Fiori est utilisé.
 2. **Créer un client OAuth 2.0** (transaction `SOAUTH2`) :
-   - client : par exemple `ASSETPILOT` ;
+   - client : par exemple `MAKINTI` ;
    - type d'autorisation : *Authorization Code*, avec jeton de rafraîchissement ;
-   - adresse de retour (*redirect URI*) : celle affichée dans la page « Intégration SAP » d'AssetPilot (`https://<adresse-assetpilot>/sap/callback`) ;
-   - portée : celle du service `API_MAINTNOTIFICATION` (affichée dans `SOAUTH2`, à reporter dans AssetPilot).
+   - adresse de retour (*redirect URI*) : celle affichée dans la page « Intégration SAP » de MAKINTI (`https://<adresse-assetpilot>/sap/callback`) ;
+   - portée : celle du service `API_MAINTNOTIFICATION` (affichée dans `SOAUTH2`, à reporter dans MAKINTI).
 3. **Autorisations des chefs d'équipe** : leurs rôles doivent permettre la création et la lecture d'avis PM via ce service (objets `S_SERVICE`, `I_QMEL`, `I_SWERK`… selon votre concept de sécurité). En général, ils les ont déjà pour la création d'avis.
-4. **Accès réseau** : AssetPilot doit pouvoir joindre la passerelle SAP en HTTPS. Si AssetPilot est hébergé à l'extérieur du réseau de l'entreprise, prévoir un accès sécurisé : hébergement interne ou en DMZ, reverse proxy, ou SAP BTP avec le Cloud Connector.
+4. **Accès réseau** : MAKINTI doit pouvoir joindre la passerelle SAP en HTTPS. Si MAKINTI est hébergé à l'extérieur du réseau de l'entreprise, prévoir un accès sécurisé : hébergement interne ou en DMZ, reverse proxy, ou SAP BTP avec le Cloud Connector.
 5. **Tester sur le système de qualification (QAS)**, puis en production.
 6. **Licences** : les avis sont créés par les chefs d'équipe avec leur propre utilisateur SAP. Faire confirmer ce schéma par le responsable des licences SAP.
 
-## 5. Paramétrage dans AssetPilot
+## 5. Paramétrage dans MAKINTI
 Menu **Administration → Intégration SAP** :
 - mode, types d'avis, priorités, division, poste de travail ;
 - adresse du Fiori Launchpad et modèle de lien de création d'avis (variables `{fiori}`, `{equipment}`, `{type}`, `{text}`, `{priority}`, `{tag}`) ;
@@ -58,7 +58,7 @@ Menu **Administration → Intégration SAP** :
 
 Sécurité :
 - aucun mot de passe SAP n'est stocké ;
-- AssetPilot conserve uniquement les jetons OAuth de chaque chef, révocables à tout moment (« délier », ou révocation côté SAP) ;
+- MAKINTI conserve uniquement les jetons OAuth de chaque chef, révocables à tout moment (« délier », ou révocation côté SAP) ;
 - tous les échanges sont tracés dans le **journal SAP**.
 
 ## 6. Mise en service

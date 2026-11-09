@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-AssetPilot — Intégration SAP S/4HANA (avis de maintenance PM)
+MAKINTI — Intégration SAP S/4HANA (avis de maintenance PM)
 
 Principe : un TAG RCM ou Safety est validé par un chef d'équipe (qui possède une licence S/4HANA)
 et devient un AVIS SAP créé EN SON NOM. Modes :
 
-  - "fiori"      : AssetPilot ouvre l'application Fiori de création d'avis préremplie ; le chef
+  - "fiori"      : MAKINTI ouvre l'application Fiori de création d'avis préremplie ; le chef
                    enregistre dans son Fiori (avec son identifiant et son mot de passe SAP) puis
                    reporte le N° d'avis (ou il est retrouvé par la synchronisation si la lecture API est active).
   - "api"        : le chef relie une fois son compte SAP (OAuth 2.0 de la passerelle SAP, transaction SOAUTH2) ;
-                   AssetPilot crée ensuite l'avis directement en son nom via le service OData standard
+                   MAKINTI crée ensuite l'avis directement en son nom via le service OData standard
                    API_MAINTNOTIFICATION. Aucun mot de passe SAP n'est stocké.
 
 La synchronisation (mode "api") récupère le N° d'OT et la phase de l'avis :
@@ -129,7 +129,7 @@ def notif_payload(t, chef):
     is_safety = t["type"] == "SAFETY"
     short = ("%s %s" % (t["tag_code"], t["description"]))[:40]
     long_text = "\n".join([
-        "%s – TAG %s (AssetPilot)" % (t["tag_code"], "Safety" if is_safety else "RCM"),
+        "%s – TAG %s (MAKINTI)" % (t["tag_code"], "Safety" if is_safety else "RCM"),
         "Type d'anomalie : %s" % (t["anomaly_type"] or ""),
         "Machine : %s %s" % (t["eq_ref"] or "", t["eq_name"] or ""),
         "Organe : %s" % (t["organe"] or "—"),

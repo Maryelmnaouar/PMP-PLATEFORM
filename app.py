@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-ASSETPILOT — Maintenance Autonome
+MAKINTI — Maintenance Autonome
 Flask + SQLite. Configuration par variables d'environnement (voir README.md et .env.example).
 Local : python app.py   ·   Production : gunicorn app:app
 """
@@ -471,7 +471,7 @@ def init_db():
             print("Base mise à jour en version", SCHEMA_VERSION, "(données conservées)")
             return
         conn.close()
-        raise SystemExit("La base %s n'est pas une base AssetPilot %s. Elle n'a pas été modifiée : "
+        raise SystemExit("La base %s n'est pas une base MAKINTI %s. Elle n'a pas été modifiée : "
                          "déplacez-la ou indiquez un autre DATA_DIR." % (DB, SCHEMA_VERSION))
     conn = connect()
     conn.executescript(SCHEMA)
@@ -2533,7 +2533,7 @@ def admin_backup():
     dst = sqlite3.connect(tmp.name)
     db().backup(dst)
     dst.close()
-    name = "assetpilot_sauvegarde_%s.db" % dt.datetime.now().strftime("%Y%m%d_%H%M")
+    name = "makinti_sauvegarde_%s.db" % dt.datetime.now().strftime("%Y%m%d_%H%M")
     return send_file(tmp.name, as_attachment=True, download_name=name, mimetype="application/octet-stream")
 
 
@@ -2690,7 +2690,7 @@ def admin_restore():
             n_users = src.execute("SELECT COUNT(*) FROM users").fetchone()[0]
         except sqlite3.Error:
             os.unlink(tmp.name)
-            flash("Ce fichier n'est pas une sauvegarde AssetPilot valide.", "error")
+            flash("Ce fichier n'est pas une sauvegarde MAKINTI valide.", "error")
             return redirect(url_for("admin_restore"))
         if not version or version[0] not in MIGRATABLE_VERSIONS + (SCHEMA_VERSION,):
             src.close(); os.unlink(tmp.name)
@@ -2765,15 +2765,15 @@ os.makedirs(UPLOADS, exist_ok=True)
 if pg_store.enabled():
     # Une erreur ici arrête le démarrage : on ne crée JAMAIS une base vide qui écraserait celle de PostgreSQL.
     if not pg_store.load_db(DB):
-        print("PostgreSQL ne contient pas encore de base AssetPilot : elle sera créée puis enregistrée.")
+        print("PostgreSQL ne contient pas encore de base MAKINTI : elle sera créée puis enregistrée.")
 init_db()
 if pg_store.enabled():
     if not pg_store.save_db(DB):
         raise RuntimeError("Impossible d'enregistrer la base dans PostgreSQL (DATABASE_URL). Démarrage interrompu.")
-    print("Données AssetPilot enregistrées dans PostgreSQL ; %d photo(s) rechargée(s)." % pg_store.load_files(UPLOADS))
+    print("Données MAKINTI enregistrées dans PostgreSQL ; %d photo(s) rechargée(s)." % pg_store.load_files(UPLOADS))
     pg_store.start_watch(DB)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    print("AssetPilot — http://127.0.0.1:%d" % port)
+    print("MAKINTI — http://127.0.0.1:%d" % port)
     app.run(debug=os.environ.get("FLASK_DEBUG") == "1", host="127.0.0.1", port=port)

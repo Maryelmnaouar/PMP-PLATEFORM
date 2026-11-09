@@ -1,4 +1,4 @@
-"""Persistance d'AssetPilot dans PostgreSQL (variable DATABASE_URL).
+"""Persistance de MAKINTI dans PostgreSQL (variable DATABASE_URL).
 
 L'application travaille sur sa base SQLite locale, et une copie complète de cette base
 est enregistrée dans PostgreSQL après chaque modification. Au démarrage, la base est
@@ -76,7 +76,7 @@ def load_db(db_path):
             os.remove(db_path + ext)
     os.replace(tmp, db_path)
     _state["saved_mtime"] = os.path.getmtime(db_path)
-    print("Base AssetPilot rechargée depuis PostgreSQL (%d Ko)" % (len(data) // 1024))
+    print("Base MAKINTI rechargée depuis PostgreSQL (%d Ko)" % (len(data) // 1024))
     return True
 
 

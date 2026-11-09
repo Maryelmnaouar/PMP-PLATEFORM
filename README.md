@@ -1,4 +1,4 @@
-# AssetPilot — Maintenance Autonome
+# MAKINTI — Maintenance Autonome
 
 Plateforme web de **Maintenance Autonome (AM / TPM)** :
 - TAGs AM / RCM / Safety et tableau de suivi des anomalies ;
@@ -88,13 +88,13 @@ Les variables `ADMIN_*` et `SEED_BASE_DATA` ne servent qu'à la **création** de
    git branch -M main
    git push -u origin main
    ```
-   *(Si vous partez du zip sans le dossier `.git`, faites d'abord : `git init`, `git add .`, puis `git commit -m "AssetPilot AM"`.)*
+   *(Si vous partez du zip sans le dossier `.git`, faites d'abord : `git init`, `git add .`, puis `git commit -m "MAKINTI"`.)*
 
 ## 5. Déployer sur Render
 
 ### Ce qu'il faut savoir avant
-- **Les données doivent être dans PostgreSQL.** Render efface les fichiers du service à chaque déploiement, redémarrage ou mise en veille. Avec la variable `DATABASE_URL`, AssetPilot enregistre sa base et les photos des TAGs dans PostgreSQL après **chaque modification**, et les recharge au démarrage. Rien n'est perdu.
-- AssetPilot n'utilise que ses propres tables (`assetpilot_store`, `assetpilot_files`). Les autres tables de la base PostgreSQL ne sont ni lues ni modifiées.
+- **Les données doivent être dans PostgreSQL.** Render efface les fichiers du service à chaque déploiement, redémarrage ou mise en veille. Avec la variable `DATABASE_URL`, MAKINTI enregistre sa base et les photos des TAGs dans PostgreSQL après **chaque modification**, et les recharge au démarrage. Rien n'est perdu.
+- MAKINTI n'utilise que ses propres tables (`assetpilot_store`, `assetpilot_files`). Les autres tables de la base PostgreSQL ne sont ni lues ni modifiées.
 - Une **copie par jour** est conservée 14 jours dans PostgreSQL : **Paramètres → ⬆ Restaurer une sauvegarde**.
 - Sécurité au démarrage : si PostgreSQL est injoignable, le service ne démarre pas, plutôt que de repartir d'une base vide.
 - Une base PostgreSQL **gratuite** de Render expire au bout de 30 jours : prenez un plan payant pour la base.
@@ -127,11 +127,11 @@ Les variables `ADMIN_*` et `SEED_BASE_DATA` ne servent qu'à la **création** de
 - **Mises à jour** : chaque `git push` redéploie automatiquement. Les données dans PostgreSQL sont **conservées**.
 - **Sauvegardes** : **Paramètres → ⬇ Sauvegarder la base** télécharge une copie complète. Faites-le régulièrement, par exemple chaque semaine.
 - **Nom de domaine** (facultatif) : Render → Settings → Custom Domains, par exemple `assetpilot.votre-entreprise.com`. Le HTTPS est fourni automatiquement.
-- **Tablettes** : une fois en ligne en HTTPS, on peut installer AssetPilot sur l'écran d'accueil (Safari → Partager → « Sur l'écran d'accueil », ou Chrome → « Installer l'application »).
+- **Tablettes** : une fois en ligne en HTTPS, on peut installer MAKINTI sur l'écran d'accueil (Safari → Partager → « Sur l'écran d'accueil », ou Chrome → « Installer l'application »).
 
 ### SAP depuis Render
 - **Mode Fiori prérempli** : il fonctionne directement. C'est le navigateur du chef d'équipe, connecté au réseau de l'entreprise, qui ouvre le Fiori.
-- **Mode API directe** : Render est sur Internet. La passerelle SAP doit donc être joignable de façon sécurisée (exposition HTTPS contrôlée, SAP BTP / Cloud Connector, ou hébergement interne d'AssetPilot). À voir avec l'IT : `docs/GUIDE_INTEGRATION_SAP.md`.
+- **Mode API directe** : Render est sur Internet. La passerelle SAP doit donc être joignable de façon sécurisée (exposition HTTPS contrôlée, SAP BTP / Cloud Connector, ou hébergement interne de MAKINTI). À voir avec l'IT : `docs/GUIDE_INTEGRATION_SAP.md`.
 
 ---
 
