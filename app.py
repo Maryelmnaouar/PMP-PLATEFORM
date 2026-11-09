@@ -426,12 +426,18 @@ def migrate_organes(conn):
         if eq_ref in eq:
             conn.execute("INSERT OR IGNORE INTO organes(equipment_id, code, name, position) VALUES(?,?,?,?)",
                          (eq[eq_ref], code, name, pos))
+    # ancien format « Désignation (code) » → « code · désignation »
+    tables = [t for t in ("tags", "checklists", "checklist_items", "countermeasures", "task_items")
+              if conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (t,)).fetchone()]
+    for code, name in conn.execute("SELECT code, name FROM organes WHERE code IS NOT NULL").fetchall():
+        for t in tables:  # noms de tables fixes (liste ci-dessus)
+            conn.execute("UPDATE %s SET organe=? WHERE organe=?" % t, ("%s · %s" % (code, name), "%s (%s)" % (name, code)))
     conn.commit()
 
 
 def organe_label(o):
-    """Libellé enregistré sur les TAGs, checklists et contre-mesures : « Désignation (code SAP) »."""
-    return "%s (%s)" % (o["name"], o["code"]) if o["code"] else o["name"]
+    """Libellé enregistré sur les TAGs, checklists et contre-mesures : « code · désignation », comme les machines."""
+    return "%s · %s" % (o["code"], o["name"]) if o["code"] else o["name"]
 
 
 def migrate_63(conn, upgrade=False):
