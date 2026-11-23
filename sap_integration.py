@@ -370,6 +370,9 @@ def pending_validation(user):
         if team:
             c2, a2 = H["in_clause"]("t.observed_by", team)
             clause, args = "(%s OR %s)" % (clause, c2), args + a2
+    if "line_ids" in H:  # jamais les TAGs d'une usine / ligne hors du périmètre de l'utilisateur
+        c3, a3 = H["in_clause"]("e.line_id", H["line_ids"](user))
+        clause, args = "(%s AND %s)" % (clause, c3), args + a3
     return H["q"]("""SELECT t.*, e.name eq_name, e.reference eq_ref, ob.name observed_name FROM tags t
                      JOIN equipment e ON e.id=t.equipment_id LEFT JOIN users ob ON ob.id=t.observed_by
                      WHERE """ + clause + """ AND t.type IN ('RCM','SAFETY') AND t.validated_at IS NULL

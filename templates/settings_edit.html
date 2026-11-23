@@ -12,6 +12,15 @@
   <div class="field"><label class="lbl">Description</label><input type="text" name="description" value="{{ item.description or '' }}"></div>
   <label class="lbl">Équipements couverts par la SGA (ligne de la SGA)</label>
   <div class="perm-grid">{% for e in line_eq %}<label><input type="checkbox" name="equipment_ids" value="{{ e.id }}" {{ 'checked' if e.sga_id==item.id }}> {{ e.reference }} · {{ e.name|short }} {% if e.sga_id and e.sga_id!=item.id %}<span class="small muted">({{ e.sga_name }})</span>{% endif %}</label>{% endfor %}</div>
+  {% elif entity=='organe' %}
+  <div class="grid g3">
+    <div class="field" style="grid-column:span 2"><label class="lbl">Équipement</label><select name="equipment_id">{% for e in equipment %}<option value="{{ e.id }}" {{ 'selected' if e.id==item.equipment_id }}>{{ e.reference }} · {{ e.name|short }}</option>{% endfor %}</select></div>
+    <div class="field"><label class="lbl">Code organe (SAP)</label><input type="text" name="code" value="{{ item.code or '' }}"></div>
+    <div class="field" style="grid-column:span 2"><label class="lbl">Désignation</label><input type="text" name="name" value="{{ item.name }}" required></div>
+    <div class="field"><label class="lbl">Ordre</label><input type="number" name="position" value="{{ item.position or 0 }}"></div>
+    <div class="field"><label class="lbl">État</label><select name="active"><option value="1" {{ 'selected' if item.active }}>Actif (proposé dans les listes)</option><option value="0" {{ 'selected' if not item.active }}>Désactivé</option></select></div>
+  </div>
+  <p class="small muted">Les TAGs, checklists et contre-mesures déjà enregistrés gardent le libellé saisi à l'époque.</p>
   {% else %}
   <div class="grid g3">
     <div class="field"><label class="lbl">Ligne</label><select name="line_id">{% for l in lines %}<option value="{{ l.id }}" {{ 'selected' if l.id==item.line_id }}>{{ l.plant_name }} · {{ l.name }}</option>{% endfor %}</select></div>
@@ -21,6 +30,6 @@
     <div class="field" style="grid-column:span 2"><label class="lbl">Désignation</label><input type="text" name="name" value="{{ item.name }}" required></div>
   </div>
   {% endif %}
-  <div class="row" style="margin-top:12px"><button class="btn green">Enregistrer</button><a class="btn grey" href="{{ url_for('settings') }}">Annuler</a></div>
+  <div class="row" style="margin-top:12px"><button class="btn green">Enregistrer</button><a class="btn grey" href="{{ url_for('settings', tab={'plant':'plants','line':'lines','sga':'sga','equipment':'equipment','organe':'organes'}[entity]) }}">Annuler</a></div>
 </form>
 {% endblock %}

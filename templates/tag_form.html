@@ -24,7 +24,7 @@
     </div>
     <div class="field"><label class="lbl">Machine *</label>
       <select name="equipment_id" id="equipment_id" required><option value="">— Choisir la machine —</option>
-        {% for e in equipment %}<option value="{{ e.id }}" {{ 'selected' if v.equipment_id|string==e.id|string }}>{{ e.reference }} · {{ e.name|short }}{% if e.sga_name %} ({{ e.sga_name }}){% endif %}</option>{% endfor %}
+        {% for grp in equipment|groupby('line_id') %}<optgroup label="{{ grp.list[0].plant_name }} — {{ grp.list[0].line_name }}">{% for e in grp.list %}<option value="{{ e.id }}" {{ 'selected' if v.equipment_id|string==e.id|string }}>{{ e.reference }} · {{ e.name|short }}{% if e.sga_name %} ({{ e.sga_name }}){% endif %}</option>{% endfor %}</optgroup>{% endfor %}
       </select></div>
     <div class="field"><label class="lbl">Organe</label><select name="organe" id="organe" data-organes-for="equipment_id" data-current="{{ v.organe or '' }}"><option value="{{ v.organe or '' }}">{{ v.organe or '— Choisir d\'abord la machine —' }}</option></select></div>
     <div class="field"><label class="lbl">Description de l'anomalie *</label><textarea name="description" id="description" required>{{ v.description or '' }}</textarea></div>

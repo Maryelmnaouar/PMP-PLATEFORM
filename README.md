@@ -27,7 +27,16 @@ Ouvrir `http://127.0.0.1:5000`.
 - la base est créée automatiquement avec :
   - le compte **administrateur** ;
   - l'usine **Cobomi**, la ligne **MOR_CA_CSD_PET4** et ses **26 équipements** (références SAP).
+  - l'usine **CBGS**, la ligne **RGB2** et ses **28 équipements** (références SAP) ;
+  - les organes SAP de chaque machine (114 pour PET4, 159 pour RGB2).
 - Aucune donnée d'exemple n'est créée : ni utilisateurs, ni TAGs, ni checklists.
+- Une base existante est complétée au démarrage (usine CBGS, ligne RGB2, équipements, organes) sans rien modifier d'autre.
+
+**Usines et cloisonnement des données :**
+- chaque utilisateur est affecté à une ou plusieurs usines (*Utilisateurs & accès*) et, si besoin, à certaines lignes de ces usines ;
+- aucune ligne cochée pour une usine = toutes les lignes de cette usine ;
+- un utilisateur ne voit jamais les données (TAGs, machines, SGA, documents, personnes…) d'une usine à laquelle il n'est pas affecté ;
+- seul l'administrateur voit toutes les usines (ainsi qu'un compte *Groupe OE* affecté à aucune usine).
 - Si `ADMIN_PASSWORD` n'est pas défini, un **mot de passe provisoire** s'affiche dans la console (ou dans les logs Render). Changez-le ensuite dans **Mon compte**.
 
 ## 2. Variables d'environnement

@@ -57,6 +57,22 @@
       if (supSel) supSel.querySelectorAll('option[data-role]').forEach(o => { o.hidden = o.dataset.role !== want; if (o.hidden && o.selected) supSel.value = ''; });
     };
     roleSel.addEventListener('change', toggleChef); toggleChef();
+    // Usines / lignes / SGA : seules les lignes et SGA des usines cochées sont proposées
+    const scope = document.getElementById('scope-fields');
+    if (scope) {
+      const syncScope = () => {
+        const plants = new Set([...scope.querySelectorAll('.js-plant:checked')].map(c => c.value));
+        const lines = [...scope.querySelectorAll('.js-line')];
+        lines.forEach(c => { const on = plants.has(c.dataset.plant); c.closest('label').style.display = on ? '' : 'none'; if (!on) c.checked = false; });
+        const chosen = new Set(lines.filter(c => c.checked).map(c => c.value));
+        const restricted = new Set(lines.filter(c => c.checked).map(c => c.dataset.plant));
+        scope.querySelectorAll('.js-sga-opt').forEach(l => {
+          const on = plants.has(l.dataset.plant) && (!restricted.has(l.dataset.plant) || chosen.has(l.dataset.line));
+          l.style.display = on ? '' : 'none'; if (!on) l.querySelector('input').checked = false;
+        });
+      };
+      scope.addEventListener('change', syncScope); syncScope();
+    }
     roleSel.addEventListener('change', apply);
     modeSel.addEventListener('change', apply);
     apply();

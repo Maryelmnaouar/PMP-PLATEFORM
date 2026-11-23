@@ -18,7 +18,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import sap_integration as sap
-from organes_data import ORGANES
+from organes_data import ORGANES, CBGS_PLANT, RGB2_LINE, RGB2_EQUIPMENT
 import pg_store
 
 
@@ -422,7 +422,9 @@ def migrate_organes(conn):
         id INTEGER PRIMARY KEY AUTOINCREMENT, equipment_id INTEGER NOT NULL REFERENCES equipment(id) ON DELETE CASCADE,
         code TEXT UNIQUE, name TEXT NOT NULL, position INTEGER DEFAULT 0, active INTEGER DEFAULT 1)""")
     eq = {r[1]: r[0] for r in conn.execute("SELECT id, reference FROM equipment").fetchall()}
-    for pos, (eq_ref, code, name) in enumerate(ORGANES):
+    per_eq = {}
+    for eq_ref, code, name in ORGANES:
+        pos = per_eq[eq_ref] = per_eq.get(eq_ref, 0) + 1   # ordre de l'organe sur sa machine
         if eq_ref in eq:
             conn.execute("INSERT OR IGNORE INTO organes(equipment_id, code, name, position) VALUES(?,?,?,?)",
                          (eq[eq_ref], code, name, pos))
@@ -432,6 +434,44 @@ def migrate_organes(conn):
     for code, name in conn.execute("SELECT code, name FROM organes WHERE code IS NOT NULL").fetchall():
         for t in tables:  # noms de tables fixes (liste ci-dessus)
             conn.execute("UPDATE %s SET organe=? WHERE organe=?" % t, ("%s · %s" % (code, name), "%s (%s)" % (name, code)))
+    conn.commit()
+
+
+def migrate_multi_plant(conn):
+    """Affectation des utilisateurs à une ou plusieurs usines, et éventuellement à certaines lignes de ces usines.
+    Les données d'une usine ne sont visibles que par les personnes affectées à cette usine."""
+    conn.executescript("""
+    CREATE TABLE IF NOT EXISTS user_plants(
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, plant_id INTEGER REFERENCES plants(id) ON DELETE CASCADE,
+        PRIMARY KEY(user_id, plant_id));
+    CREATE TABLE IF NOT EXISTS user_lines(
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, line_id INTEGER REFERENCES lines(id) ON DELETE CASCADE,
+        PRIMARY KEY(user_id, line_id));""")
+    if not conn.execute("SELECT 1 FROM meta WHERE key='multi_plant'").fetchone():
+        plants = conn.execute("SELECT id FROM plants ORDER BY id").fetchall()
+        if len(plants) == 1:
+            # base mono-usine : les comptes existants sans usine sont rattachés à l'usine existante (Cobomi)
+            conn.execute("UPDATE users SET plant_id=? WHERE plant_id IS NULL AND role!='Administrateur'", (plants[0][0],))
+        conn.execute("INSERT OR IGNORE INTO user_plants(user_id, plant_id) SELECT id, plant_id FROM users WHERE plant_id IS NOT NULL")
+        conn.execute("INSERT INTO meta(key, value) VALUES('multi_plant', '1')")
+    conn.commit()
+
+
+def seed_cbgs(conn):
+    """Usine CBGS, ligne RGB2 et ses équipements (référentiel SAP). Créés une seule fois, sans rien modifier d'existant ;
+    les organes sont ajoutés ensuite par migrate_organes."""
+    if os.environ.get("SEED_BASE_DATA", "1") == "0" or conn.execute("SELECT 1 FROM meta WHERE key='seed_cbgs_rgb2'").fetchone():
+        return
+    p = conn.execute("SELECT id FROM plants WHERE UPPER(code)=? OR UPPER(name)=?", (CBGS_PLANT[0], CBGS_PLANT[1])).fetchone()
+    plant_id = p[0] if p else conn.execute("INSERT INTO plants(code, name, city) VALUES(?,?,?)", CBGS_PLANT).lastrowid
+    l = conn.execute("SELECT id FROM lines WHERE plant_id=? AND (code=? OR UPPER(name) IN (?, 'RGB2'))",
+                     (plant_id, RGB2_LINE[0], RGB2_LINE[1].upper())).fetchone()
+    line_id = l[0] if l else conn.execute("INSERT INTO lines(plant_id, code, name) VALUES(?,?,?)", (plant_id,) + RGB2_LINE).lastrowid
+    for pos, (ref, name) in enumerate(RGB2_EQUIPMENT, 1):
+        if not conn.execute("SELECT 1 FROM equipment WHERE reference=?", (ref,)).fetchone():
+            conn.execute("INSERT INTO equipment(line_id, sga_id, reference, name, position) VALUES(?,?,?,?,?)",
+                         (line_id, None, ref, name, pos))
+    conn.execute("INSERT INTO meta(key, value) VALUES('seed_cbgs_rgb2', ?)", (now(),))
     conn.commit()
 
 
@@ -482,6 +522,8 @@ def init_db():
             sap.migrate(conn)
             migrate_62(conn)
             migrate_63(conn)
+            migrate_multi_plant(conn)
+            seed_cbgs(conn)
             migrate_organes(conn)
             migrate_concours(conn)
             conn.close()
@@ -490,6 +532,8 @@ def init_db():
             sap.migrate(conn)
             migrate_62(conn, upgrade=row[0] in ("6.0", "6.1"))
             migrate_63(conn, upgrade=True)
+            migrate_multi_plant(conn)
+            seed_cbgs(conn)
             migrate_organes(conn)
             migrate_concours(conn)
             conn.execute("UPDATE meta SET value=? WHERE key='schema'", (SCHEMA_VERSION,))
@@ -507,6 +551,8 @@ def init_db():
     sap.migrate(conn)
     migrate_62(conn)
     migrate_63(conn)
+    migrate_multi_plant(conn)
+    seed_cbgs(conn)
     migrate_organes(conn)
     migrate_concours(conn)
     conn.commit()
@@ -583,19 +629,153 @@ def require(perm):
     return deco
 
 
-def scope_sga_ids(u=None):
-    """None = toutes les SGA ; sinon liste d'identifiants."""
-    u = u or g.user
-    if u["role"] in GLOBAL_ROLES:
+# --- Cloisonnement par usine -------------------------------------------------
+# Un utilisateur est affecté à une ou plusieurs usines (user_plants) et, s'il le faut, à certaines lignes de ces
+# usines (user_lines). Sans ligne choisie pour une usine, il voit toutes les lignes de cette usine.
+# Il ne voit jamais les données d'une usine à laquelle il n'est pas affecté.
+# Seul l'administrateur voit toutes les usines (ainsi qu'un compte « Groupe OE » affecté à aucune usine).
+def _scope_cache():
+    if "scope_cache" not in g:
+        g.scope_cache = {}
+    return g.scope_cache
+
+
+def _int(v):
+    try:
+        return int(v)
+    except (TypeError, ValueError):
         return None
-    if u["role"] in PLANT_ROLES:
-        return [r["id"] for r in q("SELECT s.id FROM sga s JOIN lines l ON l.id=s.line_id WHERE l.plant_id=?", (u["plant_id"],))]
-    if u["role"] in CHEF_ROLES:
-        # ses propres SGA + les SGA des membres de son équipe
-        return [r["sga_id"] for r in q("""SELECT sga_id FROM user_sga WHERE user_id=? UNION
-                                          SELECT us.sga_id FROM user_sga us JOIN users m ON m.id=us.user_id
-                                          WHERE m.supervisor_id=? AND m.active=1""", (u["id"], u["id"]))]
-    return [r["sga_id"] for r in q("SELECT sga_id FROM user_sga WHERE user_id=?", (u["id"],))]
+
+
+def user_plant_ids(u=None):
+    u = u or g.user
+    c, key = _scope_cache(), ("plants", u["id"])
+    if key not in c:
+        c[key] = [r["plant_id"] for r in q("SELECT up.plant_id FROM user_plants up JOIN plants p ON p.id=up.plant_id "
+                                           "WHERE up.user_id=? ORDER BY p.name", (u["id"],))]
+    return c[key]
+
+
+def user_line_ids(u=None):
+    u = u or g.user
+    return [r["line_id"] for r in q("SELECT line_id FROM user_lines WHERE user_id=?", (u["id"],))]
+
+
+def is_global(u=None):
+    u = u or g.user
+    return u["role"] == "Administrateur" or (u["role"] == "Groupe OE" and not user_plant_ids(u))
+
+
+def allowed_plant_ids(u=None):
+    """None = toutes les usines ; sinon les usines de l'utilisateur."""
+    u = u or g.user
+    return None if is_global(u) else user_plant_ids(u)
+
+
+def allowed_line_ids(u=None):
+    """None = toutes les lignes ; sinon les lignes visibles (lignes choisies, ou toutes les lignes de chaque usine)."""
+    u = u or g.user
+    if is_global(u):
+        return None
+    c, key = _scope_cache(), ("lines", u["id"])
+    if key not in c:
+        out = []
+        plants = user_plant_ids(u)
+        if plants:
+            chosen = {r["id"]: r["plant_id"] for r in q("SELECT l.id, l.plant_id FROM user_lines ul JOIN lines l ON l.id=ul.line_id "
+                                                        "WHERE ul.user_id=?", (u["id"],))}
+            restricted = set(chosen.values())
+            pc, pa = in_clause("plant_id", plants)
+            for l in q("SELECT id, plant_id FROM lines WHERE " + pc, pa):
+                if l["plant_id"] not in restricted or l["id"] in chosen:
+                    out.append(l["id"])
+        c[key] = out
+    return c[key]
+
+
+def line_allowed(line_id, u=None):
+    ids = allowed_line_ids(u)
+    return ids is None or _int(line_id) in ids
+
+
+def plant_allowed(plant_id, u=None):
+    ids = allowed_plant_ids(u)
+    return ids is None or _int(plant_id) in ids
+
+
+def ensure_line(line_id):
+    """Élément d'une ligne / usine hors du périmètre : traité comme inexistant."""
+    if not line_allowed(line_id):
+        abort(404)
+
+
+def wide_role(u=None):
+    """Profils qui voient toutes les données de leurs lignes (et pas seulement de leurs SGA)."""
+    u = u or g.user
+    return u["role"] in PLANT_ROLES or u["role"] in GLOBAL_ROLES
+
+
+def scope_sga_ids(u=None):
+    """None = toutes les SGA ; sinon liste d'identifiants (toujours limitée aux lignes / usines de l'utilisateur)."""
+    u = u or g.user
+    c, key = _scope_cache(), ("sga", u["id"])
+    if key in c:
+        return c[key]
+    lines = allowed_line_ids(u)
+    if lines is None:
+        res = None
+    else:
+        lc, la = in_clause("line_id", lines)
+        in_lines = {r["id"] for r in q("SELECT id FROM sga WHERE " + lc, la)}
+        if wide_role(u):
+            res = sorted(in_lines)
+        elif u["role"] in CHEF_ROLES:
+            # ses propres SGA + les SGA des membres de son équipe
+            res = [r["sga_id"] for r in q("""SELECT sga_id FROM user_sga WHERE user_id=? UNION
+                                             SELECT us.sga_id FROM user_sga us JOIN users m ON m.id=us.user_id
+                                             WHERE m.supervisor_id=? AND m.active=1""", (u["id"], u["id"])) if r["sga_id"] in in_lines]
+        else:
+            res = [r["sga_id"] for r in q("SELECT sga_id FROM user_sga WHERE user_id=?", (u["id"],)) if r["sga_id"] in in_lines]
+    c[key] = res
+    return res
+
+
+def data_scope(line_col, sga_col):
+    """Clause SQL des données visibles : par ligne pour les profils usine, par SGA pour les autres."""
+    if wide_role():
+        return in_clause(line_col, allowed_line_ids())
+    return in_clause(sga_col, scope_sga_ids())
+
+
+def in_data_scope(line_id, sga_id):
+    if not line_allowed(line_id):
+        return False
+    if wide_role():
+        return True
+    ids = scope_sga_ids()
+    return ids is None or sga_id in ids
+
+
+def users_scope(col="u.id"):
+    """Personnes visibles : celles qui partagent au moins une usine avec l'utilisateur connecté."""
+    plants = allowed_plant_ids()
+    if plants is None:
+        return "1=1", []
+    if not plants:
+        return "1=0", []
+    pc, pa = in_clause("plant_id", plants)
+    return "%s IN (SELECT user_id FROM user_plants WHERE %s)" % (col, pc), pa
+
+
+def scoped_plants():
+    pc, pa = in_clause("id", allowed_plant_ids())
+    return q("SELECT * FROM plants WHERE " + pc + " ORDER BY name", pa)
+
+
+def scoped_lines():
+    lc, la = in_clause("l.id", allowed_line_ids())
+    return q("SELECT l.*, p.name plant_name FROM lines l JOIN plants p ON p.id=l.plant_id WHERE " + lc +
+             " ORDER BY p.name, l.name", la)
 
 
 def in_clause(col, ids):
@@ -613,9 +793,10 @@ def scoped_sgas():
 
 
 def scoped_equipment():
-    clause, args = in_clause("e.sga_id", scope_sga_ids())
-    return q("SELECT e.*, s.name sga_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id WHERE " + clause +
-             " ORDER BY e.position, e.name", args)
+    clause, args = data_scope("e.line_id", "e.sga_id")
+    return q("SELECT e.*, s.name sga_name, l.name line_name, p.name plant_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id "
+             "JOIN lines l ON l.id=e.line_id JOIN plants p ON p.id=l.plant_id WHERE " + clause +
+             " ORDER BY p.name, l.name, e.position, e.name", args)
 
 
 def team_members(u=None, sga_id=None):
@@ -642,12 +823,14 @@ def team_members(u=None, sga_id=None):
 
 
 def can_act_on_tag(tag):
+    line_id = tag["eq_line_id"] if "eq_line_id" in tag.keys() else tag["line_id"]
+    if not line_allowed(line_id):
+        return False
     if can("tags_all"):
         return True
     if not can("tags_move"):
         return False
-    ids = scope_sga_ids()
-    return ids is None or tag["sga_id"] in ids
+    return in_data_scope(line_id, tag["sga_id"])
 
 
 def user_sga_names(user_id):
@@ -662,7 +845,13 @@ def inject():
                CIL_TYPES=CIL_TYPES, CIL=CIL)
     if g.get("user"):
         ctx["me_sgas"] = user_sga_names(g.user["id"])
-        ctx["nav_cm"] = q("SELECT COUNT(*) n FROM countermeasures WHERE status='À intégrer'", one=True)["n"] if can("checklists_manage") else 0
+        if can("checklists_manage"):
+            cc, ca = data_scope("e.line_id", "e.sga_id")
+            ctx["nav_cm"] = q("SELECT COUNT(*) n FROM countermeasures m JOIN equipment e ON e.id=m.equipment_id "
+                              "WHERE m.status='À intégrer' AND " + cc, ca, one=True)["n"]
+        else:
+            ctx["nav_cm"] = 0
+        ctx["me_plants"] = ", ".join(p["name"] for p in scoped_plants()) if not is_global() else "Toutes les usines"
         ctx["nav_tasks"] = q("SELECT COUNT(*) n FROM tasks WHERE assigned_to=? AND status IN ('À réaliser','En cours') AND due_date<='" + today().isoformat() + "'",
                              (g.user["id"],), one=True)["n"]
     return ctx
@@ -739,9 +928,9 @@ def dashboard_data(f):
     since = period_since(f.get("period") or "mois")
     clauses_t, args_t = [], []
     clauses_k, args_k = [], []
-    sc, sa = in_clause("t.sga_id", scope_sga_ids())
+    sc, sa = data_scope("e.line_id", "t.sga_id")
     clauses_t.append(sc); args_t += sa
-    sc, sa = in_clause("e.sga_id", scope_sga_ids())
+    sc, sa = data_scope("e.line_id", "e.sga_id")
     clauses_k.append(sc); args_k += sa
     for col, key in (("l.plant_id", "plant"), ("e.line_id", "line"), ("e.sga_id", "sga")):
         if f.get(key):
@@ -751,7 +940,8 @@ def dashboard_data(f):
     if f.get("user"):
         users = [int(f["user"])]
     elif f.get("chef"):
-        chef = q("SELECT * FROM users WHERE id=?", (f["chef"],), one=True)
+        uc, ua = users_scope("id")
+        chef = q("SELECT * FROM users WHERE id=? AND " + uc, [f["chef"]] + ua, one=True)
         users = [m["id"] for m in team_members(chef)] if chef else []
     if users is not None:
         c1, a1 = in_clause("t.observed_by", users)
@@ -780,7 +970,7 @@ def dashboard_data(f):
     to_confirm = sum(1 for k in tasks if k["status"] == "Réalisée") + sum(
         1 for t in tags if t["status"] in ("Traité", "Contre-mesure") and not t["confirmed_at"])
     # Transfert RCM -> AM
-    tr_clause, tr_args = in_clause("e.sga_id", scope_sga_ids())
+    tr_clause, tr_args = data_scope("e.line_id", "e.sga_id")
     extra, extra_a = "", []
     for col, key in (("l.plant_id", "plant"), ("e.line_id", "line"), ("e.sga_id", "sga")):
         if f.get(key):
@@ -790,7 +980,7 @@ def dashboard_data(f):
            tr_args + extra_a, one=True)
     transfer = pct(tr["tr"] or 0, (tr["tr"] or 0) + (tr["rcm"] or 0))
     # Audits
-    au_clause, au_args = in_clause("a.sga_id", scope_sga_ids())
+    au_clause, au_args = data_scope("s.line_id", "a.sga_id")
     au = q("SELECT AVG(a.score) s FROM audits a JOIN sga s ON s.id=a.sga_id JOIN lines l ON l.id=s.line_id WHERE " + au_clause +
            (" AND l.plant_id=?" if f.get("plant") else "") + (" AND s.line_id=?" if f.get("line") else "") +
            (" AND a.sga_id=?" if f.get("sga") else ""),
@@ -857,12 +1047,13 @@ def home_field():
     tasks = task_rows("k.assigned_to=? AND k.due_date<=? AND (k.status IN ('À réaliser','En cours') OR k.due_date>=?) ORDER BY "
                       "CASE k.status WHEN 'En cours' THEN 0 WHEN 'À réaliser' THEN 1 ELSE 2 END, k.due_date LIMIT 12",
                       (u["id"], today().isoformat(), week_bounds()[0].isoformat()))
-    clause, args = in_clause("t.sga_id", scope_sga_ids())
+    clause, args = data_scope("e.line_id", "t.sga_id")
     tags = q("SELECT t.*, e.name eq_name FROM tags t JOIN equipment e ON e.id=t.equipment_id WHERE " + clause +
              " AND (t.observed_by=? OR t.treated_by=? OR t.status IN ('Nouveau','En cours')) ORDER BY t.created_at DESC LIMIT 6",
              args + [u["id"], u["id"]])
-    docs = q("SELECT d.*, e.name eq_name FROM documents d JOIN equipment e ON e.id=d.equipment_id WHERE " +
-             in_clause("e.sga_id", scope_sga_ids())[0] + " ORDER BY d.doc_type, d.title LIMIT 6", in_clause("e.sga_id", scope_sga_ids())[1])
+    dc, da = data_scope("e.line_id", "e.sga_id")
+    docs = q("SELECT d.*, e.name eq_name FROM documents d JOIN equipment e ON e.id=d.equipment_id WHERE " + dc +
+             " ORDER BY d.doc_type, d.title LIMIT 6", da)
     return render_template("home_field.html", k=k, tasks=tasks, tags=tags, docs=docs)
 
 
@@ -879,7 +1070,9 @@ def home_team():
     for m in shown:
         k = user_kpis(m["id"], since)
         perf.append({"m": m, "k": k, "sga": user_sga_names(m["id"])})
-    ids = [int(sga_id)] if sga_id else scope_sga_ids()
+    ids = scope_sga_ids()
+    if sga_id:
+        ids = [int(sga_id)] if _int(sga_id) is not None and (ids is None or int(sga_id) in ids) else []
     clause, args = in_clause("t.sga_id", ids)
     tags = q("SELECT t.status, t.confirmed_at FROM tags t WHERE " + clause + " AND t.created_at>=?", args + [since.isoformat()])
     to_confirm_tasks, to_confirm_tags = [], []
@@ -913,9 +1106,10 @@ def dashboard(home=False):
     sc, sa = in_clause("us.sga_id", scope_sga_ids())
     users = q("SELECT DISTINCT u.* FROM users u JOIN user_sga us ON us.user_id=u.id WHERE u.active=1 AND " + sc +
               " AND u.role IN ('Opérateur','Technicien') ORDER BY u.name", sa)
-    chefs = q("SELECT * FROM users WHERE active=1 AND role IN (?,?,?) ORDER BY name", TEAM_ROLES)
-    plants = q("SELECT * FROM plants ORDER BY name")
-    lines = q("SELECT * FROM lines ORDER BY name")
+    uc, ua = users_scope("id")
+    chefs = q("SELECT * FROM users WHERE active=1 AND role IN (?,?,?) AND " + uc + " ORDER BY name", list(TEAM_ROLES) + ua)
+    plants = scoped_plants()
+    lines = scoped_lines()
     to_validate = SAP["pending_validation"](g.user) if (home and can("tag_validate")) else []
     return render_template("dashboard.html", to_validate=to_validate, d=data, f=f, sgas=scoped_sgas(), users=users, chefs=chefs, plants=plants,
                            lines=lines, is_home=home)
@@ -938,11 +1132,12 @@ def load_task(task_id):
     t = q("""SELECT k.*, c.name cl_name, COALESCE((SELECT SUM(ti.duration_min) FROM task_items ti WHERE ti.task_id=k.id), c.duration_min) std,
                COALESCE((SELECT GROUP_CONCAT(DISTINCT ti.organe) FROM task_items ti WHERE ti.task_id=k.id AND ti.organe!=''), c.organe) organe,
                COALESCE((SELECT GROUP_CONCAT(DISTINCT ti.frequency) FROM task_items ti WHERE ti.task_id=k.id), c.frequency) frequency, c.sop_url, c.machine_state, c.people,
-             c.equipment_id, c.code cl_code, c.countermeasure, e.name eq_name, e.sga_id, u.name user_name
+             c.equipment_id, c.code cl_code, c.countermeasure, e.name eq_name, e.sga_id, e.line_id eq_line_id, u.name user_name
              FROM tasks k JOIN checklists c ON c.id=k.checklist_id JOIN equipment e ON e.id=c.equipment_id
              LEFT JOIN users u ON u.id=k.assigned_to WHERE k.id=?""", (task_id,), one=True)
     if not t:
         abort(404)
+    ensure_line(t["eq_line_id"])
     return t
 
 
@@ -1045,7 +1240,7 @@ def confirm_tag(tag_id):
 # TAGs
 # ---------------------------------------------------------------------------
 def load_tag(tag_id):
-    t = q("""SELECT t.*, e.name eq_name, e.reference eq_ref, s.name sga_name, l.name line_name, p.name plant_name,
+    t = q("""SELECT t.*, e.name eq_name, e.reference eq_ref, e.line_id eq_line_id, s.name sga_name, l.name line_name, p.name plant_name,
              ob.name observed_name, tr.name treated_name, cf.name confirmed_name
              FROM tags t JOIN equipment e ON e.id=t.equipment_id LEFT JOIN sga s ON s.id=t.sga_id
              JOIN lines l ON l.id=e.line_id JOIN plants p ON p.id=l.plant_id
@@ -1053,12 +1248,13 @@ def load_tag(tag_id):
              LEFT JOIN users cf ON cf.id=t.confirmed_by WHERE t.id=?""", (tag_id,), one=True)
     if not t:
         abort(404)
+    ensure_line(t["eq_line_id"])
     return t
 
 
 def tag_query(extra="", args=()):
-    clause, sargs = in_clause("t.sga_id", scope_sga_ids())
-    return q("""SELECT t.*, e.name eq_name, s.name sga_name, ob.name observed_name, tr.name treated_name
+    clause, sargs = data_scope("e.line_id", "t.sga_id")
+    return q("""SELECT t.*, e.name eq_name, e.line_id eq_line_id, s.name sga_name, l.name line_name, ob.name observed_name, tr.name treated_name
                FROM tags t JOIN equipment e ON e.id=t.equipment_id LEFT JOIN sga s ON s.id=t.sga_id
                JOIN lines l ON l.id=e.line_id
                LEFT JOIN users ob ON ob.id=t.observed_by LEFT JOIN users tr ON tr.id=t.treated_by
@@ -1081,10 +1277,11 @@ def tag_filters():
 
 def assignable_users(sga_id=None):
     clause, args = in_clause("us.sga_id", [sga_id] if sga_id else scope_sga_ids())
-    rows = q("SELECT DISTINCT u.* FROM users u JOIN user_sga us ON us.user_id=u.id WHERE u.active=1 AND " + clause +
-             " ORDER BY CASE u.role WHEN 'Opérateur' THEN 0 WHEN 'Technicien' THEN 1 ELSE 2 END, u.name", args)
+    uc, ua = users_scope("u.id")
+    rows = q("SELECT DISTINCT u.* FROM users u JOIN user_sga us ON us.user_id=u.id WHERE u.active=1 AND " + clause + " AND " + uc +
+             " ORDER BY CASE u.role WHEN 'Opérateur' THEN 0 WHEN 'Technicien' THEN 1 ELSE 2 END, u.name", args + ua)
     if not rows:
-        rows = q("SELECT * FROM users WHERE active=1 AND role IN ('Opérateur','Technicien') ORDER BY name")
+        rows = q("SELECT * FROM users u WHERE active=1 AND role IN ('Opérateur','Technicien') AND " + uc + " ORDER BY name", ua)
     return rows
 
 
@@ -1098,8 +1295,10 @@ def tags_board():
             board[t["type"]][t["status"]].append(t)
     sel_sga = q("SELECT s.*, l.name line_name, p.name plant_name FROM sga s JOIN lines l ON l.id=s.line_id JOIN plants p ON p.id=l.plant_id WHERE s.id=?",
                 (f["sga"],), one=True) if f["sga"] else None
+    if sel_sga and not line_allowed(sel_sga["line_id"]):
+        sel_sga = None
     return render_template("tags_board.html", board=board, f=f, sgas=scoped_sgas(), equipment=scoped_equipment(),
-                           sel_sga=sel_sga, plants=q("SELECT * FROM plants"), lines=q("SELECT * FROM lines"),
+                           sel_sga=sel_sga, plants=scoped_plants(), lines=scoped_lines(),
                            users=active_users(), count=len(rows))
 
 
@@ -1108,7 +1307,7 @@ def tags_list():
     f, extra, args = tag_filters()
     rows = tag_query(extra + " ORDER BY t.created_at DESC", args)
     return render_template("tags_list.html", rows=rows, f=f, sgas=scoped_sgas(), equipment=scoped_equipment(),
-                           plants=q("SELECT * FROM plants"), lines=q("SELECT * FROM lines"), users=assignable_users())
+                           plants=scoped_plants(), lines=scoped_lines(), users=assignable_users())
 
 
 @app.route("/tags/registre/export.xlsx")
@@ -1176,7 +1375,8 @@ def tags_export():
 
 
 def active_users():
-    return q("SELECT id, name, role FROM users WHERE active=1 ORDER BY name")
+    uc, ua = users_scope("id")
+    return q("SELECT id, name, role FROM users WHERE active=1 AND " + uc + " ORDER BY name", ua)
 
 
 def save_photo(file):
@@ -1202,8 +1402,7 @@ def clean_ref(v):
 @app.route("/tags/new", methods=["GET", "POST"])
 @require("tags_create")
 def tag_new():
-    equipment = scoped_equipment() if not is_admin() else q(
-        "SELECT e.*, s.name sga_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id ORDER BY e.position, e.name")
+    equipment = scoped_equipment()
     users = active_users()
     if request.method == "POST":
         form = request.form
@@ -1218,6 +1417,8 @@ def tag_new():
         if not form.get("description", "").strip():
             errors.append("Décrivez l'anomalie.")
         observer = q("SELECT id FROM users WHERE id=? AND active=1", (form.get("observed_by") or 0,), one=True)
+        if observer and observer["id"] not in [x["id"] for x in users]:
+            observer = None
         if not observer:
             errors.append("Choisissez la personne qui a découvert l'anomalie.")
         if errors:
@@ -1257,8 +1458,7 @@ def tag_new():
 @app.route("/tags/<int:tag_id>")
 def tag_detail(tag_id):
     t = load_tag(tag_id)
-    ids = scope_sga_ids()
-    if not (is_admin() or can("tags_all") or ids is None or t["sga_id"] in ids or t["observed_by"] == g.user["id"]):
+    if not (is_admin() or can("tags_all") or in_data_scope(t["eq_line_id"], t["sga_id"]) or t["observed_by"] == g.user["id"]):
         abort(403)
     history = q("SELECT h.*, u.name user_name FROM tag_history h LEFT JOIN users u ON u.id=h.user_id WHERE h.tag_id=? ORDER BY h.at, h.id", (tag_id,))
     cms = q("""SELECT m.*, c.code cl_code, c.name cl_name FROM countermeasures m LEFT JOIN checklists c ON c.id=m.checklist_id
@@ -1292,7 +1492,7 @@ def tag_validate(tag_id):
     team = [m["id"] for m in team_members()] if g.user["role"] in CHEF_ROLES else []
     other_chef = q("""SELECT s.id FROM users o JOIN users s ON s.id=o.supervisor_id
                       WHERE o.id=? AND s.role=? AND s.id!=?""", (t["observed_by"], g.user["role"], g.user["id"]), one=True)
-    in_scope = (ids is None or t["sga_id"] in ids) and not (g.user["role"] in CHEF_ROLES and other_chef)
+    in_scope = (ids is None or t["sga_id"] in ids or (wide_role() and line_allowed(t["eq_line_id"]))) and not (g.user["role"] in CHEF_ROLES and other_chef)
     if not (is_admin() or in_scope or t["observed_by"] in team):
         abort(403)
     back = url_for("tag_detail", tag_id=tag_id, validate=1)
@@ -1532,7 +1732,7 @@ def tag_move(tag_id):
     comment = request.form.get("comment", "")
     ot = clean_ref(request.form.get("ot_number")) if needs_sap(t) else ""
     treated_form = request.form.get("treated_by")
-    if treated_form and not q("SELECT 1 FROM users WHERE id=? AND active=1", (treated_form,), one=True):
+    if treated_form and _int(treated_form) not in [u["id"] for u in active_users()]:
         return fail("Personne inconnue.")
     if target == "En cours":
         sets += ["treated_by=?", "treatment_start=COALESCE(treatment_start, ?)"]
@@ -1605,7 +1805,7 @@ def tag_edit(tag_id):
     if not is_admin():
         abort(403)
     t = load_tag(tag_id)
-    equipment = q("SELECT e.*, s.name sga_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id ORDER BY e.position, e.name")
+    equipment = scoped_equipment()
     if request.method == "POST":
         f = request.form
         e = q("SELECT * FROM equipment WHERE id=?", (f.get("equipment_id") or 0,), one=True)
@@ -1720,13 +1920,14 @@ def checklist_rows(where="1=1", args=()):
 
 @app.route("/checklists")
 def checklists():
-    clause, args = in_clause("e.sga_id", scope_sga_ids())
+    clause, args = data_scope("e.line_id", "e.sga_id")
     sga = request.args.get("sga", "")
     extra, ea = "", []
     if sga:
         extra, ea = " AND e.sga_id=?", [sga]
     rows = checklist_rows(clause + extra + " ORDER BY c.active DESC, s.name, e.position, c.code", args + ea)
-    operators = q("SELECT * FROM users WHERE active=1 AND role='Opérateur' ORDER BY name")
+    uc, ua = users_scope("id")
+    operators = q("SELECT * FROM users WHERE active=1 AND role='Opérateur' AND " + uc + " ORDER BY name", ua)
     return render_template("checklists.html", rows=rows, sgas=scoped_sgas(), sel_sga=sga, operators=operators)
 
 
@@ -1769,15 +1970,32 @@ def save_items(cid, rows):
     ex("DELETE FROM checklist_items WHERE checklist_id=? AND NOT (" + clause + ")", [cid] + args)
 
 
+def form_equipment():
+    """Machines proposées dans les formulaires : celles des lignes de l'utilisateur."""
+    lc, la = in_clause("e.line_id", allowed_line_ids())
+    return q("SELECT e.*, s.name sga_name, l.name line_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id "
+             "JOIN lines l ON l.id=e.line_id WHERE " + lc + " ORDER BY l.name, e.position", la)
+
+
+def form_people(with_sgas=True):
+    uc, ua = users_scope("u.id")
+    return q("SELECT u.*, " + ("(SELECT GROUP_CONCAT(s.name, ', ') FROM user_sga us JOIN sga s ON s.id=us.sga_id WHERE us.user_id=u.id)"
+                                 if with_sgas else "''") + " sgas FROM users u WHERE u.active=1 AND u.role IN ('Opérateur','Technicien','Leader SGA') AND "
+             + uc + " ORDER BY u.role, u.name", ua)
+
+
 def checklist_form(cl=None):
-    equipment = q("SELECT e.*, s.name sga_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id ORDER BY e.position")
-    users = q("SELECT u.*, (SELECT GROUP_CONCAT(s.name, ', ') FROM user_sga us JOIN sga s ON s.id=us.sga_id WHERE us.user_id=u.id) sgas "
-              "FROM users u WHERE u.active=1 AND u.role IN ('Opérateur','Technicien','Leader SGA') ORDER BY u.role, u.name")
+    equipment = form_equipment()
+    users = form_people()
     if request.method == "POST":
         f = request.form
         rows, errors = item_rows_from_form(f)
         if not f.get("name") or not f.get("equipment_id"):
             errors.insert(0, "Le nom de la checklist et la machine sont obligatoires.")
+        elif _int(f.get("equipment_id")) not in [e["id"] for e in equipment]:
+            errors.insert(0, "Machine hors de votre périmètre.")
+        if f.get("assigned_to") and _int(f.get("assigned_to")) not in [u["id"] for u in users]:
+            errors.append("Personne hors de votre périmètre.")
         if errors:
             for er in errors:
                 flash(er, "error")
@@ -1810,17 +2028,23 @@ def checklist_new():
     return checklist_form()
 
 
+def load_checklist(cid):
+    cl = q("SELECT c.*, e.line_id eq_line_id FROM checklists c JOIN equipment e ON e.id=c.equipment_id WHERE c.id=?", (cid,), one=True) or abort(404)
+    ensure_line(cl["eq_line_id"])
+    return cl
+
+
 @app.route("/checklists/<int:cid>/edit", methods=["GET", "POST"])
 @require("checklists_manage")
 def checklist_edit(cid):
-    cl = q("SELECT * FROM checklists WHERE id=?", (cid,), one=True) or abort(404)
+    cl = load_checklist(cid)
     return checklist_form(cl)
 
 
 @app.route("/checklists/<int:cid>/transfer", methods=["POST"])
 @require("checklists_manage")
 def checklist_transfer(cid):
-    cl = q("SELECT * FROM checklists WHERE id=?", (cid,), one=True) or abort(404)
+    cl = load_checklist(cid)
     assignee = request.form.get("assigned_to") or cl["assigned_to"]
     ex("UPDATE checklists SET transferred=1, transfer_date=?, activity_type='AM', assigned_to=? WHERE id=?",
        (today().isoformat(), assignee, cid))
@@ -1831,7 +2055,8 @@ def checklist_transfer(cid):
 
 @app.route("/checklists/<int:cid>/history")
 def checklist_history(cid):
-    cl = q("SELECT c.*, e.name eq_name FROM checklists c JOIN equipment e ON e.id=c.equipment_id WHERE c.id=?", (cid,), one=True) or abort(404)
+    cl = q("SELECT c.*, e.name eq_name, e.line_id eq_line_id FROM checklists c JOIN equipment e ON e.id=c.equipment_id WHERE c.id=?", (cid,), one=True) or abort(404)
+    ensure_line(cl["eq_line_id"])
     rows = task_rows("k.checklist_id=? ORDER BY k.due_date DESC", (cid,))
     items = q("SELECT * FROM checklist_items WHERE checklist_id=? ORDER BY position", (cid,))
     return render_template("checklist_history.html", cl=cl, rows=rows, items=items)
@@ -1841,6 +2066,9 @@ def checklist_history(cid):
 def api_organes():
     """Organes de la machine : référentiel (liste déroulante). À défaut, organes déjà saisis sur cette machine."""
     eid = request.args.get("equipment_id", 0)
+    e = q("SELECT line_id FROM equipment WHERE id=?", (eid,), one=True)
+    if not e or not line_allowed(e["line_id"]):
+        return jsonify([])
     ref = q("SELECT code, name FROM organes WHERE equipment_id=? AND active=1 ORDER BY position, name", (eid,))
     if ref:
         return jsonify([organe_label(o) for o in ref])
@@ -1854,9 +2082,11 @@ def api_organes():
 def planning_rows(kind, start, end):
     freqs = PLAN_PERIODS[kind][1]
     clause, fargs = in_clause("i.frequency", freqs)
+    lc, la = in_clause("e.line_id", allowed_line_ids())
     items = q("""SELECT i.*, c.name cl_name, c.code cl_code, c.assigned_to cl_assignee, c.equipment_id, e.name eq_name, e.reference eq_ref,
                  s.name sga_name FROM checklist_items i JOIN checklists c ON c.id=i.checklist_id JOIN equipment e ON e.id=c.equipment_id
-                 LEFT JOIN sga s ON s.id=e.sga_id WHERE c.active=1 AND """ + clause + " ORDER BY s.name, e.position, c.code, i.position", fargs)
+                 LEFT JOIN sga s ON s.id=e.sga_id WHERE c.active=1 AND """ + clause + " AND " + lc +
+              " ORDER BY s.name, e.position, c.code, i.position", fargs + la)
     out = []
     for it in items:
         # une tâche quotidienne n'est pas créée pour les jours déjà passés de la période
@@ -1880,6 +2110,8 @@ def planning():
     start, end = plan_bounds(kind, ref)
     if request.method == "POST":
         selected = set(request.form.getlist("sel"))
+        uc, ua = users_scope("id")
+        allowed_people = {r["id"] for r in q("SELECT id FROM users WHERE active=1 AND " + uc, ua)}
         groups = {}
         missing = 0
         for r in planning_rows(kind, start, end):
@@ -1887,6 +2119,8 @@ def planning():
             if str(it["id"]) not in selected:
                 continue
             who = request.form.get("assignee_%d" % it["id"])
+            if who and _int(who) not in allowed_people:
+                who = None
             if not who:
                 missing += 1
                 continue
@@ -1905,10 +2139,12 @@ def planning():
                                                                                   end.strftime("%d/%m/%Y")), "success")
         return redirect(url_for("planning", period=kind, date=ref.isoformat()))
     rows = planning_rows(kind, start, end)
+    uc, ua = users_scope("u.id")
     people = q("""SELECT u.*, (SELECT GROUP_CONCAT(s.name, ', ') FROM user_sga us JOIN sga s ON s.id=us.sga_id WHERE us.user_id=u.id) sgas
                   FROM users u WHERE u.active=1 AND u.role IN ('Opérateur','Technicien','Leader SGA','Chef d''équipe Production',
-                  'Chef d''équipe Maintenance') ORDER BY u.role, u.name""")
-    done = task_rows("k.due_date>=? AND k.due_date<=? ORDER BY k.due_date, u.name", (start.isoformat(), end.isoformat()))
+                  'Chef d''équipe Maintenance') AND """ + uc + " ORDER BY u.role, u.name", ua)
+    lc, la = in_clause("e.line_id", allowed_line_ids())
+    done = task_rows("k.due_date>=? AND k.due_date<=? AND " + lc + " ORDER BY k.due_date, u.name", [start.isoformat(), end.isoformat()] + la)
     prev_ref = start - dt.timedelta(days=1)
     next_ref = end + dt.timedelta(days=1)
     return render_template("planning.html", kind=kind, rows=rows, people=people, done=done, start=start, end=end,
@@ -1918,7 +2154,9 @@ def planning():
 @app.route("/planning/task/<int:task_id>/cancel", methods=["POST"])
 @require("checklists_manage")
 def planning_cancel(task_id):
-    t = q("SELECT * FROM tasks WHERE id=?", (task_id,), one=True) or abort(404)
+    t = q("SELECT k.*, e.line_id eq_line_id FROM tasks k JOIN checklists c ON c.id=k.checklist_id JOIN equipment e ON e.id=c.equipment_id "
+          "WHERE k.id=?", (task_id,), one=True) or abort(404)
+    ensure_line(t["eq_line_id"])
     started = q("SELECT COUNT(*) n FROM task_items WHERE task_id=? AND ok IS NOT NULL", (task_id,), one=True)["n"]
     if t["status"] != "À réaliser" or started:
         flash("Cet ordre de travail est déjà commencé : il ne peut plus être annulé.", "error")
@@ -1936,23 +2174,25 @@ def planning_cancel(task_id):
 @app.route("/countermeasures")
 def countermeasures():
     st = request.args.get("status", "À intégrer")
-    clause, args = in_clause("e.sga_id", scope_sga_ids())
+    clause, args = data_scope("e.line_id", "e.sga_id")
     extra, ea = "", []
     if st in ("À intégrer", "Intégrée"):
         extra, ea = " AND m.status=?", [st]
     rows = q("""SELECT m.*, t.tag_code, t.type tag_type, e.name eq_name, e.reference eq_ref, s.name sga_name, c.code cl_code, c.name cl_name,
                u.name author FROM countermeasures m JOIN equipment e ON e.id=m.equipment_id LEFT JOIN sga s ON s.id=e.sga_id
                LEFT JOIN tags t ON t.id=m.tag_id LEFT JOIN checklists c ON c.id=m.checklist_id LEFT JOIN users u ON u.id=m.created_by
-               WHERE """ + ("1=1" if is_admin() else clause) + extra + " ORDER BY m.created_at DESC", ([] if is_admin() else args) + ea)
-    counts = {r["status"]: r["n"] for r in q("SELECT status, COUNT(*) n FROM countermeasures GROUP BY status")}
+               WHERE """ + clause + extra + " ORDER BY m.created_at DESC", args + ea)
+    counts = {r["status"]: r["n"] for r in q("SELECT m.status, COUNT(*) n FROM countermeasures m JOIN equipment e ON e.id=m.equipment_id "
+                                             "WHERE " + clause + " GROUP BY m.status", args)}
     return render_template("countermeasures.html", rows=rows, st=st, counts=counts)
 
 
 @app.route("/countermeasures/<int:mid>/integrate", methods=["GET", "POST"])
 @require("checklists_manage")
 def countermeasure_integrate(mid):
-    m = q("""SELECT m.*, t.tag_code, e.name eq_name, e.reference eq_ref FROM countermeasures m JOIN equipment e ON e.id=m.equipment_id
-             LEFT JOIN tags t ON t.id=m.tag_id WHERE m.id=?""", (mid,), one=True) or abort(404)
+    m = q("""SELECT m.*, t.tag_code, e.name eq_name, e.reference eq_ref, e.line_id eq_line_id FROM countermeasures m
+             JOIN equipment e ON e.id=m.equipment_id LEFT JOIN tags t ON t.id=m.tag_id WHERE m.id=?""", (mid,), one=True) or abort(404)
+    ensure_line(m["eq_line_id"])
     cls = q("SELECT * FROM checklists WHERE equipment_id=? AND active=1 ORDER BY code", (m["equipment_id"],))
     target = request.values.get("checklist_id", "")
     tasks = [x for x in (m["tasks"] or m["countermeasure"]).splitlines() if x.strip()]
@@ -1968,15 +2208,13 @@ def countermeasure_integrate(mid):
         v = {"name": "CILT %s" % (m["eq_name"] or ""), "equipment_id": m["equipment_id"], "machine_state": m["machine_state"],
              "people": m["people"] or 1, "sop_url": m["sop_url"], "activity_type": m["activity_type"] or "AM", "active": 1, "from_cm": mid}
         return render_template("checklist_form.html", cl=None, v=v, items=new_items, cm=m,
-                               equipment=q("SELECT e.*, s.name sga_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id ORDER BY e.position"),
-                               users=q("SELECT u.*, '' sgas FROM users u WHERE u.active=1 AND u.role IN ('Opérateur','Technicien','Leader SGA') ORDER BY u.role, u.name"))
+                               equipment=form_equipment(), users=form_people(False))
     cl = q("SELECT * FROM checklists WHERE id=? AND equipment_id=?", (target, m["equipment_id"]), one=True) or abort(404)
     items = [dict(i) for i in q("SELECT * FROM checklist_items WHERE checklist_id=? ORDER BY position", (cl["id"],))] + new_items
     v = dict(cl)
     v["from_cm"] = mid
     return render_template("checklist_form.html", cl=cl, v=v, items=items, cm=m,
-                           equipment=q("SELECT e.*, s.name sga_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id ORDER BY e.position"),
-                           users=q("SELECT u.*, '' sgas FROM users u WHERE u.active=1 AND u.role IN ('Opérateur','Technicien','Leader SGA') ORDER BY u.role, u.name"))
+                           equipment=form_equipment(), users=form_people(False))
 
 
 # ---------------------------------------------------------------------------
@@ -1985,11 +2223,13 @@ def countermeasure_integrate(mid):
 @app.route("/documentation")
 def documentation():
     eq_id = request.args.get("equipment", "")
-    plants = q("SELECT * FROM plants ORDER BY name")
+    plants = scoped_plants()
     tree = []
     for p in plants:
         lines = []
         for l in q("SELECT * FROM lines WHERE plant_id=? ORDER BY name", (p["id"],)):
+            if not line_allowed(l["id"]):
+                continue
             sgas = []
             for s in q("SELECT * FROM sga WHERE line_id=? ORDER BY name", (l["id"],)):
                 sgas.append({"s": s, "eq": q("SELECT * FROM equipment WHERE sga_id=? ORDER BY position", (s["id"],))})
@@ -2001,21 +2241,26 @@ def documentation():
     if eq_id:
         eq = q("SELECT e.*, s.name sga_name, l.name line_name, p.name plant_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id "
                "JOIN lines l ON l.id=e.line_id JOIN plants p ON p.id=l.plant_id WHERE e.id=?", (eq_id,), one=True)
+        if eq:
+            ensure_line(eq["line_id"])
         docs = q("SELECT * FROM documents WHERE equipment_id=? ORDER BY doc_type, title", (eq_id,))
         cls = q("SELECT * FROM checklists WHERE equipment_id=? AND active=1 ORDER BY code", (eq_id,))
     else:
         cls = []
     dtype = request.args.get("type", "")
     return render_template("documentation.html", tree=tree, eq=eq, docs=docs, cls=cls, dtype=dtype,
-                           all_equipment=q("SELECT * FROM equipment ORDER BY position"))
+                           all_equipment=form_equipment())
 
 
 @app.route("/documentation/add", methods=["POST"])
 @require("docs_manage")
 def doc_add():
     f = request.form
+    e = q("SELECT line_id FROM equipment WHERE id=?", (f.get("equipment_id") or 0,), one=True)
     if not f.get("equipment_id") or not f.get("title"):
         flash("Équipement et titre obligatoires.", "error")
+    elif not e or not line_allowed(e["line_id"]):
+        abort(404)
     else:
         ex("INSERT INTO documents(equipment_id,title,doc_type,version,owner,url,updated_at) VALUES(?,?,?,?,?,?,?)",
            (f["equipment_id"], f["title"], f.get("doc_type", "SOP"), f.get("version", "1.0"), f.get("owner", ""),
@@ -2027,7 +2272,8 @@ def doc_add():
 @app.route("/documentation/<int:doc_id>/delete", methods=["POST"])
 @require("docs_manage")
 def doc_delete(doc_id):
-    d = q("SELECT * FROM documents WHERE id=?", (doc_id,), one=True) or abort(404)
+    d = q("SELECT d.*, e.line_id eq_line_id FROM documents d JOIN equipment e ON e.id=d.equipment_id WHERE d.id=?", (doc_id,), one=True) or abort(404)
+    ensure_line(d["eq_line_id"])
     ex("DELETE FROM documents WHERE id=?", (doc_id,))
     flash("Document supprimé.", "success")
     return redirect(url_for("documentation", equipment=d["equipment_id"]))
@@ -2038,8 +2284,10 @@ def doc_delete(doc_id):
 # ---------------------------------------------------------------------------
 @app.route("/synoptic")
 def synoptic():
-    lines = q("SELECT l.*, p.name plant_name FROM lines l JOIN plants p ON p.id=l.plant_id ORDER BY p.name, l.name")
+    lines = scoped_lines()
     line_id = request.args.get("line") or (str(lines[0]["id"]) if lines else "")
+    if line_id and not line_allowed(line_id):
+        abort(404)
     eqs = q("SELECT e.*, s.name sga_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id WHERE e.line_id=? ORDER BY e.position", (line_id or 0,))
     data = []
     for e in eqs:
@@ -2059,6 +2307,7 @@ def sga_board_data(sga_id):
           (sga_id,), one=True)
     if not s:
         abort(404)
+    ensure_line(s["line_id"])
     b = q("SELECT b.*, u.name updated_name FROM sga_board b LEFT JOIN users u ON u.id=b.updated_by WHERE b.sga_id=?", (sga_id,), one=True)
     eqs = q("SELECT * FROM equipment WHERE sga_id=? ORDER BY position", (sga_id,))
     eq_ids = [e["id"] for e in eqs]
@@ -2103,9 +2352,9 @@ def sga_board_data(sga_id):
 
 @app.route("/sga-board")
 def sga_board():
-    sgas = scoped_sgas() if not is_admin() else q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id ORDER BY s.name")
-    if not sgas:
-        sgas = q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id ORDER BY s.name")
+    lc, la = in_clause("s.line_id", allowed_line_ids())
+    line_sgas = q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id WHERE " + lc + " ORDER BY s.name", la)
+    sgas = scoped_sgas() or line_sgas   # consultation : les SGA de ses lignes / usines (jamais celles d'une autre usine)
     sga_id = request.args.get("sga") or (str(sgas[0]["id"]) if sgas else None)
     if not sga_id:
         return render_template("message.html", title="Tableau SGA", message="Aucune SGA n'est encore créée.")
@@ -2167,17 +2416,15 @@ def allowed_levels():
 
 
 def audit_sgas_for(level):
-    if level == "Groupe OE" or is_admin():
-        return q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id ORDER BY s.name")
-    if level == "Plant Manager":
-        return q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id WHERE l.plant_id=? ORDER BY s.name",
-                 (g.user["plant_id"],))
+    if level in ("Groupe OE", "Plant Manager") or is_admin():
+        lc, la = in_clause("s.line_id", allowed_line_ids())
+        return q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id WHERE " + lc + " ORDER BY s.name", la)
     return scoped_sgas()
 
 
 @app.route("/audits")
 def audits():
-    clause, args = in_clause("a.sga_id", scope_sga_ids())
+    clause, args = data_scope("s.line_id", "a.sga_id")
     rows = q("""SELECT a.*, s.name sga_name, u.name auditor FROM audits a JOIN sga s ON s.id=a.sga_id LEFT JOIN users u ON u.id=a.auditor_id
                WHERE """ + clause + " ORDER BY a.audit_date DESC, a.id DESC", args)
     status = []
@@ -2227,8 +2474,9 @@ def audit_new():
 
 @app.route("/audits/<int:audit_id>")
 def audit_detail(audit_id):
-    a = q("SELECT a.*, s.name sga_name, u.name auditor FROM audits a JOIN sga s ON s.id=a.sga_id LEFT JOIN users u ON u.id=a.auditor_id WHERE a.id=?",
+    a = q("SELECT a.*, s.name sga_name, s.line_id, u.name auditor FROM audits a JOIN sga s ON s.id=a.sga_id LEFT JOIN users u ON u.id=a.auditor_id WHERE a.id=?",
           (audit_id,), one=True) or abort(404)
+    ensure_line(a["line_id"])
     items = q("SELECT * FROM audit_items WHERE audit_id=? ORDER BY id", (audit_id,))
     return render_template("audit_detail.html", a=a, items=items, threshold=AUDIT_THRESHOLD)
 
@@ -2250,18 +2498,23 @@ def sga_advance(sga_id):
 def pdr():
     parts = q("SELECT * FROM spare_parts ORDER BY reference")
     st = request.args.get("status", "")
+    lc, la = in_clause("e.line_id", allowed_line_ids())
+    uc, ua = users_scope("r.requester_id")
     rows = q("""SELECT r.*, p.reference part_ref, p.stock, p.min_stock, e.name eq_name, t.tag_code, u.name requester
                FROM pdr_requests r LEFT JOIN spare_parts p ON p.id=r.part_id LEFT JOIN equipment e ON e.id=r.equipment_id
-               LEFT JOIN tags t ON t.id=r.tag_id LEFT JOIN users u ON u.id=r.requester_id """ +
-             ("WHERE r.status=? " if st else "") + "ORDER BY r.id DESC", (st,) if st else ())
+               LEFT JOIN tags t ON t.id=r.tag_id LEFT JOIN users u ON u.id=r.requester_id
+               WHERE ((r.equipment_id IS NOT NULL AND """ + lc + ") OR (r.equipment_id IS NULL AND " + uc + "))" +
+             (" AND r.status=? " if st else " ") + "ORDER BY r.id DESC", la + ua + ([st] if st else []))
     kpi = {"low": sum(1 for p in parts if p["stock"] <= p["min_stock"]),
            "waiting": q("SELECT COUNT(*) n FROM pdr_requests WHERE status IN ('Demandée','Validée')", one=True)["n"],
            "ordered": q("SELECT COUNT(*) n FROM pdr_requests WHERE status='Commandée'", one=True)["n"],
            "received": q("SELECT COUNT(*) n FROM pdr_requests WHERE status='Réceptionnée' AND received_at>=?",
                          ((today() - dt.timedelta(days=7)).isoformat(),), one=True)["n"]}
-    tags = q("SELECT t.id, t.tag_code, t.description FROM tags t WHERE t.status IN ('Nouveau','En cours') AND t.type='RCM' ORDER BY t.id DESC")
+    tc, ta = in_clause("t.line_id", allowed_line_ids())
+    tags = q("SELECT t.id, t.tag_code, t.description FROM tags t WHERE t.status IN ('Nouveau','En cours') AND t.type='RCM' AND " + tc +
+             " ORDER BY t.id DESC", ta)
     return render_template("pdr.html", parts=parts, rows=rows, kpi=kpi, tags=tags, st=st, statuses=PDR_STATUSES,
-                           equipment=q("SELECT * FROM equipment ORDER BY position"))
+                           equipment=form_equipment())
 
 
 @app.route("/pdr/request", methods=["POST"])
@@ -2273,6 +2526,10 @@ def pdr_request():
     if not des or not f.get("qty"):
         flash("Article et quantité obligatoires.", "error")
         return redirect(url_for("pdr"))
+    if f.get("equipment_id") and _int(f.get("equipment_id")) not in [e["id"] for e in form_equipment()]:
+        abort(404)
+    if f.get("tag_id"):
+        load_tag(_int(f.get("tag_id")) or 0)
     n = q("SELECT COUNT(*)+41 n FROM pdr_requests", one=True)["n"]
     ex("""INSERT INTO pdr_requests(code,part_id,designation,qty,equipment_id,tag_id,requester_id,status,comment,created_at)
        VALUES(?,?,?,?,?,?,?, 'Demandée', ?, ?)""",
@@ -2284,7 +2541,10 @@ def pdr_request():
 
 @app.route("/pdr/<int:rid>/<action>", methods=["POST"])
 def pdr_action(rid, action):
-    r = q("SELECT * FROM pdr_requests WHERE id=?", (rid,), one=True) or abort(404)
+    r = q("SELECT r.*, e.line_id eq_line_id FROM pdr_requests r LEFT JOIN equipment e ON e.id=r.equipment_id WHERE r.id=?",
+          (rid,), one=True) or abort(404)
+    if r["eq_line_id"] is not None:
+        ensure_line(r["eq_line_id"])
     if action in ("validate", "refuse") and can("pdr_validate") and r["status"] == "Demandée":
         ex("UPDATE pdr_requests SET status=?, validated_by=?, validated_at=? WHERE id=?",
            ("Validée" if action == "validate" else "Refusée", g.user["id"], now(), rid))
@@ -2327,22 +2587,47 @@ ENTITIES = {
     "line": {"table": "lines", "label": "ligne"},
     "sga": {"table": "sga", "label": "SGA"},
     "equipment": {"table": "equipment", "label": "équipement"},
+    "organe": {"table": "organes", "label": "organe"},
 }
+TAB_OF = {"plant": "plants", "line": "lines", "sga": "sga", "equipment": "equipment", "organe": "organes"}
 
 
 @app.route("/settings")
 @require("settings")
 def settings():
     tab = request.args.get("tab", "plants")
-    plants = q("SELECT p.*, (SELECT COUNT(*) FROM lines l WHERE l.plant_id=p.id) n_lines FROM plants p ORDER BY name")
+    pc, pa = in_clause("p.id", allowed_plant_ids())
+    lc, la = in_clause("l.id", allowed_line_ids())
+    plants = q("SELECT p.*, (SELECT COUNT(*) FROM lines l WHERE l.plant_id=p.id) n_lines FROM plants p WHERE " + pc + " ORDER BY name", pa)
     lines = q("SELECT l.*, p.name plant_name, (SELECT COUNT(*) FROM equipment e WHERE e.line_id=l.id) n_eq, "
-              "(SELECT COUNT(*) FROM sga s WHERE s.line_id=l.id) n_sga FROM lines l JOIN plants p ON p.id=l.plant_id ORDER BY p.name, l.name")
+              "(SELECT COUNT(*) FROM sga s WHERE s.line_id=l.id) n_sga FROM lines l JOIN plants p ON p.id=l.plant_id WHERE " + lc +
+              " ORDER BY p.name, l.name", la)
     sgas = q("SELECT s.*, l.name line_name, p.name plant_name, (SELECT COUNT(*) FROM equipment e WHERE e.sga_id=s.id) n_eq, "
              "(SELECT COUNT(*) FROM user_sga us WHERE us.sga_id=s.id) n_users FROM sga s JOIN lines l ON l.id=s.line_id "
-             "JOIN plants p ON p.id=l.plant_id ORDER BY s.name")
-    eqs = q("SELECT e.*, l.name line_name, p.name plant_name, s.name sga_name FROM equipment e JOIN lines l ON l.id=e.line_id "
-            "JOIN plants p ON p.id=l.plant_id LEFT JOIN sga s ON s.id=e.sga_id ORDER BY p.name, l.name, e.position")
-    return render_template("settings.html", tab=tab, plants=plants, lines=lines, sgas=sgas, eqs=eqs)
+             "JOIN plants p ON p.id=l.plant_id WHERE " + lc + " ORDER BY p.name, l.name, s.name", la)
+    eqs = q("SELECT e.*, l.name line_name, p.name plant_name, s.name sga_name, (SELECT COUNT(*) FROM organes o WHERE o.equipment_id=e.id) n_org "
+            "FROM equipment e JOIN lines l ON l.id=e.line_id "
+            "JOIN plants p ON p.id=l.plant_id LEFT JOIN sga s ON s.id=e.sga_id WHERE " + lc + " ORDER BY p.name, l.name, e.position", la)
+    eq_filter = _int(request.args.get("eq"))
+    oc, oa = in_clause("e.line_id", allowed_line_ids())
+    organes = q("""SELECT o.*, e.reference eq_ref, e.name eq_name, l.name line_name FROM organes o JOIN equipment e ON e.id=o.equipment_id
+                   JOIN lines l ON l.id=e.line_id WHERE """ + oc + """ AND (? IS NULL OR o.equipment_id=?)
+                   ORDER BY l.name, e.position, e.reference, o.position, o.code""", oa + [eq_filter, eq_filter])
+    n_organes = q("SELECT COUNT(*) n FROM organes o JOIN equipment e ON e.id=o.equipment_id WHERE " + oc, oa, one=True)["n"]
+    return render_template("settings.html", tab=tab, plants=plants, lines=lines, sgas=sgas, eqs=eqs,
+                           organes=organes, n_organes=n_organes, eq_filter=eq_filter)
+
+
+def settings_target_allowed(entity, item):
+    """Paramètres : un utilisateur non administrateur ne modifie que les éléments de ses usines / lignes."""
+    if entity == "plant":
+        return plant_allowed(item["id"])
+    if entity == "line":
+        return line_allowed(item["id"])
+    if entity == "organe":
+        e = q("SELECT line_id FROM equipment WHERE id=?", (item["equipment_id"],), one=True)
+        return bool(e) and line_allowed(e["line_id"])
+    return line_allowed(item["line_id"])
 
 
 @app.route("/settings/<entity>", methods=["POST"])
@@ -2350,6 +2635,16 @@ def settings():
 @require("settings")
 def settings_save(entity, item_id=None):
     f = request.form
+    if entity in ENTITIES and item_id:
+        item = q("SELECT * FROM %s WHERE id=?" % ENTITIES[entity]["table"], (item_id,), one=True) or abort(404)
+        if not settings_target_allowed(entity, item):
+            abort(404)
+    if entity == "plant" and not item_id and not is_global():
+        abort(403)   # seule l'administration crée une usine
+    if entity == "line" and not plant_allowed(f.get("plant_id")):
+        abort(403)
+    if entity in ("sga", "equipment") and not line_allowed(f.get("line_id")):
+        abort(403)
     try:
         if entity == "plant":
             vals = (f["code"].strip(), f["name"].strip(), f.get("city", "").strip())
@@ -2372,7 +2667,8 @@ def settings_save(entity, item_id=None):
                 sid = item_id
             else:
                 sid = ex("INSERT INTO sga(line_id,name,description,am_step,created_at) VALUES(?,?,?,?,?)", vals + (now(),))
-            eq_ids = [int(x) for x in f.getlist("equipment_ids")]
+            line_eq = {r["id"] for r in q("SELECT id FROM equipment WHERE line_id=?", (f["line_id"],))}
+            eq_ids = [x for x in (_int(v) for v in f.getlist("equipment_ids")) if x in line_eq]
             ex("UPDATE equipment SET sga_id=NULL WHERE sga_id=?", (sid,))
             for e in eq_ids:
                 ex("UPDATE equipment SET sga_id=? WHERE id=?", (sid, e))
@@ -2394,12 +2690,33 @@ def settings_save(entity, item_id=None):
             else:
                 ex("INSERT INTO equipment(line_id,sga_id,reference,name,position) VALUES(?,?,?,?,?)", vals)
             tab = "equipment"
+        elif entity == "organe":
+            eq = q("SELECT id, line_id FROM equipment WHERE id=?", (_int(f.get("equipment_id")),), one=True)
+            if not eq or not line_allowed(eq["line_id"]):
+                raise ValueError("Équipement obligatoire")
+            name, code = f.get("name", "").strip(), f.get("code", "").strip() or None
+            if not name:
+                raise ValueError("Désignation obligatoire")
+            if code and q("SELECT 1 FROM organes WHERE code=? AND id!=?", (code, item_id or 0), one=True):
+                raise ValueError("Le code %s existe déjà" % code)
+            position = _int(f.get("position") or 0)
+            if position is None:
+                raise ValueError("Ordre invalide")
+            active = 0 if f.get("active") == "0" else 1
+            if item_id:
+                ex("UPDATE organes SET equipment_id=?, code=?, name=?, position=?, active=? WHERE id=?",
+                   (eq["id"], code, name, position, active, item_id))
+            else:
+                ex("INSERT INTO organes(equipment_id, code, name, position, active) VALUES(?,?,?,?,1)", (eq["id"], code, name, position))
+            tab = "organes"
         else:
             abort(404)
         flash("Enregistrement effectué.", "success")
     except (KeyError, ValueError, sqlite3.IntegrityError) as e:
         flash("Enregistrement impossible : %s" % e, "error")
-        tab = {"plant": "plants", "line": "lines", "sga": "sga", "equipment": "equipment"}.get(entity, "plants")
+        tab = TAB_OF.get(entity, "plants")
+    if entity == "organe" and f.get("equipment_id"):
+        return redirect(url_for("settings", tab=tab, eq=f.get("equipment_id")))
     return redirect(url_for("settings", tab=tab))
 
 
@@ -2409,9 +2726,12 @@ def settings_edit(entity, item_id):
     if entity not in ENTITIES:
         abort(404)
     item = q("SELECT * FROM %s WHERE id=?" % ENTITIES[entity]["table"], (item_id,), one=True) or abort(404)
-    ctx = dict(entity=entity, item=item, label=ENTITIES[entity]["label"], plants=q("SELECT * FROM plants ORDER BY name"),
-               lines=q("SELECT l.*, p.name plant_name FROM lines l JOIN plants p ON p.id=l.plant_id ORDER BY p.name, l.name"),
-               sgas=q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id ORDER BY s.name"))
+    if not settings_target_allowed(entity, item):
+        abort(404)
+    lc, la = in_clause("s.line_id", allowed_line_ids())
+    ctx = dict(entity=entity, item=item, label=ENTITIES[entity]["label"], plants=scoped_plants(), lines=scoped_lines(),
+               sgas=q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id WHERE " + lc + " ORDER BY s.name", la))
+    ctx["equipment"] = form_equipment()
     if entity == "sga":
         ctx["line_eq"] = q("SELECT e.*, s.name sga_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id WHERE e.line_id=? ORDER BY e.position",
                            (item["line_id"],))
@@ -2424,18 +2744,30 @@ def settings_delete(entity, item_id):
     if entity not in ENTITIES:
         abort(404)
     table = ENTITIES[entity]["table"]
+    item = q("SELECT * FROM %s WHERE id=?" % table, (item_id,), one=True) or abort(404)
+    if not settings_target_allowed(entity, item) or (entity == "plant" and not is_global()):
+        abort(404)
     used = {
         "plant": "SELECT COUNT(*) n FROM lines WHERE plant_id=?",
         "line": "SELECT COUNT(*) n FROM equipment WHERE line_id=?",
         "sga": "SELECT COUNT(*) n FROM equipment WHERE sga_id=?",
         "equipment": "SELECT COUNT(*) n FROM tags WHERE equipment_id=?",
+        "organe": """SELECT (SELECT COUNT(*) FROM tags t WHERE t.organe=x.label) + (SELECT COUNT(*) FROM checklist_items i WHERE i.organe=x.label)
+                     + (SELECT COUNT(*) FROM countermeasures m WHERE m.organe=x.label) n
+                     FROM (SELECT CASE WHEN code IS NULL OR code='' THEN name ELSE code || ' · ' || name END label FROM organes WHERE id=?) x""",
     }[entity]
-    if q(used, (item_id,), one=True)["n"]:
+    if entity == "organe" and q(used, (item_id,), one=True)["n"]:
+        # organe déjà utilisé : il est désactivé (il disparaît des listes) au lieu d'être supprimé
+        ex("UPDATE organes SET active=0 WHERE id=?", (item_id,))
+        flash("Organe déjà utilisé : il est désactivé (il n'apparaît plus dans les listes) au lieu d'être supprimé.", "success")
+    elif q(used, (item_id,), one=True)["n"]:
         flash("Suppression impossible : cet élément contient encore des données rattachées.", "error")
     else:
+        if entity == "plant":
+            ex("UPDATE users SET plant_id=NULL WHERE plant_id=?", (item_id,))
         ex("DELETE FROM %s WHERE id=?" % table, (item_id,))
         flash("Élément supprimé.", "success")
-    return redirect(url_for("settings", tab={"plant": "plants", "line": "lines", "sga": "sga", "equipment": "equipment"}[entity]))
+    return redirect(url_for("settings", tab=TAB_OF[entity]))
 
 
 # ---------------------------------------------------------------------------
@@ -2446,17 +2778,29 @@ def settings_delete(entity, item_id):
 def users():
     if request.method == "POST":
         return save_user(None)
-    rows = q("SELECT u.*, p.name plant_name, sv.name chef_name FROM users u LEFT JOIN plants p ON p.id=u.plant_id "
-             "LEFT JOIN users sv ON sv.id=u.supervisor_id ORDER BY u.active DESC, "
-             "CASE u.role WHEN 'Administrateur' THEN 0 ELSE 1 END, u.role, u.name")
+    uc, ua = users_scope("u.id")
+    rows = q("""SELECT u.*, sv.name chef_name,
+                (SELECT GROUP_CONCAT(p.name, ', ') FROM user_plants up JOIN plants p ON p.id=up.plant_id WHERE up.user_id=u.id) plant_name,
+                (SELECT GROUP_CONCAT(l.name, ', ') FROM user_lines ul JOIN lines l ON l.id=ul.line_id WHERE ul.user_id=u.id) line_names
+                FROM users u LEFT JOIN users sv ON sv.id=u.supervisor_id WHERE """ + uc + """ ORDER BY u.active DESC,
+                CASE u.role WHEN 'Administrateur' THEN 0 ELSE 1 END, u.role, u.name""", ua)
     data = [{"u": r, "sgas": user_sga_names(r["id"]), "n_perms": len(json.loads(r["permissions"] or "[]"))} for r in rows]
-    return render_template("users.html", data=data, plants=q("SELECT * FROM plants"),
-                           sgas=q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id ORDER BY s.name"),
-                           role_defaults=ROLE_DEFAULTS, chefs=chef_list(), chef_of=CHEF_OF)
+    return render_template("users.html", data=data, role_defaults=ROLE_DEFAULTS, chefs=chef_list(), chef_of=CHEF_OF,
+                           **user_form_refs())
+
+
+def user_form_refs():
+    """Usines, lignes et SGA proposées dans la fiche utilisateur (limitées au périmètre de la personne connectée)."""
+    lc, la = in_clause("s.line_id", allowed_line_ids())
+    return dict(plants=scoped_plants(), lines=scoped_lines(),
+                sgas=q("SELECT s.*, l.name line_name, l.plant_id, p.name plant_name FROM sga s JOIN lines l ON l.id=s.line_id "
+                       "JOIN plants p ON p.id=l.plant_id WHERE " + lc + " ORDER BY p.name, l.name, s.name", la))
 
 
 def chef_list():
-    return q("SELECT id, name, role FROM users WHERE active=1 AND role IN (?,?) ORDER BY role DESC, name", CHEF_ROLES)
+    uc, ua = users_scope("id")
+    return q("SELECT id, name, role FROM users WHERE active=1 AND role IN (?,?) AND " + uc + " ORDER BY role DESC, name",
+             list(CHEF_ROLES) + ua)
 
 
 def save_user(user_id):
@@ -2465,6 +2809,25 @@ def save_user(user_id):
     if role not in ROLES or not f.get("name") or not f.get("username"):
         flash("Nom, identifiant et type d'utilisateur obligatoires.", "error")
         return redirect(request.referrer or url_for("users"))
+    if role == "Administrateur" and not is_admin():
+        abort(403)   # seul un administrateur crée ou modifie un administrateur
+    # Usines et lignes : limitées à celles de la personne qui enregistre ; les affectations qu'elle ne voit pas sont conservées
+    mine = allowed_plant_ids()
+    plant_ids = [x for x in (_int(v) for v in f.getlist("plant_ids")) if x is not None and (mine is None or x in mine)]
+    known_plants = {p["id"] for p in q("SELECT id FROM plants")}
+    plant_ids = [x for x in dict.fromkeys(plant_ids) if x in known_plants]
+    hidden_plants, hidden_lines, hidden_sgas = [], [], []
+    if user_id and mine is not None:
+        hidden_plants = [r["plant_id"] for r in q("SELECT plant_id FROM user_plants WHERE user_id=?", (user_id,)) if r["plant_id"] not in mine]
+        hidden_lines = [x for x in user_line_ids({"id": user_id}) if not line_allowed(x)]
+        hidden_sgas = [r["sga_id"] for r in q("SELECT us.sga_id, s.line_id FROM user_sga us JOIN sga s ON s.id=us.sga_id WHERE us.user_id=?",
+                                              (user_id,)) if not line_allowed(r["line_id"])]
+    all_plants = plant_ids + hidden_plants
+    if not all_plants and role not in ("Administrateur", "Groupe OE"):
+        flash("Choisissez au moins une usine : un utilisateur ne voit que les données de ses usines.", "error")
+        return redirect(request.referrer or url_for("users"))
+    line_rows = {r["id"]: r["plant_id"] for r in q("SELECT id, plant_id FROM lines")}
+    line_ids = [x for x in (_int(v) for v in f.getlist("line_ids")) if x in line_rows and line_rows[x] in plant_ids and line_allowed(x)]
     if role == "Administrateur":
         perms = PERM_KEYS
     elif f.get("perm_mode") == "custom":
@@ -2474,7 +2837,7 @@ def save_user(user_id):
     try:
         if user_id:
             ex("UPDATE users SET name=?, username=?, email=?, role=?, plant_id=?, permissions=?, active=? WHERE id=?",
-               (f["name"].strip(), f["username"].strip(), f.get("email", ""), role, f.get("plant_id") or None, json.dumps(perms),
+               (f["name"].strip(), f["username"].strip(), f.get("email", ""), role, all_plants[0] if all_plants else None, json.dumps(perms),
                 1 if f.get("active", "1") == "1" else 0, user_id))
             if f.get("password"):
                 ex("UPDATE users SET password_hash=?, must_change_password=? WHERE id=?",
@@ -2485,23 +2848,38 @@ def save_user(user_id):
                 return redirect(url_for("users"))
             user_id = ex("INSERT INTO users(name,username,email,role,password_hash,plant_id,permissions,active,must_change_password) VALUES(?,?,?,?,?,?,?,1,1)",
                          (f["name"].strip(), f["username"].strip(), f.get("email", ""), role, generate_password_hash(f["password"]),
-                          f.get("plant_id") or None, json.dumps(perms)))
+                          all_plants[0] if all_plants else None, json.dumps(perms)))
     except sqlite3.IntegrityError:
         flash("Cet identifiant existe déjà.", "error")
         return redirect(request.referrer or url_for("users"))
+    ex("DELETE FROM user_plants WHERE user_id=?", (user_id,))
+    for pid in all_plants:
+        ex("INSERT OR IGNORE INTO user_plants(user_id, plant_id) VALUES(?,?)", (user_id, pid))
+    ex("DELETE FROM user_lines WHERE user_id=?", (user_id,))
+    for lid in line_ids + hidden_lines:
+        ex("INSERT OR IGNORE INTO user_lines(user_id, line_id) VALUES(?,?)", (user_id, lid))
     ex("UPDATE users SET sap_user=? WHERE id=?", ((f.get("sap_user") or "").strip().upper() or None, user_id))
     sup = f.get("supervisor_id") if role in CHEF_OF else None
-    if sup and not q("SELECT 1 FROM users WHERE id=? AND role IN (?,?)", (sup,) + CHEF_ROLES, one=True):
+    if sup and _int(sup) not in [c["id"] for c in chef_list()]:
         sup = None
     ex("UPDATE users SET supervisor_id=? WHERE id=?", (sup or None, user_id))
     if role in CHEF_ROLES and f.get("team_form"):
-        members = [int(x) for x in f.getlist("team_ids")]
+        uc, ua = users_scope("id")
+        visible = {r["id"] for r in q("SELECT id FROM users WHERE " + uc, ua)}
+        members = [x for x in (_int(v) for v in f.getlist("team_ids")) if x in visible]
         ex("UPDATE users SET supervisor_id=NULL WHERE supervisor_id=?", (user_id,))
         for mid in members:
             ex("UPDATE users SET supervisor_id=? WHERE id=?", (user_id, mid))
+    # SGA : seulement celles des usines / lignes de l'utilisateur
+    restricted = {line_rows[x] for x in line_ids}
+    ok_sga = []
+    for r in q("SELECT s.id, s.line_id FROM sga s"):
+        lp = line_rows.get(r["line_id"])
+        if lp in plant_ids and line_allowed(r["line_id"]) and (lp not in restricted or r["line_id"] in line_ids):
+            ok_sga.append(r["id"])
     ex("DELETE FROM user_sga WHERE user_id=?", (user_id,))
-    for s in f.getlist("sga_ids"):
-        ex("INSERT OR IGNORE INTO user_sga(user_id,sga_id) VALUES(?,?)", (user_id, int(s)))
+    for sid in [x for x in (_int(v) for v in f.getlist("sga_ids")) if x in ok_sga] + hidden_sgas:
+        ex("INSERT OR IGNORE INTO user_sga(user_id,sga_id) VALUES(?,?)", (user_id, sid))
     flash("Utilisateur enregistré.", "success")
     return redirect(url_for("users"))
 
@@ -2509,7 +2887,10 @@ def save_user(user_id):
 @app.route("/users/<int:user_id>", methods=["GET", "POST"])
 @require("settings")
 def user_edit(user_id):
-    u = q("SELECT * FROM users WHERE id=?", (user_id,), one=True) or abort(404)
+    uc, ua = users_scope("id")
+    u = q("SELECT * FROM users WHERE id=? AND " + uc, [user_id] + ua, one=True) or abort(404)
+    if u["role"] == "Administrateur" and not is_admin():
+        abort(403)
     if request.method == "POST":
         if u["username"] == ADMIN_USER and request.form.get("role") != "Administrateur":
             flash("Le compte administrateur principal doit rester administrateur.", "error")
@@ -2521,13 +2902,15 @@ def user_edit(user_id):
     team_pool, team_ids = [], []
     if u["role"] in CHEF_ROLES:
         member_role = "Opérateur" if u["role"] == "Chef d'équipe Production" else "Technicien"
+        mc, ma = users_scope("m.id")
         team_pool = q("""SELECT m.*, sv.name chef_name, (SELECT GROUP_CONCAT(s.name, ', ') FROM user_sga us JOIN sga s ON s.id=us.sga_id
                          WHERE us.user_id=m.id) sgas FROM users m LEFT JOIN users sv ON sv.id=m.supervisor_id
-                         WHERE m.active=1 AND m.role=? ORDER BY m.name""", (member_role,))
+                         WHERE m.active=1 AND m.role=? AND """ + mc + " ORDER BY m.name", [member_role] + ma)
         team_ids = [m["id"] for m in team_pool if m["supervisor_id"] == u["id"]]
-    return render_template("user_edit.html", u=u, perms=perms, custom=custom, my_sgas=my_sgas, plants=q("SELECT * FROM plants"),
-                           sgas=q("SELECT s.*, l.name line_name FROM sga s JOIN lines l ON l.id=s.line_id ORDER BY s.name"),
-                           role_defaults=ROLE_DEFAULTS, chefs=chef_list(), chef_of=CHEF_OF, team_pool=team_pool, team_ids=team_ids)
+    my_plants = [r["plant_id"] for r in q("SELECT plant_id FROM user_plants WHERE user_id=?", (user_id,))]
+    return render_template("user_edit.html", u=u, perms=perms, custom=custom, my_sgas=my_sgas, my_plants=my_plants,
+                           my_lines=user_line_ids(u), role_defaults=ROLE_DEFAULTS, chefs=chef_list(), chef_of=CHEF_OF,
+                           team_pool=team_pool, team_ids=team_ids, **user_form_refs())
 
 
 # ---------------------------------------------------------------------------
@@ -2771,17 +3154,20 @@ def uploads(filename):
 
 @app.route("/api/lines")
 def api_lines():
-    return jsonify([dict(id=r["id"], name=r["name"]) for r in q("SELECT * FROM lines WHERE plant_id=? ORDER BY name", (request.args.get("plant_id", 0),))])
+    return jsonify([dict(id=r["id"], name=r["name"]) for r in q("SELECT * FROM lines WHERE plant_id=? ORDER BY name", (request.args.get("plant_id", 0),))
+                    if line_allowed(r["id"])])
 
 
 @app.route("/api/sgas")
 def api_sgas():
+    if not line_allowed(request.args.get("line_id", 0)):
+        return jsonify([])
     return jsonify([dict(id=r["id"], name=r["name"]) for r in q("SELECT * FROM sga WHERE line_id=? ORDER BY name", (request.args.get("line_id", 0),))])
 
 
 SAP = sap.register(app, dict(q=q, ex=ex, now=now, can=can, is_admin=is_admin, require=require, load_tag=load_tag,
                              chef_roles=CHEF_ROLES, team_ids=lambda u: [m["id"] for m in team_members(u)] if u["role"] in CHEF_ROLES else [],
-                             scope_sga_ids=scope_sga_ids, in_clause=in_clause))
+                             scope_sga_ids=scope_sga_ids, in_clause=in_clause, line_ids=allowed_line_ids))
 
 @app.after_request
 def persist_changes(resp):
