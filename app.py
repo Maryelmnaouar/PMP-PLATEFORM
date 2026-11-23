@@ -421,11 +421,14 @@ def migrate_organes(conn):
     conn.execute("""CREATE TABLE IF NOT EXISTS organes (
         id INTEGER PRIMARY KEY AUTOINCREMENT, equipment_id INTEGER NOT NULL REFERENCES equipment(id) ON DELETE CASCADE,
         code TEXT UNIQUE, name TEXT NOT NULL, position INTEGER DEFAULT 0, active INTEGER DEFAULT 1)""")
+    # organes supprimés par l'administrateur : ils ne sont pas recréés au démarrage suivant
+    conn.execute("CREATE TABLE IF NOT EXISTS organes_deleted(code TEXT PRIMARY KEY, deleted_at TEXT)")
+    gone = {r[0] for r in conn.execute("SELECT code FROM organes_deleted").fetchall()}
     eq = {r[1]: r[0] for r in conn.execute("SELECT id, reference FROM equipment").fetchall()}
     per_eq = {}
     for eq_ref, code, name in ORGANES:
         pos = per_eq[eq_ref] = per_eq.get(eq_ref, 0) + 1   # ordre de l'organe sur sa machine
-        if eq_ref in eq:
+        if eq_ref in eq and code not in gone:
             conn.execute("INSERT OR IGNORE INTO organes(equipment_id, code, name, position) VALUES(?,?,?,?)",
                          (eq[eq_ref], code, name, pos))
     # ancien format « Désignation (code) » → « code · désignation »
@@ -2768,6 +2771,190 @@ def settings_delete(entity, item_id):
         ex("DELETE FROM %s WHERE id=?" % table, (item_id,))
         flash("Élément supprimé.", "success")
     return redirect(url_for("settings", tab=TAB_OF[entity]))
+
+
+# ---------------------------------------------------------------------------
+# Suppression complète (administrateur) : usine, ligne, SGA, équipement, organe
+# ---------------------------------------------------------------------------
+def _ids(sql, args=()):
+    return [r[0] for r in db().execute(sql, args).fetchall()]
+
+
+def _run_in(sql, ids):
+    """Exécute « sql » avec « %s » remplacé par une liste d'identifiants (par paquets)."""
+    ids = list(ids)
+    for i in range(0, len(ids), 500):
+        part = ids[i:i + 500]
+        db().execute(sql % ",".join("?" * len(part)), part)
+
+
+def _has_table(name):
+    return bool(db().execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone())
+
+
+def purge_tags(tag_ids):
+    if not tag_ids:
+        return
+    photos = []
+    for i in range(0, len(tag_ids), 500):
+        part = tag_ids[i:i + 500]
+        photos += [r[0] for r in db().execute("SELECT photo FROM tags WHERE photo IS NOT NULL AND photo!='' AND id IN (%s)"
+                                              % ",".join("?" * len(part)), part).fetchall()]
+    for sql in ("UPDATE task_items SET tag_id=NULL WHERE tag_id IN (%s)", "UPDATE pdr_requests SET tag_id=NULL WHERE tag_id IN (%s)",
+                "UPDATE checklists SET origin_tag_id=NULL WHERE origin_tag_id IN (%s)",
+                "UPDATE countermeasures SET tag_id=NULL WHERE tag_id IN (%s)", "DELETE FROM tag_history WHERE tag_id IN (%s)"):
+        _run_in(sql, tag_ids)
+    if _has_table("sap_log"):
+        _run_in("UPDATE sap_log SET tag_id=NULL WHERE tag_id IN (%s)", tag_ids)
+    _run_in("DELETE FROM tags WHERE id IN (%s)", tag_ids)
+    for ph in photos:
+        try:
+            os.remove(os.path.join(UPLOADS, ph))
+        except OSError:
+            pass
+        pg_store.delete_file(ph)
+
+
+def purge_equipment(eq_ids):
+    """Supprime les machines avec leurs TAGs, checklists, tâches, contre-mesures, documents et organes.
+    Les demandes PDR (achats) sont conservées, sans machine."""
+    if not eq_ids:
+        return
+    tag_ids, cl_ids = [], []
+    for i in range(0, len(eq_ids), 500):
+        part = eq_ids[i:i + 500]
+        marks = ",".join("?" * len(part))
+        tag_ids += _ids("SELECT id FROM tags WHERE equipment_id IN (%s)" % marks, part)
+        cl_ids += _ids("SELECT id FROM checklists WHERE equipment_id IN (%s)" % marks, part)
+    purge_tags(tag_ids)
+    if cl_ids:
+        _run_in("DELETE FROM task_items WHERE task_id IN (SELECT id FROM tasks WHERE checklist_id IN (%s))", cl_ids)
+        _run_in("DELETE FROM tasks WHERE checklist_id IN (%s)", cl_ids)
+        _run_in("DELETE FROM checklist_items WHERE checklist_id IN (%s)", cl_ids)
+        _run_in("UPDATE countermeasures SET checklist_id=NULL WHERE checklist_id IN (%s)", cl_ids)
+        _run_in("DELETE FROM checklists WHERE id IN (%s)", cl_ids)
+    for sql in ("DELETE FROM countermeasures WHERE equipment_id IN (%s)", "DELETE FROM documents WHERE equipment_id IN (%s)",
+                "DELETE FROM organes WHERE equipment_id IN (%s)", "UPDATE pdr_requests SET equipment_id=NULL WHERE equipment_id IN (%s)",
+                "DELETE FROM equipment WHERE id IN (%s)"):
+        _run_in(sql, eq_ids)
+
+
+def purge_sgas(sga_ids):
+    """Supprime les SGA : leurs machines et TAGs sont conservés (sans SGA) ; tableau SGA, audits et rattachements supprimés."""
+    if not sga_ids:
+        return
+    for sql in ("UPDATE equipment SET sga_id=NULL WHERE sga_id IN (%s)", "UPDATE tags SET sga_id=NULL WHERE sga_id IN (%s)",
+                "DELETE FROM user_sga WHERE sga_id IN (%s)", "DELETE FROM sga_board WHERE sga_id IN (%s)",
+                "DELETE FROM audit_items WHERE audit_id IN (SELECT id FROM audits WHERE sga_id IN (%s))",
+                "DELETE FROM audits WHERE sga_id IN (%s)", "DELETE FROM sga WHERE id IN (%s)"):
+        _run_in(sql, sga_ids)
+
+
+def purge_lines(line_ids):
+    if not line_ids:
+        return
+    eq_ids, sga_ids = [], []
+    for lid in line_ids:
+        eq_ids += _ids("SELECT id FROM equipment WHERE line_id=?", (lid,))
+        sga_ids += _ids("SELECT id FROM sga WHERE line_id=?", (lid,))
+    purge_equipment(eq_ids)
+    purge_sgas(sga_ids)
+    _run_in("DELETE FROM user_lines WHERE line_id IN (%s)", line_ids)
+    _run_in("DELETE FROM lines WHERE id IN (%s)", line_ids)
+
+
+def purge_plant(plant_id):
+    purge_lines(_ids("SELECT id FROM lines WHERE plant_id=?", (plant_id,)))
+    db().execute("DELETE FROM user_plants WHERE plant_id=?", (plant_id,))
+    # usine principale des comptes concernés : une autre de leurs usines, sinon aucune
+    db().execute("""UPDATE users SET plant_id=(SELECT MIN(up.plant_id) FROM user_plants up WHERE up.user_id=users.id)
+                    WHERE plant_id=?""", (plant_id,))
+    db().execute("DELETE FROM plants WHERE id=?", (plant_id,))
+
+
+def delete_impact(entity, item):
+    """Ce qui sera supprimé (affiché avant confirmation)."""
+    if entity == "organe":
+        label = organe_label(item)
+        n = q("""SELECT (SELECT COUNT(*) FROM tags WHERE organe=?) + (SELECT COUNT(*) FROM checklist_items WHERE organe=?)
+                 + (SELECT COUNT(*) FROM countermeasures WHERE organe=?) n""", (label, label, label), one=True)["n"]
+        return {"deleted": [("organe", 1)], "kept": [("TAG / checklist / contre-mesure qui gardent ce libellé en texte", n)] if n else []}
+    if entity == "sga":
+        sid = item["id"]
+        return {"deleted": [("SGA", 1), ("audit", q("SELECT COUNT(*) n FROM audits WHERE sga_id=?", (sid,), one=True)["n"]),
+                            ("tableau SGA", q("SELECT COUNT(*) n FROM sga_board WHERE sga_id=?", (sid,), one=True)["n"]),
+                            ("rattachement d'utilisateur", q("SELECT COUNT(*) n FROM user_sga WHERE sga_id=?", (sid,), one=True)["n"])],
+                "kept": [("machine conservée (sans SGA)", q("SELECT COUNT(*) n FROM equipment WHERE sga_id=?", (sid,), one=True)["n"]),
+                         ("TAG conservé (sans SGA)", q("SELECT COUNT(*) n FROM tags WHERE sga_id=?", (sid,), one=True)["n"])]}
+    if entity == "equipment":
+        eq_where, args = "e.id=?", (item["id"],)
+    elif entity == "line":
+        eq_where, args = "e.line_id=?", (item["id"],)
+    else:
+        eq_where, args = "e.line_id IN (SELECT id FROM lines WHERE plant_id=?)", (item["id"],)
+
+    def n(sql):
+        return q(sql % eq_where, args, one=True)["n"]
+    out = []
+    if entity == "plant":
+        out.append(("ligne", q("SELECT COUNT(*) n FROM lines WHERE plant_id=?", (item["id"],), one=True)["n"]))
+    if entity in ("plant", "line"):
+        sga_where = "s.line_id=?" if entity == "line" else "s.line_id IN (SELECT id FROM lines WHERE plant_id=?)"
+        out.append(("SGA", q("SELECT COUNT(*) n FROM sga s WHERE " + sga_where, args, one=True)["n"]))
+        out.append(("audit", q("SELECT COUNT(*) n FROM audits a JOIN sga s ON s.id=a.sga_id WHERE " + sga_where, args, one=True)["n"]))
+    out += [("machine", n("SELECT COUNT(*) n FROM equipment e WHERE %s")),
+            ("organe", n("SELECT COUNT(*) n FROM organes o JOIN equipment e ON e.id=o.equipment_id WHERE %s")),
+            ("TAG", n("SELECT COUNT(*) n FROM tags t JOIN equipment e ON e.id=t.equipment_id WHERE %s")),
+            ("checklist", n("SELECT COUNT(*) n FROM checklists c JOIN equipment e ON e.id=c.equipment_id WHERE %s")),
+            ("tâche", n("SELECT COUNT(*) n FROM tasks k JOIN checklists c ON c.id=k.checklist_id JOIN equipment e ON e.id=c.equipment_id WHERE %s")),
+            ("contre-mesure", n("SELECT COUNT(*) n FROM countermeasures m JOIN equipment e ON e.id=m.equipment_id WHERE %s")),
+            ("document", n("SELECT COUNT(*) n FROM documents d JOIN equipment e ON e.id=d.equipment_id WHERE %s"))]
+    kept = []
+    if entity == "plant":
+        only = q("""SELECT COUNT(*) n FROM user_plants up WHERE up.plant_id=? AND NOT EXISTS
+                    (SELECT 1 FROM user_plants o WHERE o.user_id=up.user_id AND o.plant_id!=?)""", (item["id"], item["id"]), one=True)["n"]
+        kept.append(("utilisateur conservé mais sans aucune usine (il ne verra plus rien)", only))
+    pdr = n("SELECT COUNT(*) n FROM pdr_requests r JOIN equipment e ON e.id=r.equipment_id WHERE %s")
+    kept.append(("demande PDR conservée (sans machine)", pdr))
+    return {"deleted": out, "kept": kept}
+
+
+@app.route("/settings/<entity>/<int:item_id>/supprimer", methods=["GET", "POST"])
+def settings_delete_confirm(entity, item_id):
+    """Administrateur : suppression complète d'un élément du référentiel et de tout ce qui en dépend, après confirmation."""
+    if not is_admin():
+        abort(403)
+    if entity not in ENTITIES:
+        abort(404)
+    item = q("SELECT * FROM %s WHERE id=?" % ENTITIES[entity]["table"], (item_id,), one=True) or abort(404)
+    name = organe_label(item) if entity == "organe" else item["name"]
+    impact = delete_impact(entity, item)
+    if request.method == "POST":
+        if request.form.get("confirm", "").strip().upper() != "SUPPRIMER":
+            flash("Tapez SUPPRIMER pour confirmer la suppression.", "error")
+        else:
+            try:
+                if entity == "organe":
+                    if item["code"]:
+                        db().execute("INSERT OR REPLACE INTO organes_deleted(code, deleted_at) VALUES(?,?)", (item["code"], now()))
+                    db().execute("DELETE FROM organes WHERE id=?", (item_id,))
+                elif entity == "equipment":
+                    purge_equipment([item_id])
+                elif entity == "sga":
+                    purge_sgas([item_id])
+                elif entity == "line":
+                    purge_lines([item_id])
+                else:
+                    purge_plant(item_id)
+                db().commit()
+            except sqlite3.Error as e:
+                db().rollback()
+                flash("Suppression impossible : %s. Rien n'a été supprimé." % e, "error")
+                return redirect(url_for("settings_delete_confirm", entity=entity, item_id=item_id))
+            flash("%s « %s » supprimé%s." % (ENTITIES[entity]["label"].capitalize(), name, "e" if entity in ("plant", "line") else ""), "success")
+            return redirect(url_for("settings", tab=TAB_OF[entity]))
+    return render_template("settings_delete.html", entity=entity, item=item, name=name, label=ENTITIES[entity]["label"],
+                           impact=impact, tab=TAB_OF[entity])
 
 
 # ---------------------------------------------------------------------------

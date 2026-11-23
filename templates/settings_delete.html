@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Supprimer {{ label }}{% endblock %}
+{% block heading %}Supprimer {{ label }} — {{ name }}{% endblock %}
+{% block subheading %}Suppression définitive, réservée à l'administrateur{% endblock %}
+{% block content %}
+<div class="card" style="max-width:760px">
+  <h3 style="margin-top:0">Ce qui sera supprimé</h3>
+  <div class="tbl-wrap"><table>
+    {% for what, n in impact.deleted %}<tr><td>{{ what[:1]|upper }}{{ what[1:] }}{{ 's' if n > 1 and what[-1] not in 'sA' }}</td><td class="right"><b style="{{ 'color:#a30b24' if n }}">{{ n }}</b></td></tr>{% endfor %}
+  </table></div>
+  {% if impact.kept %}
+  <h3>Ce qui est conservé</h3>
+  <div class="tbl-wrap"><table>
+    {% for what, n in impact.kept if n %}<tr><td>{{ what[:1]|upper }}{{ what[1:] }}</td><td class="right"><b>{{ n }}</b></td></tr>{% else %}<tr><td class="muted" colspan="2">—</td></tr>{% endfor %}
+  </table></div>
+  {% endif %}
+  <p style="background:#fde3e7;color:#a30b24;padding:10px 12px;border-radius:8px;margin:16px 0">
+    Cette suppression est <b>définitive</b>{% if entity in ('plant','line','equipment') %} : les TAGs, checklists, tâches, contre-mesures, documents et photos listés ci-dessus disparaissent aussi{% endif %}.
+    <a href="{{ url_for('admin_backup') }}"><b>Téléchargez d'abord une sauvegarde de la base</b></a> pour pouvoir revenir en arrière.</p>
+  <form method="post" class="row" style="align-items:end;gap:12px;flex-wrap:wrap">
+    <div class="field" style="margin:0;min-width:240px"><label class="lbl">Pour confirmer, tapez <b>SUPPRIMER</b></label>
+      <input type="text" name="confirm" autocomplete="off" required pattern="[Ss][Uu][Pp][Pp][Rr][Ii][Mm][Ee][Rr]" placeholder="SUPPRIMER"></div>
+    <button class="btn" style="background:#a30b24;border-color:#a30b24">Supprimer définitivement</button>
+    <a class="btn grey" href="{{ url_for('settings', tab=tab) }}">Annuler</a>
+  </form>
+</div>
+{% endblock %}

@@ -30,6 +30,6 @@
     <div class="field" style="grid-column:span 2"><label class="lbl">Désignation</label><input type="text" name="name" value="{{ item.name }}" required></div>
   </div>
   {% endif %}
-  <div class="row" style="margin-top:12px"><button class="btn green">Enregistrer</button><a class="btn grey" href="{{ url_for('settings', tab={'plant':'plants','line':'lines','sga':'sga','equipment':'equipment','organe':'organes'}[entity]) }}">Annuler</a></div>
+  <div class="row" style="margin-top:12px"><button class="btn green">Enregistrer</button>{% if is_admin() %}<a class="btn" style="background:#a30b24;border-color:#a30b24;margin-left:auto" href="{{ url_for('settings_delete_confirm', entity=entity, item_id=item.id) }}">Supprimer…</a>{% endif %}<a class="btn grey" href="{{ url_for('settings', tab={'plant':'plants','line':'lines','sga':'sga','equipment':'equipment','organe':'organes'}[entity]) }}">Annuler</a></div>
 </form>
 {% endblock %}
