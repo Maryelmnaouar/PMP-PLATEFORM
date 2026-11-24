@@ -32,7 +32,7 @@
     {% endfor %}
   </table></div>
   <div class="row" style="margin:10px 0 16px"><button type="button" class="btn ghost" id="add-row">+ Ajouter une tâche</button><span class="small muted">Temps total : <b id="total-min">0</b> min</span></div>
-  <div class="row"><button class="btn green big">Enregistrer la checklist</button><a class="btn grey" href="{{ url_for('checklists') }}">Annuler</a></div>
+  <div class="row"><button class="btn green big">Enregistrer la checklist</button><a class="btn grey" href="{{ url_for('checklists') }}">Annuler</a>{% if cl and is_admin() %}<button class="btn red" style="margin-left:auto" formaction="{{ url_for('checklist_delete', cid=cl.id) }}" formnovalidate onclick="return confirm('Supprimer définitivement la checklist {{ cl.code }} avec ses tâches et leur historique ? Les TAGs lancés depuis ses tâches sont conservés.')">🗑 Supprimer la checklist</button>{% endif %}</div>
 </form>
 {% endblock %}
 {% block prescript %}

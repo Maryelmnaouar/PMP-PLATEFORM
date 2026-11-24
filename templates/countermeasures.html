@@ -19,7 +19,8 @@
     <td>{{ cil_badge(m.cil_type) }}</td><td class="small">{{ m.tooling or '—' }}</td><td>{{ m.duration_min or '—' }} min</td><td>{{ m.frequency or '—' }}</td>
     <td class="small">{{ m.created_at|d }}<div class="muted">{{ m.author or '' }}</div></td>
     <td>{% if m.status=='Intégrée' %}<span class="chip auto">Intégrée</span><div class="small muted">{{ m.cl_code or '' }}</div>{% else %}<span class="chip man">À intégrer</span>{% endif %}</td>
-    <td>{% if m.status!='Intégrée' and can('checklists_manage') %}<a class="btn sm" href="{{ url_for('countermeasure_integrate', mid=m.id) }}">Intégrer dans une checklist</a>{% elif m.checklist_id %}<a class="btn ghost sm" href="{{ url_for('checklist_history', cid=m.checklist_id) }}">Checklist</a>{% endif %}</td></tr>
+    <td>{% if m.status!='Intégrée' and can('checklists_manage') %}<a class="btn sm" href="{{ url_for('countermeasure_integrate', mid=m.id) }}">Intégrer dans une checklist</a>{% elif m.checklist_id %}<a class="btn ghost sm" href="{{ url_for('checklist_history', cid=m.checklist_id) }}">Checklist</a>{% endif %}
+      {% if is_admin() %}<form class="inline" method="post" action="{{ url_for('countermeasure_delete', mid=m.id) }}" onsubmit="return confirm('Supprimer cette contre-mesure{{ (' du ' ~ m.tag_code) if m.tag_code }} ? Le TAG est conservé.')"><button class="btn grey sm" title="Supprimer">🗑</button></form>{% endif %}</td></tr>
   {% else %}<tr><td colspan="11" class="empty">Aucune contre-mesure dans cette liste.</td></tr>{% endfor %}
 </table></div></div>
 {% endblock %}

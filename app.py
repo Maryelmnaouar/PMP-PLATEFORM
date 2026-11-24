@@ -2245,6 +2245,37 @@ def planning_cancel(task_id):
 
 
 # --- Contre-mesures --------------------------------------------------------
+@app.route("/checklists/<int:cid>/delete", methods=["POST"])
+def checklist_delete(cid):
+    """Administrateur : supprime une checklist avec ses tâches et leur historique d'exécution.
+    Les TAGs lancés depuis ses tâches sont conservés ; ses contre-mesures intégrées repassent « À intégrer »."""
+    if not is_admin():
+        abort(403)
+    cl = load_checklist(cid)
+    db().execute("DELETE FROM task_items WHERE task_id IN (SELECT id FROM tasks WHERE checklist_id=?)", (cid,))
+    db().execute("DELETE FROM tasks WHERE checklist_id=?", (cid,))
+    db().execute("DELETE FROM checklist_items WHERE checklist_id=?", (cid,))
+    db().execute("UPDATE countermeasures SET checklist_id=NULL, status='À intégrer', integrated_at=NULL, integrated_by=NULL "
+                 "WHERE checklist_id=?", (cid,))
+    db().execute("DELETE FROM checklists WHERE id=?", (cid,))
+    db().commit()
+    flash("Checklist %s supprimée." % cl["code"], "success")
+    return redirect(url_for("checklists"))
+
+
+@app.route("/countermeasures/<int:mid>/delete", methods=["POST"])
+def countermeasure_delete(mid):
+    """Administrateur : supprime une contre-mesure. Le TAG est conservé ; les tâches déjà intégrées dans une checklist y restent."""
+    if not is_admin():
+        abort(403)
+    m = q("SELECT m.*, e.line_id eq_line_id FROM countermeasures m JOIN equipment e ON e.id=m.equipment_id WHERE m.id=?",
+          (mid,), one=True) or abort(404)
+    ensure_line(m["eq_line_id"])
+    ex("DELETE FROM countermeasures WHERE id=?", (mid,))
+    flash("Contre-mesure supprimée.", "success")
+    return redirect(url_for("countermeasures"))
+
+
 @app.route("/countermeasures")
 def countermeasures():
     st = request.args.get("status", "À intégrer")

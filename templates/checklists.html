@@ -23,7 +23,8 @@
     <td>{{ c.user_name or '—' }}</td><td>{{ c.n_done }}/{{ c.n_planned }}</td>
     <td style="white-space:nowrap"><a class="btn ghost sm" href="{{ url_for('checklist_history', cid=c.id) }}">Détail</a>
       {% if can('checklists_manage') %}<a class="btn ghost sm" href="{{ url_for('checklist_edit', cid=c.id) }}">Modifier</a>
-      {% if c.activity_type=='RCM' and not c.transferred %}<button class="btn sm" style="background:#6b4fd8" onclick="document.getElementById('tr-form').action='{{ url_for('checklist_transfer', cid=c.id) }}';openModal('modal-transfer')">Transférer à AM</button>{% endif %}{% endif %}</td>
+      {% if c.activity_type=='RCM' and not c.transferred %}<button class="btn sm" style="background:#6b4fd8" onclick="document.getElementById('tr-form').action='{{ url_for('checklist_transfer', cid=c.id) }}';openModal('modal-transfer')">Transférer à AM</button>{% endif %}{% endif %}
+      {% if is_admin() %}<form class="inline" method="post" action="{{ url_for('checklist_delete', cid=c.id) }}" onsubmit="return confirm('Supprimer définitivement la checklist {{ c.code }} avec ses tâches et leur historique ? Les TAGs lancés depuis ses tâches sont conservés.')"><button class="btn grey sm" title="Supprimer">🗑</button></form>{% endif %}</td>
   </tr>
   {% else %}<tr><td colspan="11" class="empty">Aucune checklist. Créez la première avec « + Nouvelle checklist ».</td></tr>{% endfor %}
 </table></div></div>
