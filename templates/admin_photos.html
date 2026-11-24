@@ -48,6 +48,15 @@
   </div>
 </div>
 
+<form class="card" method="post" action="{{ url_for('admin_photos_direct_delete') }}" style="border:2px solid #a30b24"
+      onsubmit="return confirm('Retirer tout de suite les photos de tous les TAGs Traité / Contre-mesure ? Elles ne seront plus que dans vos téléchargements.')">
+  <h3 style="margin-top:0">Urgence : retirer directement les photos des TAGs traités</h3>
+  <p class="small muted" style="margin-top:0">Pour des photos déjà téléchargées. {{ stats.n_sel }} photo{{ 's' if stats.n_sel > 1 }} concernée{{ 's' if stats.n_sel > 1 }} ({{ mo(stats.size_sel) }}). Les TAGs restent, avec la mention « photo archivée ».</p>
+  <input type="hidden" name="status" value="Traité"><input type="hidden" name="status" value="Contre-mesure">
+  <div class="row" style="gap:10px;align-items:end"><div class="field" style="margin:0"><label class="lbl">Tapez SUPPRIMER</label><input type="text" name="confirm" required autocomplete="off" placeholder="SUPPRIMER"></div>
+  <button class="btn" style="background:#a30b24;border-color:#a30b24">Retirer les photos maintenant</button></div>
+</form>
+
 {% if batch %}
 <div class="card" style="border:2px solid #1e7a43">
   <h3 style="margin-top:0">Lot n° {{ batch.id }} prêt : {{ batch.n }} photo{{ 's' if batch.n > 1 }} ({{ mo(batch.size) }})</h3>

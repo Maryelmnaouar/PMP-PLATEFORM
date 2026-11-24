@@ -3508,6 +3508,31 @@ def admin_storage():
     return redirect(url_for("admin_photos"))
 
 
+@app.route("/admin/photos/direct-delete", methods=["POST"])
+def admin_photos_direct_delete():
+    """Urgence : retire tout de suite les photos des TAGs traités (photos déjà sauvegardées par l'administrateur)."""
+    if not is_admin():
+        abort(403)
+    if request.form.get("confirm", "").strip().upper() != "SUPPRIMER":
+        flash("Tapez SUPPRIMER pour confirmer.", "error")
+        return redirect(url_for("admin_photos"))
+    rows, _ = _photo_selection(request.form)
+    names = [r["photo"] for r in rows]
+    size = sum(_photo_size(n) for n in names)
+    drop_photo_files(names)   # d'abord PostgreSQL : c'est là que la place manque
+    for r in rows:
+        db().execute("UPDATE tags SET photo='', photo_archived=? WHERE id=? AND photo=?", (now(), r["id"], r["photo"]))
+    db().commit()
+    if pg_store.enabled():
+        try:
+            pg_store.vacuum(("assetpilot_files",))
+        except Exception as e:
+            print("VACUUM :", e)
+    flash("%d photo(s) de TAGs traités retirée(s) (%.1f Mo). Cliquez ensuite sur « Compacter maintenant »." % (len(names), size / 1048576.0),
+          "success")
+    return redirect(url_for("admin_photos"))
+
+
 @app.route("/admin/photos/orphans", methods=["POST"])
 def admin_photos_orphans():
     """Supprime les fichiers photo qui ne sont plus rattachés à aucun TAG (photos remplacées, TAGs supprimés…)."""
