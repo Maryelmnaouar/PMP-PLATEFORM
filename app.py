@@ -476,6 +476,17 @@ def migrate_owner_edit(conn):
     conn.commit()
 
 
+def migrate_photo_archive(conn):
+    """Archivage des photos des TAGs traités : téléchargées en .zip puis retirées de la base pour libérer de la place."""
+    tcols = [r[1] for r in conn.execute("PRAGMA table_info(tags)").fetchall()]
+    if "photo_archived" not in tcols:
+        conn.execute("ALTER TABLE tags ADD COLUMN photo_archived TEXT")
+    conn.execute("""CREATE TABLE IF NOT EXISTS photo_exports(
+        id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, created_by INTEGER, label TEXT,
+        items TEXT, n INTEGER, size INTEGER, downloaded_at TEXT, deleted_at TEXT)""")
+    conn.commit()
+
+
 def seed_cbgs(conn):
     """Usine CBGS, ligne RGB2 et ses équipements (référentiel SAP). Créés une seule fois, sans rien modifier d'existant ;
     les organes sont ajoutés ensuite par migrate_organes."""
@@ -544,6 +555,7 @@ def init_db():
             migrate_multi_plant(conn)
             seed_cbgs(conn)
             migrate_owner_edit(conn)
+            migrate_photo_archive(conn)
             migrate_organes(conn)
             migrate_concours(conn)
             conn.close()
@@ -555,6 +567,7 @@ def init_db():
             migrate_multi_plant(conn)
             seed_cbgs(conn)
             migrate_owner_edit(conn)
+            migrate_photo_archive(conn)
             migrate_organes(conn)
             migrate_concours(conn)
             conn.execute("UPDATE meta SET value=? WHERE key='schema'", (SCHEMA_VERSION,))
@@ -575,6 +588,7 @@ def init_db():
     migrate_multi_plant(conn)
     seed_cbgs(conn)
     migrate_owner_edit(conn)
+    migrate_photo_archive(conn)
     migrate_organes(conn)
     migrate_concours(conn)
     conn.commit()
@@ -1372,7 +1386,7 @@ def tags_export():
                    t["eq_name"], t["organe"], t["description"], t["observed_name"], when(t["observed_at"]), when(t["created_at"]),
                    STATUS_INFO.get(t["status"], {}).get("board", t["status"]), names.get(t["validated_by"]), when(t["validated_at"]),
                    t["sap_notif"], t["ot_number"] or t["sap_order"], t["treated_name"], when(t["treatment_start"]),
-                   when(t["resolved_at"]), t["countermeasure"], "Oui" if t["photo"] else "Non"])
+                   when(t["resolved_at"]), t["countermeasure"], "Oui" if t["photo"] else ("Archivée" if t["photo_archived"] else "Non")])
     head = PatternFill("solid", fgColor="C8102E")
     for i, (_, width) in enumerate(cols, 1):
         c = ws.cell(row=1, column=i)
@@ -1411,6 +1425,20 @@ def save_photo(file):
     file.save(os.path.join(UPLOADS, name))
     pg_store.save_file(name, os.path.join(UPLOADS, name))
     return name
+
+
+def drop_photo_files(names):
+    """Supprime des photos du disque local et de PostgreSQL."""
+    names = [n for n in names if n]
+    for n in names:
+        try:
+            os.remove(os.path.join(UPLOADS, os.path.basename(n)))
+        except OSError:
+            pass
+    try:
+        pg_store.delete_files(names)
+    except Exception as e:
+        print("Suppression des photos dans PostgreSQL impossible :", e)
 
 
 def needs_sap(t):
@@ -1867,6 +1895,8 @@ def tag_edit(tag_id):
         new_photo = save_photo(request.files.get("photo"))
         if new_photo:
             photo = new_photo
+        if t["photo"] and t["photo"] != photo:
+            drop_photo_files([t["photo"]])   # l'ancienne photo ne reste pas stockée pour rien
         ex("""UPDATE tags SET type=?, anomaly_type=?, equipment_id=?, sga_id=?, line_id=?, organe=?, description=?, photo=?,
               observed_by=?, observed_at=?, treated_by=?, status=?, sap_notif=?, ot_number=?, sap_order=?, countermeasure=?,
               validated_by=CASE WHEN ?='' THEN NULL ELSE COALESCE(validated_by, ?) END,
@@ -1904,6 +1934,8 @@ def tag_edit_owner(t):
         new_photo = save_photo(request.files.get("photo"))
         if new_photo:
             photo = new_photo
+        if t["photo"] and t["photo"] != photo:
+            drop_photo_files([t["photo"]])   # l'ancienne photo ne reste pas stockée pour rien
         ex("""UPDATE tags SET type=?, anomaly_type=?, equipment_id=?, sga_id=?, line_id=?, organe=?, description=?, photo=?,
               observed_by=?, observed_at=?, updated_at=? WHERE id=?""",
            (new_type, f["anomaly_type"], e["id"], e["sga_id"], e["line_id"], f.get("organe", "").strip(), f["description"].strip(),
@@ -3223,6 +3255,169 @@ def account():
             flash("Mot de passe modifié.", "success")
             return redirect(url_for("home"))
     return render_template("account.html")
+
+
+# ---------------------------------------------------------------------------
+# Photos des TAGs traités : téléchargement (.zip, une photo par N° de TAG) puis retrait de la base
+# ---------------------------------------------------------------------------
+ARCHIVE_STATUSES = ("Traité", "Contre-mesure")
+
+
+def _photo_size(name):
+    try:
+        return os.path.getsize(os.path.join(UPLOADS, os.path.basename(name)))
+    except OSError:
+        return 0
+
+
+def _photo_selection(f):
+    """TAGs traités avec photo, selon les filtres (statuts, usine, résolus jusqu'au)."""
+    statuses = [x for x in f.getlist("status") if x in ARCHIVE_STATUSES] or list(ARCHIVE_STATUSES)
+    sc, sa = in_clause("t.status", statuses)
+    sql = ("SELECT t.id, t.tag_code, t.photo, t.type, t.status, t.resolved_at, t.description, e.reference eq_ref, e.name eq_name, "
+           "l.name line_name, p.name plant_name FROM tags t JOIN equipment e ON e.id=t.equipment_id JOIN lines l ON l.id=e.line_id "
+           "JOIN plants p ON p.id=l.plant_id WHERE t.photo IS NOT NULL AND t.photo!='' AND " + sc)
+    args = list(sa)
+    if _int(f.get("plant")):
+        sql += " AND p.id=?"; args.append(_int(f.get("plant")))
+    if f.get("until"):
+        sql += " AND substr(COALESCE(t.resolved_at, t.updated_at),1,10)<=?"; args.append(f.get("until")[:10])
+    return q(sql + " ORDER BY t.tag_code", args), statuses
+
+
+@app.route("/admin/photos", methods=["GET", "POST"])
+def admin_photos():
+    if not is_admin():
+        abort(403)
+    if request.method == "POST":   # préparer un lot
+        rows, statuses = _photo_selection(request.form)
+        if not rows:
+            flash("Aucune photo de TAG traité ne correspond à ces critères.", "error")
+            return redirect(url_for("admin_photos"))
+        items = [{"id": r["id"], "code": r["tag_code"], "photo": r["photo"]} for r in rows]
+        size = sum(_photo_size(r["photo"]) for r in rows)
+        label = ", ".join(statuses)
+        if _int(request.form.get("plant")):
+            label += " · " + (q("SELECT name FROM plants WHERE id=?", (_int(request.form.get("plant")),), one=True) or {"name": ""})["name"]
+        if request.form.get("until"):
+            label += " · traités jusqu'au " + request.form.get("until")
+        bid = ex("INSERT INTO photo_exports(created_at, created_by, label, items, n, size) VALUES(?,?,?,?,?,?)",
+                 (now(), g.user["id"], label, json.dumps(items), len(items), size))
+        return redirect(url_for("admin_photos", batch=bid))
+    args = request.args
+    rows, statuses = _photo_selection(args)
+    all_photos = q("SELECT photo FROM tags WHERE photo IS NOT NULL AND photo!=''")
+    referenced = {r["photo"] for r in all_photos}
+    local = set(os.listdir(UPLOADS)) if os.path.isdir(UPLOADS) else set()
+    usage, remote = None, set()
+    if pg_store.enabled():
+        try:
+            usage = pg_store.usage()
+            remote = set(pg_store.list_files())
+        except Exception as e:
+            flash("Lecture de PostgreSQL impossible : %s" % e, "error")
+    orphans = sorted((local | remote) - referenced)
+    stats = dict(n_all=len(referenced), size_all=sum(_photo_size(p) for p in referenced),
+                 n_sel=len(rows), size_sel=sum(_photo_size(r["photo"]) for r in rows),
+                 n_orphans=len(orphans), size_orphans=sum(_photo_size(p) for p in orphans),
+                 n_archived=q("SELECT COUNT(*) n FROM tags WHERE photo_archived IS NOT NULL", one=True)["n"])
+    batch = q("SELECT * FROM photo_exports WHERE id=? AND deleted_at IS NULL", (_int(args.get("batch")) or 0,), one=True)
+    batches = q("SELECT x.*, u.name author FROM photo_exports x LEFT JOIN users u ON u.id=x.created_by ORDER BY x.id DESC LIMIT 10")
+    return render_template("admin_photos.html", stats=stats, usage=usage, plants=q("SELECT * FROM plants ORDER BY name"),
+                           statuses=statuses, all_statuses=ARCHIVE_STATUSES, batch=batch, batches=batches, f=args)
+
+
+@app.route("/admin/photos/<int:bid>.zip")
+def admin_photos_zip(bid):
+    """Le lot en .zip : une photo par TAG, nommée par son N° (TAG-0012.jpg), et un index.csv."""
+    if not is_admin():
+        abort(403)
+    import csv, io, tempfile, zipfile
+    from flask import send_file
+    b = q("SELECT * FROM photo_exports WHERE id=?", (bid,), one=True) or abort(404)
+    items = json.loads(b["items"] or "[]")
+    info = {r["id"]: r for r in q("""SELECT t.id, t.tag_code, t.type, t.status, t.anomaly_type, t.description, t.organe,
+                                     t.observed_at, t.resolved_at, e.reference eq_ref, e.name eq_name, l.name line_name, p.name plant_name
+                                     FROM tags t JOIN equipment e ON e.id=t.equipment_id JOIN lines l ON l.id=e.line_id
+                                     JOIN plants p ON p.id=l.plant_id""")}
+    tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    tmp.close()
+    index = io.StringIO()
+    w = csv.writer(index, delimiter=";")
+    w.writerow(["N° TAG", "Fichier photo", "Usine", "Ligne", "Machine", "Organe", "Type", "Type d'anomalie", "Description",
+                "Date d'observation", "Date de résolution", "Statut"])
+    used = set()
+    with zipfile.ZipFile(tmp.name, "w", zipfile.ZIP_STORED) as z:   # photos déjà compressées : pas de recompression
+        for it in items:
+            path = os.path.join(UPLOADS, os.path.basename(it["photo"]))
+            data = None
+            if os.path.exists(path):
+                with open(path, "rb") as fh:
+                    data = fh.read()
+            elif pg_store.enabled():
+                data = pg_store.read_file(it["photo"])
+            name = secure_filename(it["code"]) + (os.path.splitext(it["photo"])[1].lower() or ".jpg")
+            k = 2
+            while name in used:   # deux photos pour un même N° (rare) : TAG-0012_2.jpg
+                name = "%s_%d%s" % (secure_filename(it["code"]), k, os.path.splitext(it["photo"])[1].lower()); k += 1
+            used.add(name)
+            t = info.get(it["id"])
+            if data is not None:
+                z.writestr(name, data)
+            w.writerow([it["code"], name if data is not None else "PHOTO INTROUVABLE"] +
+                       ([t["plant_name"], t["line_name"], "%s · %s" % (t["eq_ref"], t["eq_name"]), t["organe"] or "", t["type"],
+                         t["anomaly_type"], t["description"], (t["observed_at"] or "")[:10], (t["resolved_at"] or "")[:10], t["status"]]
+                        if t else [""] * 10))
+        z.writestr("index.csv", "\ufeff" + index.getvalue())
+    ex("UPDATE photo_exports SET downloaded_at=? WHERE id=?", (now(), bid))
+    resp = send_file(tmp.name, as_attachment=True, mimetype="application/zip",
+                     download_name="photos_tags_traites_lot%d_%s.zip" % (bid, b["created_at"][:10]))
+    resp.call_on_close(lambda: os.path.exists(tmp.name) and os.remove(tmp.name))
+    return resp
+
+
+@app.route("/admin/photos/<int:bid>/delete", methods=["POST"])
+def admin_photos_delete(bid):
+    """Retire de la base les photos d'un lot déjà téléchargé. Le TAG reste, avec la mention « photo archivée »."""
+    if not is_admin():
+        abort(403)
+    b = q("SELECT * FROM photo_exports WHERE id=? AND deleted_at IS NULL", (bid,), one=True) or abort(404)
+    if not b["downloaded_at"]:
+        flash("Téléchargez d'abord le fichier .zip de ce lot.", "error")
+        return redirect(url_for("admin_photos", batch=bid))
+    if request.form.get("confirm", "").strip().upper() != "SUPPRIMER" or not request.form.get("checked"):
+        flash("Cochez la case de vérification et tapez SUPPRIMER pour confirmer.", "error")
+        return redirect(url_for("admin_photos", batch=bid))
+    removed = []
+    for it in json.loads(b["items"] or "[]"):
+        # seulement si la photo du TAG n'a pas changé depuis la préparation du lot
+        if db().execute("UPDATE tags SET photo='', photo_archived=? WHERE id=? AND photo=?", (now(), it["id"], it["photo"])).rowcount:
+            removed.append(it["photo"])
+    db().execute("UPDATE photo_exports SET deleted_at=? WHERE id=?", (now(), bid))
+    db().commit()
+    drop_photo_files(removed)
+    errors = pg_store.compact() if pg_store.enabled() else None
+    flash("%d photo(s) retirée(s) de la base (%.1f Mo libérés)." % (len(removed), (b["size"] or 0) / 1048576.0), "success")
+    if errors:
+        flash("La place sera réutilisée par les prochaines photos, mais n'a pas pu être rendue tout de suite : %s" % "; ".join(errors), "error")
+    return redirect(url_for("admin_photos"))
+
+
+@app.route("/admin/photos/orphans", methods=["POST"])
+def admin_photos_orphans():
+    """Supprime les fichiers photo qui ne sont plus rattachés à aucun TAG (photos remplacées, TAGs supprimés…)."""
+    if not is_admin():
+        abort(403)
+    referenced = {r["photo"] for r in q("SELECT photo FROM tags WHERE photo IS NOT NULL AND photo!=''")}
+    local = set(os.listdir(UPLOADS)) if os.path.isdir(UPLOADS) else set()
+    remote = set(pg_store.list_files()) if pg_store.enabled() else set()
+    orphans = sorted((local | remote) - referenced)
+    drop_photo_files(orphans)
+    errors = pg_store.compact() if pg_store.enabled() and orphans else None
+    flash("%d photo(s) sans TAG supprimée(s)." % len(orphans), "success")
+    if errors:
+        flash("Place non rendue tout de suite : %s" % "; ".join(errors), "error")
+    return redirect(url_for("admin_photos"))
 
 
 @app.route("/admin/backup")

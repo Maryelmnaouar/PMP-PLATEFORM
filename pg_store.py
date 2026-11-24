@@ -214,3 +214,62 @@ def load_files(upload_dir):
                     f.write(bytes(row[0]))
                 n += 1
     return n
+
+
+def read_file(rel_path):
+    """Contenu d'une photo enregistrée dans PostgreSQL (None si absente)."""
+    if not enabled():
+        return None
+    with _connect() as conn:
+        _ensure(conn)
+        row = conn.execute("SELECT data FROM assetpilot_files WHERE path=%s", (rel_path,)).fetchone()
+    return bytes(row[0]) if row else None
+
+
+def list_files():
+    if not enabled():
+        return []
+    with _connect() as conn:
+        _ensure(conn)
+        return [r[0] for r in conn.execute("SELECT path FROM assetpilot_files").fetchall()]
+
+
+def delete_files(paths):
+    """Supprime plusieurs photos en une seule connexion. Retourne le nombre de lignes supprimées."""
+    paths = list(paths)
+    if not enabled() or not paths:
+        return 0
+    n = 0
+    with _connect() as conn:
+        _ensure(conn)
+        for i in range(0, len(paths), 500):
+            cur = conn.execute("DELETE FROM assetpilot_files WHERE path = ANY(%s)", (paths[i:i + 500],))
+            n += cur.rowcount or 0
+    return n
+
+
+def usage():
+    """Place occupée dans PostgreSQL (octets) : base entière, photos, copies de la base."""
+    if not enabled():
+        return None
+    with _connect() as conn:
+        _ensure(conn)
+        r = conn.execute("""SELECT pg_database_size(current_database()), pg_total_relation_size('assetpilot_files'),
+                                   pg_total_relation_size('assetpilot_store'), (SELECT COUNT(*) FROM assetpilot_files)""").fetchone()
+    return dict(database=r[0], files=r[1], store=r[2], n_files=r[3])
+
+
+def compact():
+    """Rend au disque la place libérée par les suppressions (VACUUM FULL des tables MAKINTI)."""
+    if not enabled():
+        return None
+    import psycopg
+    url = URL.replace("postgres://", "postgresql://", 1)
+    errors = []
+    with psycopg.connect(url, connect_timeout=20, autocommit=True) as conn:
+        for table in ("assetpilot_files", "assetpilot_store"):
+            try:
+                conn.execute("VACUUM FULL " + table)
+            except Exception as e:  # droits insuffisants, verrou… : la place sera réutilisée par les prochains ajouts
+                errors.append("%s : %s" % (table, e))
+    return errors

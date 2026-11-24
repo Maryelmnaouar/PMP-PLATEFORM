@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Photos des TAGs traités{% endblock %}
+{% block heading %}Photos des TAGs traités{% endblock %}
+{% block subheading %}Télécharger les photos par N° de TAG, puis les retirer de la base pour libérer de la place{% endblock %}
+{% macro mo(b) %}{{ '%.1f'|format((b or 0) / 1048576) }} Mo{% endmacro %}
+{% block content %}
+<div class="grid g4" style="margin-bottom:16px">
+  <div class="kpi k-blu"><div class="ic">📷</div><div><b>{{ stats.n_all }}</b><span>Photos de TAGs dans la base</span><small>{{ mo(stats.size_all) }}</small></div></div>
+  <div class="kpi k-grn"><div class="ic">✓</div><div><b>{{ stats.n_archived }}</b><span>Photos déjà archivées</span><small>retirées de la base</small></div></div>
+  {% if usage %}
+  <div class="kpi k-yel"><div class="ic">DB</div><div><b>{{ mo(usage.database) }}</b><span>Base PostgreSQL entière</span><small>dont photos {{ mo(usage.files) }}</small></div></div>
+  <div class="kpi k-pur"><div class="ic">⟳</div><div><b>{{ mo(usage.store) }}</b><span>Copies de la base</span><small>base actuelle + 14 copies journalières</small></div></div>
+  {% endif %}
+</div>
+
+{% if batch %}
+<div class="card" style="border:2px solid #1e7a43">
+  <h3 style="margin-top:0">Lot n° {{ batch.id }} prêt : {{ batch.n }} photo{{ 's' if batch.n > 1 }} ({{ mo(batch.size) }})</h3>
+  <p class="small muted" style="margin-top:0">{{ batch.label }}</p>
+  <p><b>1.</b> <a class="btn" href="{{ url_for('admin_photos_zip', bid=batch.id) }}" id="dl-zip">⬇ Télécharger le .zip</a>
+     <span class="small muted">Chaque photo est nommée par le N° de son TAG (ex. TAG-0012.jpg) ; le fichier index.csv donne la machine, la description et les dates.</span></p>
+  <p><b>2.</b> Ouvrez le .zip et vérifiez les photos, rangez-le sur votre ordinateur ou SharePoint.</p>
+  <form method="post" action="{{ url_for('admin_photos_delete', bid=batch.id) }}" class="row" style="align-items:end;gap:12px;flex-wrap:wrap">
+    <label class="row small" style="gap:6px"><input type="checkbox" name="checked" value="1" required> J'ai téléchargé et vérifié le fichier .zip</label>
+    <div class="field" style="margin:0"><label class="lbl">Tapez SUPPRIMER</label><input type="text" name="confirm" autocomplete="off" required placeholder="SUPPRIMER"></div>
+    <button class="btn" style="background:#a30b24;border-color:#a30b24"><b>3.</b> Retirer ces {{ batch.n }} photos de la base</button>
+  </form>
+  <p class="small muted" style="margin-bottom:0">Les TAGs restent dans la plateforme avec la mention « photo archivée ». Les photos retirées ne sont plus récupérables depuis la plateforme : seul le .zip les contient.</p>
+</div>
+{% endif %}
+
+<form class="card" method="post">
+  <h3 style="margin-top:0">Préparer un lot</h3>
+  <div class="grid g4" style="align-items:end">
+    <div class="field"><label class="lbl">Statut des TAGs</label>
+      {% for s in all_statuses %}<label class="row small" style="gap:6px"><input type="checkbox" name="status" value="{{ s }}" {{ 'checked' if s in statuses }}> {{ s }}</label>{% endfor %}</div>
+    <div class="field"><label class="lbl">Usine</label><select name="plant"><option value="">Toutes</option>{% for p in plants %}<option value="{{ p.id }}" {{ 'selected' if f.plant==p.id|string }}>{{ p.name }}</option>{% endfor %}</select></div>
+    <div class="field"><label class="lbl">Traités jusqu'au (facultatif)</label><input type="date" name="until" value="{{ f.until or '' }}"></div>
+    <div class="field"><button class="btn green">Préparer le lot</button></div>
+  </div>
+  <p class="small muted" style="margin-bottom:0">Actuellement : <b>{{ stats.n_sel }}</b> TAG{{ 's' if stats.n_sel > 1 }} traité{{ 's' if stats.n_sel > 1 }} avec photo pour ces critères ({{ mo(stats.size_sel) }}).</p>
+</form>
+
+{% if stats.n_orphans %}
+<form class="card" method="post" action="{{ url_for('admin_photos_orphans') }}" onsubmit="return confirm('Supprimer {{ stats.n_orphans }} photo(s) rattachée(s) à aucun TAG ?')">
+  <h3 style="margin-top:0">Photos sans TAG : {{ stats.n_orphans }} ({{ mo(stats.size_orphans) }})</h3>
+  <p class="small muted">Anciennes photos remplacées ou de TAGs supprimés : elles ne s'affichent nulle part et occupent de la place.</p>
+  <button class="btn grey">Supprimer les photos sans TAG</button>
+</form>
+{% endif %}
+
+{% if batches %}
+<div class="card"><h3 style="margin-top:0">Derniers lots</h3><div class="tbl-wrap"><table>
+  <tr><th>Lot</th><th>Préparé le</th><th>Critères</th><th>Photos</th><th>Téléchargé</th><th>Retiré de la base</th><th></th></tr>
+  {% for x in batches %}<tr><td>{{ x.id }}</td><td class="small">{{ x.created_at|d }}<div class="muted">{{ x.author or '' }}</div></td><td class="small">{{ x.label }}</td>
+    <td>{{ x.n }} · {{ mo(x.size) }}</td><td class="small">{{ x.downloaded_at|d if x.downloaded_at else '—' }}</td><td class="small">{{ x.deleted_at|d if x.deleted_at else '—' }}</td>
+    <td>{% if not x.deleted_at %}<a class="btn ghost sm" href="{{ url_for('admin_photos_zip', bid=x.id) }}">⬇ .zip</a> <a class="btn ghost sm" href="{{ url_for('admin_photos', batch=x.id) }}">Ouvrir</a>{% endif %}</td></tr>{% endfor %}
+</table></div></div>
+{% endif %}
+{% endblock %}

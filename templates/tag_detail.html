@@ -62,7 +62,7 @@
       </table></div>
       <p><b>Description :</b> {{ t.description }}</p>
       {% if t.countermeasure %}<p><b>Contre-mesure :</b> {{ t.countermeasure }}</p>{% endif %}
-      {% if t.photo %}<img class="photo" src="{{ url_for('uploads', filename=t.photo) }}" alt="Photo de l'anomalie">{% endif %}
+      {% if t.photo %}<img class="photo" src="{{ url_for('uploads', filename=t.photo) }}" alt="Photo de l'anomalie">{% elif t.photo_archived %}<p class="small muted">📦 Photo archivée le {{ t.photo_archived|d }} (téléchargée puis retirée de la base).</p>{% endif %}
     </div>
     {% if cms %}
     <div class="card"><h3>Contre-mesure</h3>
