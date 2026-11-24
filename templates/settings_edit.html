@@ -5,6 +5,7 @@
 <form class="card" method="post" action="{{ url_for('settings_save', entity=entity, item_id=item.id) }}">
   {% if entity=='plant' %}
   <div class="grid g3"><div class="field"><label class="lbl">Code</label><input type="text" name="code" value="{{ item.code }}" required></div><div class="field"><label class="lbl">Nom</label><input type="text" name="name" value="{{ item.name }}" required></div><div class="field"><label class="lbl">Ville</label><input type="text" name="city" value="{{ item.city or '' }}"></div></div>
+  <label class="row small" style="gap:8px;margin:4px 0 8px"><input type="checkbox" name="owner_edit" value="1" {{ 'checked' if item.owner_edit }}> La personne qui lance un TAG peut le modifier (sans pouvoir le supprimer)</label>
   {% elif entity=='line' %}
   <div class="grid g3"><div class="field"><label class="lbl">Usine</label><select name="plant_id">{% for p in plants %}<option value="{{ p.id }}" {{ 'selected' if p.id==item.plant_id }}>{{ p.name }}</option>{% endfor %}</select></div><div class="field"><label class="lbl">Code</label><input type="text" name="code" value="{{ item.code or '' }}"></div><div class="field"><label class="lbl">Nom</label><input type="text" name="name" value="{{ item.name }}" required></div></div>
   {% elif entity=='sga' %}

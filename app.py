@@ -460,6 +460,22 @@ def migrate_multi_plant(conn):
     conn.commit()
 
 
+def migrate_owner_edit(conn):
+    """Modification d'un TAG par la personne qui l'a lancé : usine par usine (activée pour CBGS)."""
+    pcols = [r[1] for r in conn.execute("PRAGMA table_info(plants)").fetchall()]
+    if "owner_edit" not in pcols:
+        conn.execute("ALTER TABLE plants ADD COLUMN owner_edit INTEGER DEFAULT 0")
+    tcols = [r[1] for r in conn.execute("PRAGMA table_info(tags)").fetchall()]
+    if "created_by" not in tcols:
+        conn.execute("ALTER TABLE tags ADD COLUMN created_by INTEGER")
+        # TAGs existants : l'auteur est la personne de la 1re ligne de l'historique (création)
+        conn.execute("UPDATE tags SET created_by=(SELECT h.user_id FROM tag_history h WHERE h.tag_id=tags.id ORDER BY h.id LIMIT 1)")
+    if not conn.execute("SELECT 1 FROM meta WHERE key='owner_edit_cbgs'").fetchone():
+        conn.execute("UPDATE plants SET owner_edit=1 WHERE UPPER(code)='CBGS' OR UPPER(name)='CBGS'")
+        conn.execute("INSERT INTO meta(key, value) VALUES('owner_edit_cbgs', '1')")
+    conn.commit()
+
+
 def seed_cbgs(conn):
     """Usine CBGS, ligne RGB2 et ses équipements (référentiel SAP). Créés une seule fois, sans rien modifier d'existant ;
     les organes sont ajoutés ensuite par migrate_organes."""
@@ -527,6 +543,7 @@ def init_db():
             migrate_63(conn)
             migrate_multi_plant(conn)
             seed_cbgs(conn)
+            migrate_owner_edit(conn)
             migrate_organes(conn)
             migrate_concours(conn)
             conn.close()
@@ -537,6 +554,7 @@ def init_db():
             migrate_63(conn, upgrade=True)
             migrate_multi_plant(conn)
             seed_cbgs(conn)
+            migrate_owner_edit(conn)
             migrate_organes(conn)
             migrate_concours(conn)
             conn.execute("UPDATE meta SET value=? WHERE key='schema'", (SCHEMA_VERSION,))
@@ -556,6 +574,7 @@ def init_db():
     migrate_63(conn)
     migrate_multi_plant(conn)
     seed_cbgs(conn)
+    migrate_owner_edit(conn)
     migrate_organes(conn)
     migrate_concours(conn)
     conn.commit()
@@ -1435,9 +1454,10 @@ def tag_new():
             n += 1
             code = "TAG-%04d" % n
         tid = ex("""INSERT INTO tags(tag_code,type,anomaly_type,equipment_id,sga_id,line_id,organe,description,photo,
-                 observed_by,observed_at,created_at,ot_number,status,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'', 'Nouveau', ?)""",
+                 observed_by,observed_at,created_at,ot_number,status,updated_at,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,'', 'Nouveau', ?, ?)""",
                  (code, form["type"], form["anomaly_type"], e["id"], e["sga_id"], e["line_id"], form.get("organe", "").strip(),
-                  form["description"].strip(), photo, observer["id"], form.get("observed_at") or today().isoformat(), now(), now()))
+                  form["description"].strip(), photo, observer["id"], form.get("observed_at") or today().isoformat(), now(), now(),
+                  g.user["id"]))
         ex("INSERT INTO tag_history(tag_id,user_id,from_status,to_status,comment,at) VALUES(?,?,?,?,?,?)",
            (tid, g.user["id"], None, "Nouveau", "TAG créé", now()))
         item_id = form.get("task_item_id")
@@ -1483,7 +1503,8 @@ def tag_detail(tag_id):
     validated_name = q("SELECT name FROM users WHERE id=?", (t["validated_by"],), one=True) if t["validated_by"] else None
     return render_template("tag_detail.html", sap_payload=sap_payload, can_validate=can_validate, blocked=blocked,
                            sap_log=sap_log, validated_name=validated_name["name"] if validated_name else "",
-                           t=t, history=history, cms=cms, pdr=pdr, targets=targets, users=active_users())
+                           t=t, history=history, cms=cms, pdr=pdr, targets=targets, users=active_users(),
+                           can_owner_edit=(not is_admin()) and can_owner_edit(t))
 
 
 @app.route("/tags/<int:tag_id>/validate", methods=["POST"])
@@ -1803,11 +1824,26 @@ def tag_countermeasure(tag_id):
     return render_template("countermeasure.html", t=t, v=v)
 
 
+def can_owner_edit(t):
+    """La personne qui a lancé le TAG peut le modifier (pas le supprimer), si l'usine du TAG l'autorise (Paramètres → Usines)."""
+    if not t["created_by"] or t["created_by"] != g.user["id"]:
+        return False
+    p = q("SELECT p.id, p.owner_edit FROM lines l JOIN plants p ON p.id=l.plant_id WHERE l.id=?", (t["eq_line_id"],), one=True)
+    return bool(p and p["owner_edit"]) and plant_allowed(p["id"])
+
+
+def owner_type_locked(t):
+    """Le type ne change plus une fois le TAG validé (N° d'avis) ou sorti de « Anomalies découvertes »."""
+    return bool(t["sap_notif"]) or t["status"] != "Nouveau"
+
+
 @app.route("/tags/<int:tag_id>/edit", methods=["GET", "POST"])
 def tag_edit(tag_id):
-    if not is_admin():
-        abort(403)
     t = load_tag(tag_id)
+    if not is_admin():
+        if not can_owner_edit(t):
+            abort(403)
+        return tag_edit_owner(t)
     equipment = scoped_equipment()
     if request.method == "POST":
         f = request.form
@@ -1844,6 +1880,41 @@ def tag_edit(tag_id):
         flash("%s modifié." % t["tag_code"], "success")
         return redirect(url_for("tag_detail", tag_id=tag_id))
     return render_template("tag_edit.html", t=t, equipment=equipment, users=active_users())
+
+
+def tag_edit_owner(t):
+    """Modification par l'auteur : contenu de l'étiquette seulement (statut, avis SAP, OT et traitement inchangés)."""
+    equipment = scoped_equipment()
+    users = active_users()
+    locked = owner_type_locked(t)
+    if request.method == "POST":
+        f = request.form
+        e = next((x for x in equipment if str(x["id"]) == str(f.get("equipment_id"))), None)
+        if e and e["plant_id"] != q("SELECT plant_id FROM lines WHERE id=?", (t["eq_line_id"],), one=True)["plant_id"]:
+            e = None   # la machine reste dans l'usine du TAG
+        new_type = t["type"] if locked else f.get("type")
+        observer = _int(f.get("observed_by"))
+        if new_type not in TAG_TYPE or f.get("anomaly_type") not in ANOMALY_TYPES or not e or not f.get("description", "").strip() \
+                or observer not in [u["id"] for u in users]:
+            flash("Type, type d'anomalie, machine, description et personne qui a découvert l'anomalie sont obligatoires.", "error")
+            return redirect(url_for("tag_edit", tag_id=t["id"]))
+        photo = t["photo"]
+        if f.get("remove_photo"):
+            photo = ""
+        new_photo = save_photo(request.files.get("photo"))
+        if new_photo:
+            photo = new_photo
+        ex("""UPDATE tags SET type=?, anomaly_type=?, equipment_id=?, sga_id=?, line_id=?, organe=?, description=?, photo=?,
+              observed_by=?, observed_at=?, updated_at=? WHERE id=?""",
+           (new_type, f["anomaly_type"], e["id"], e["sga_id"], e["line_id"], f.get("organe", "").strip(), f["description"].strip(),
+            photo, observer, f.get("observed_at") or t["observed_at"], now(), t["id"]))
+        ex("INSERT INTO tag_history(tag_id,user_id,from_status,to_status,comment,at) VALUES(?,?,?,?,?,?)",
+           (t["id"], g.user["id"], t["status"], t["status"], "TAG modifié par son auteur", now()))
+        flash("%s modifié." % t["tag_code"], "success")
+        return redirect(url_for("tag_detail", tag_id=t["id"]))
+    plant_id = q("SELECT plant_id FROM lines WHERE id=?", (t["eq_line_id"],), one=True)["plant_id"]
+    equipment = [x for x in equipment if x["plant_id"] == plant_id]
+    return render_template("tag_edit.html", t=t, equipment=equipment, users=users, owner_mode=True, type_locked=locked)
 
 
 @app.route("/tags/<int:tag_id>/delete", methods=["POST"])
@@ -2650,11 +2721,11 @@ def settings_save(entity, item_id=None):
         abort(403)
     try:
         if entity == "plant":
-            vals = (f["code"].strip(), f["name"].strip(), f.get("city", "").strip())
+            vals = (f["code"].strip(), f["name"].strip(), f.get("city", "").strip(), 1 if f.get("owner_edit") else 0)
             if item_id:
-                ex("UPDATE plants SET code=?, name=?, city=? WHERE id=?", vals + (item_id,))
+                ex("UPDATE plants SET code=?, name=?, city=?, owner_edit=? WHERE id=?", vals + (item_id,))
             else:
-                ex("INSERT INTO plants(code,name,city) VALUES(?,?,?)", vals)
+                ex("INSERT INTO plants(code,name,city,owner_edit) VALUES(?,?,?,?)", vals)
             tab = "plants"
         elif entity == "line":
             vals = (f["plant_id"], f.get("code", "").strip(), f["name"].strip())
