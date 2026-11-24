@@ -3801,8 +3801,35 @@ if pg_store.enabled():
 init_db()
 if pg_store.enabled():
     if not pg_store.save_db(DB):
-        raise RuntimeError("Impossible d'enregistrer la base dans PostgreSQL (DATABASE_URL). Démarrage interrompu.")
-    print("Données MAKINTI enregistrées dans PostgreSQL ; %d photo(s) rechargée(s)." % pg_store.load_files(UPLOADS))
+        # PostgreSQL plein ou en lecture seule : on libère ce qui peut l'être (copies journalières), puis on réessaie.
+        # Dans tous les cas la plateforme démarre : la base vient d'être rechargée depuis PostgreSQL (rien n'est écrasé),
+        # un bandeau rouge prévient l'administrateur et l'enregistrement est retenté chaque minute.
+        print("PostgreSQL : enregistrement impossible au démarrage ->", pg_store.emergency_free())
+        if not pg_store.save_db(DB):
+            # Toujours plein : on retire les photos des TAGs traités (sauvegardées par l'administratrice), comme demandé.
+            _c = sqlite3.connect(DB)
+            _rows = _c.execute("SELECT id, photo FROM tags WHERE photo IS NOT NULL AND photo!='' "
+                               "AND status IN ('Traité','Contre-mesure')").fetchall()
+            try:
+                print("PostgreSQL : %d photo(s) de TAGs traités retirée(s)" % pg_store.delete_files([r[1] for r in _rows]))
+                _c.executemany("UPDATE tags SET photo='', photo_archived=? WHERE id=?",
+                               [(dt.datetime.now().strftime("%Y-%m-%d %H:%M"), r[0]) for r in _rows])
+                _c.commit()
+                pg_store.vacuum(("assetpilot_files",))
+            except Exception as e:
+                print("Retrait des photos impossible :", e)
+            _c.close()
+            for _r in _rows:
+                try:
+                    os.remove(os.path.join(UPLOADS, os.path.basename(_r[1])))
+                except OSError:
+                    pass
+            pg_store.save_db(DB)
+    pg_store.tune()
+    try:
+        print("Données MAKINTI ; %d photo(s) rechargée(s)." % pg_store.load_files(UPLOADS))
+    except Exception as e:
+        print("Photos non rechargées :", e)
     pg_store.start_watch(DB)
 
 if __name__ == "__main__":

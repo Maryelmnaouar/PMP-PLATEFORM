@@ -160,11 +160,15 @@ def start_watch(db_path, every=60):
     _state["thread"] = True
 
     def loop():
+        n = 0
         while True:
             time.sleep(every)
+            n += 1
             try:
                 if os.path.exists(db_path) and (os.path.getmtime(db_path) > _state["saved_mtime"] or _state["last_error"]):
                     save_db(db_path)
+                if n % 10 == 0:   # toutes les 10 minutes : la place des anciennes versions de la base redevient utilisable
+                    vacuum(("assetpilot_store",))
             except Exception as e:
                 print("Surveillance PostgreSQL :", e)
 
@@ -191,7 +195,7 @@ def delete_file(rel_path):
     if not enabled():
         return
     try:
-        with _connect() as conn:
+        with _cleanup_connect() as conn:
             _ensure(conn)
             conn.execute("DELETE FROM assetpilot_files WHERE path=%s", (rel_path,))
     except Exception as e:
@@ -243,7 +247,7 @@ def delete_files(paths):
     if not enabled() or not paths:
         return 0
     n = 0
-    with _connect() as conn:
+    with _cleanup_connect() as conn:
         _ensure(conn)
         for i in range(0, len(paths), 500):
             cur = conn.execute("DELETE FROM assetpilot_files WHERE path = ANY(%s)", (paths[i:i + 500],))
@@ -264,7 +268,59 @@ def usage():
 
 def _autocommit():
     import psycopg
-    return psycopg.connect(URL.replace("postgres://", "postgresql://", 1), connect_timeout=20, autocommit=True)
+    conn = psycopg.connect(URL.replace("postgres://", "postgresql://", 1), connect_timeout=20, autocommit=True)
+    _allow_cleanup(conn)
+    return conn
+
+
+def _allow_cleanup(conn):
+    """Base pleine : l'hébergeur peut la passer en lecture seule. Les opérations de NETTOYAGE (suppressions, VACUUM)
+    lèvent cette protection pour leur propre session afin de pouvoir libérer de la place."""
+    try:
+        conn.execute("SET default_transaction_read_only = off")
+    except Exception:
+        pass
+
+
+def _cleanup_connect():
+    conn = _connect()
+    _allow_cleanup(conn)
+    return conn
+
+
+def tune():
+    """Cause principale du remplissage : chaque enregistrement réécrit toute la base et laisse l'ancienne version ;
+    PostgreSQL ne la nettoyait qu'après ~50 versions. On lui demande de nettoyer dès 2 versions périmées."""
+    if not enabled():
+        return
+    try:
+        with _autocommit() as conn:
+            _ensure(conn)
+            for t in ("assetpilot_store", "assetpilot_files"):
+                conn.execute("ALTER TABLE %s SET (autovacuum_vacuum_threshold = 2, autovacuum_vacuum_scale_factor = 0, "
+                             "toast.autovacuum_vacuum_threshold = 2, toast.autovacuum_vacuum_scale_factor = 0)" % t)
+    except Exception as e:
+        print("Réglage du nettoyage automatique PostgreSQL impossible :", e)
+
+
+def emergency_free():
+    """Au démarrage, si la base ne peut plus être enregistrée (PostgreSQL plein) : supprime toutes les copies
+    journalières (la base principale est gardée) puis rend la place réutilisable. Retourne un message."""
+    if not enabled():
+        return ""
+    msgs = []
+    try:
+        with _autocommit() as conn:
+            cur = conn.execute("DELETE FROM assetpilot_store WHERE name LIKE %s", (MAIN + "@%",))
+            msgs.append("%d copie(s) journalière(s) supprimée(s)" % (cur.rowcount or 0))
+            for t in ("assetpilot_store", "assetpilot_files"):
+                try:
+                    conn.execute("VACUUM " + t)
+                except Exception as e:
+                    msgs.append("VACUUM %s : %s" % (t, str(e).splitlines()[0]))
+    except Exception as e:
+        msgs.append("nettoyage impossible : %s" % str(e).splitlines()[0])
+    return " ; ".join(msgs)
 
 
 def vacuum(tables=("assetpilot_store", "assetpilot_files")):
@@ -303,7 +359,7 @@ def prune_copies(keep_days):
     if not enabled():
         return 0
     limit = MAIN + "@" + (dt.date.today() - dt.timedelta(days=max(0, keep_days - 1))).isoformat()
-    with _connect() as conn:
+    with _cleanup_connect() as conn:
         _ensure(conn)
         cur = conn.execute("DELETE FROM assetpilot_store WHERE name LIKE %s AND (name < %s OR name NOT LIKE %s)",
                            (MAIN + "@%", limit, MAIN + "@____-__-__"))
