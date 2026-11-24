@@ -435,3 +435,27 @@ document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click'
     fillLines(); fillMachines();
   }
 })();
+
+
+// Photo d'un TAG : deux boutons sur téléphone, « Prendre une photo » (appareil photo) et « Choisir dans la galerie »
+(function () {
+  const input = document.getElementById('photo');
+  const btns = document.querySelector('.js-photo-btns');
+  const pv = document.querySelector('.js-photo-preview');
+  if (!input || !btns || !pv) return;
+  input.style.display = 'none'; btns.style.display = 'flex';      // le champ natif est remplacé par les deux boutons
+  btns.addEventListener('click', e => {
+    const b = e.target.closest('[data-photo]'); if (!b) return;
+    if (b.dataset.photo === 'camera') input.setAttribute('capture', 'environment');
+    else input.removeAttribute('capture');
+    input.click();
+  });
+  input.addEventListener('change', () => {
+    const f = input.files && input.files[0];
+    if (!f) { pv.style.display = 'none'; return; }
+    pv.querySelector('img').src = URL.createObjectURL(f);
+    pv.querySelector('span').textContent = f.name;
+    pv.style.display = 'flex';
+  });
+  pv.querySelector('[data-photo="clear"]').addEventListener('click', () => { input.value = ''; pv.style.display = 'none'; });
+})();
