@@ -45,7 +45,7 @@
         <select name="observed_by" id="observed_by" required><option value="">— Choisir la personne —</option>
           {% for u in users %}<option value="{{ u.id }}" {{ 'selected' if v.observed_by|string==u.id|string }}>{{ u.name }} ({{ u.role }})</option>{% endfor %}</select></div>
     </div>
-    <div class="field"><label class="lbl">Photo de l'anomalie</label><input type="file" name="photo" accept="image/*" capture="environment"></div>
+    <div class="field"><label class="lbl">Photo de l'anomalie</label><input type="file" name="photo" accept="image/*"><p class="small muted" style="margin:4px 0 0">Sur téléphone : prendre une photo ou choisir une image de la galerie.</p></div>
     <p class="small muted">« Anomalie traitée par », « Date de début de traitement » et « Date de résolution » sont remplis quand l'étiquette descend dans le tableau. Un TAG <b>RCM</b> ou <b>Safety</b> doit être validé par le chef d'équipe production avec le N° de l'avis SAP avant de pouvoir être traité.</p>
     <div class="row"><button class="btn red big">Créer le TAG</button><a class="btn grey" href="{{ url_for('tags_board') }}">Annuler</a></div>
   </div>
