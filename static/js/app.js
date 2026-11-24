@@ -398,3 +398,40 @@ document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click'
     });
   });
 })();
+
+
+// Lancer un TAG (personne affectée à plusieurs usines) : usine → lignes de cette usine → machines de cette ligne
+(function () {
+  const ps = document.getElementById('tag_plant'), ls = document.getElementById('tag_line'), es = document.getElementById('equipment_id');
+  if (!ps || !ls || !es) return;
+  const allLines = Array.from(ls.querySelectorAll('option[data-plant]')).map(o => o.cloneNode(true));
+  const allGroups = Array.from(es.querySelectorAll('optgroup')).map(g => g.cloneNode(true));
+  const linePh = ls.options[0].cloneNode(true), eqPh = es.options[0].cloneNode(true);
+  function fillLines(keep) {
+    const opts = allLines.filter(o => o.dataset.plant === ps.value).map(o => o.cloneNode(true));
+    ls.replaceChildren(linePh.cloneNode(true), ...opts);
+    if (keep && opts.some(o => o.value === keep)) ls.value = keep;
+    else if (opts.length === 1) ls.value = opts[0].value;   // une seule ligne : choisie automatiquement
+    else ls.value = '';
+  }
+  function fillMachines(keep) {
+    const before = es.value;
+    const grps = allGroups.filter(g => g.dataset.line === ls.value).map(g => g.cloneNode(true));
+    const ph = eqPh.cloneNode(true);
+    ph.textContent = !ps.value ? "— Choisir d'abord l'usine —" : (!ls.value ? "— Choisir d'abord la ligne —" : '— Choisir la machine —');
+    es.replaceChildren(ph, ...grps);
+    es.value = keep && Array.from(es.options).some(o => o.value === keep) ? keep : '';
+    if (es.value !== before) es.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  ps.addEventListener('change', () => { fillLines(); fillMachines(); });
+  ls.addEventListener('change', () => fillMachines());
+  const cur = es.value;
+  const curOpt = cur ? es.querySelector('option[value="' + cur + '"]') : null;
+  if (curOpt && curOpt.parentElement.dataset.plant) {       // formulaire réaffiché : retrouver l'usine et la ligne
+    ps.value = curOpt.parentElement.dataset.plant;
+    fillLines(curOpt.parentElement.dataset.line);
+    fillMachines(cur);
+  } else {
+    fillLines(); fillMachines();
+  }
+})();

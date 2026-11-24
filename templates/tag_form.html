@@ -22,9 +22,21 @@
       <div class="field"><label class="lbl">Date</label><input type="text" value="{{ today_str }}" disabled></div>
       <div class="field"><label class="lbl">Date d'observation *</label><input type="date" name="observed_at" id="observed_at" value="{{ v.observed_at or '' }}" required></div>
     </div>
+    {% set eq_plants = equipment|groupby('plant_id') %}
+    {% if eq_plants|length > 1 %}
+    {# Personne affectée à plusieurs usines : choisir l'usine, puis la ligne ; seules leurs machines sont proposées #}
+    <div class="grid g2">
+      <div class="field"><label class="lbl" for="tag_plant">Usine *</label>
+        <select id="tag_plant" required><option value="">— Choisir l'usine —</option>
+          {% for pg in eq_plants %}<option value="{{ pg.grouper }}">{{ pg.list[0].plant_name }}</option>{% endfor %}</select></div>
+      <div class="field"><label class="lbl" for="tag_line">Ligne *</label>
+        <select id="tag_line" required><option value="">— Choisir la ligne —</option>
+          {% for lg in equipment|groupby('line_id') %}<option value="{{ lg.grouper }}" data-plant="{{ lg.list[0].plant_id }}">{{ lg.list[0].line_name }}</option>{% endfor %}</select></div>
+    </div>
+    {% endif %}
     <div class="field"><label class="lbl">Machine *</label>
       <select name="equipment_id" id="equipment_id" required><option value="">— Choisir la machine —</option>
-        {% for grp in equipment|groupby('line_id') %}<optgroup label="{{ grp.list[0].plant_name }} — {{ grp.list[0].line_name }}">{% for e in grp.list %}<option value="{{ e.id }}" {{ 'selected' if v.equipment_id|string==e.id|string }}>{{ e.reference }} · {{ e.name|short }}{% if e.sga_name %} ({{ e.sga_name }}){% endif %}</option>{% endfor %}</optgroup>{% endfor %}
+        {% for grp in equipment|groupby('line_id') %}<optgroup label="{{ grp.list[0].plant_name }} — {{ grp.list[0].line_name }}" data-plant="{{ grp.list[0].plant_id }}" data-line="{{ grp.grouper }}">{% for e in grp.list %}<option value="{{ e.id }}" {{ 'selected' if v.equipment_id|string==e.id|string }}>{{ e.reference }} · {{ e.name|short }}{% if e.sga_name %} ({{ e.sga_name }}){% endif %}</option>{% endfor %}</optgroup>{% endfor %}
       </select></div>
     <div class="field"><label class="lbl">Organe</label><select name="organe" id="organe" data-organes-for="equipment_id" data-current="{{ v.organe or '' }}"><option value="{{ v.organe or '' }}">{{ v.organe or '— Choisir d\'abord la machine —' }}</option></select></div>
     <div class="field"><label class="lbl">Description de l'anomalie *</label><textarea name="description" id="description" required>{{ v.description or '' }}</textarea></div>

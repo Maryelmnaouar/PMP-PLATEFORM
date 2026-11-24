@@ -797,7 +797,7 @@ def scoped_sgas():
 
 def scoped_equipment():
     clause, args = data_scope("e.line_id", "e.sga_id")
-    return q("SELECT e.*, s.name sga_name, l.name line_name, p.name plant_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id "
+    return q("SELECT e.*, s.name sga_name, l.name line_name, l.plant_id, p.name plant_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id "
              "JOIN lines l ON l.id=e.line_id JOIN plants p ON p.id=l.plant_id WHERE " + clause +
              " ORDER BY p.name, l.name, e.position, e.name", args)
 
