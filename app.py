@@ -1415,14 +1415,40 @@ def active_users():
     return q("SELECT id, name, role FROM users WHERE active=1 AND " + uc + " ORDER BY name", ua)
 
 
+PHOTO_MAX_PX = 1600          # côté le plus long d'une photo enregistrée
+PHOTO_SHRINK_FROM = 400 * 1024   # photos existantes : réduites au-delà de 400 Ko
+
+
+def shrink_image(data):
+    """Photo réduite (1600 px maxi, JPEG qualité 80, orientation corrigée) ; None si impossible ou pas plus légère.
+    Une photo de téléphone de 3 à 5 Mo passe à environ 200 à 400 Ko, lisible sans perte utile."""
+    try:
+        import io
+        from PIL import Image, ImageOps
+        im = ImageOps.exif_transpose(Image.open(io.BytesIO(data)))
+        if im.mode not in ("RGB", "L"):
+            im = im.convert("RGB")
+        im.thumbnail((PHOTO_MAX_PX, PHOTO_MAX_PX))
+        out = io.BytesIO()
+        im.save(out, "JPEG", quality=80, optimize=True, progressive=True)
+        small = out.getvalue()
+        return small if len(small) < len(data) else None
+    except Exception:   # Pillow absent, format non lu (HEIC…), fichier abîmé : la photo est gardée telle quelle
+        return None
+
+
 def save_photo(file):
     if not (file and file.filename):
         return ""
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in (".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic"):
         return ""
-    name = secure_filename("tag_%s_%s%s" % (dt.datetime.now().strftime("%Y%m%d%H%M%S%f"), g.user["id"], ext))
-    file.save(os.path.join(UPLOADS, name))
+    stem = secure_filename("tag_%s_%s" % (dt.datetime.now().strftime("%Y%m%d%H%M%S%f"), g.user["id"]))
+    data = file.read()
+    small = shrink_image(data) if ext != ".gif" else None
+    name = stem + (".jpg" if small else ext)
+    with open(os.path.join(UPLOADS, name), "wb") as fh:
+        fh.write(small or data)
     pg_store.save_file(name, os.path.join(UPLOADS, name))
     return name
 
@@ -3312,7 +3338,7 @@ def admin_photos():
     usage, remote = None, set()
     if pg_store.enabled():
         try:
-            usage = pg_store.usage()
+            usage = pg_store.diagnostics()
             remote = set(pg_store.list_files())
         except Exception as e:
             flash("Lecture de PostgreSQL impossible : %s" % e, "error")
@@ -3324,7 +3350,8 @@ def admin_photos():
     batch = q("SELECT * FROM photo_exports WHERE id=? AND deleted_at IS NULL", (_int(args.get("batch")) or 0,), one=True)
     batches = q("SELECT x.*, u.name author FROM photo_exports x LEFT JOIN users u ON u.id=x.created_by ORDER BY x.id DESC LIMIT 10")
     return render_template("admin_photos.html", stats=stats, usage=usage, plants=q("SELECT * FROM plants ORDER BY name"),
-                           statuses=statuses, all_statuses=ARCHIVE_STATUSES, batch=batch, batches=batches, f=args)
+                           statuses=statuses, all_statuses=ARCHIVE_STATUSES, batch=batch, batches=batches, f=args,
+                           shrink=_SHRINK, keep_days=pg_store.DAILY_KEEP, n_big=sum(1 for p in referenced if _photo_size(p) >= PHOTO_SHRINK_FROM))
 
 
 @app.route("/admin/photos/<int:bid>.zip")
@@ -3400,6 +3427,84 @@ def admin_photos_delete(bid):
     flash("%d photo(s) retirée(s) de la base (%.1f Mo libérés)." % (len(removed), (b["size"] or 0) / 1048576.0), "success")
     if errors:
         flash("La place sera réutilisée par les prochaines photos, mais n'a pas pu être rendue tout de suite : %s" % "; ".join(errors), "error")
+    return redirect(url_for("admin_photos"))
+
+
+_SHRINK = {"running": False, "done": 0, "total": 0, "saved": 0, "skipped": 0, "started": None, "finished": None, "error": None}
+
+
+def _shrink_worker():
+    """Réduit les photos existantes en arrière-plan, par paquets, sans jamais demander de place disque supplémentaire."""
+    import threading
+    st = _SHRINK
+    try:
+        conn = sqlite3.connect(DB, timeout=30)
+        rows = conn.execute("SELECT id, photo FROM tags WHERE photo IS NOT NULL AND photo!=''").fetchall()
+        st["total"] = len(rows)
+        for i, (tid, photo) in enumerate(rows, 1):
+            st["done"] = i
+            path = os.path.join(UPLOADS, os.path.basename(photo))
+            data = None
+            if os.path.exists(path):
+                if os.path.getsize(path) < PHOTO_SHRINK_FROM:
+                    st["skipped"] += 1
+                    continue
+                with open(path, "rb") as fh:
+                    data = fh.read()
+            elif pg_store.enabled():
+                data = pg_store.read_file(photo)
+            small = shrink_image(data) if data and len(data) >= PHOTO_SHRINK_FROM and not photo.lower().endswith(".gif") else None
+            if not small:
+                st["skipped"] += 1
+                continue
+            new = os.path.splitext(photo)[0] + ".jpg"
+            if new != photo and os.path.exists(os.path.join(UPLOADS, os.path.basename(new))):
+                new = os.path.splitext(photo)[0] + "_r.jpg"   # ne jamais écraser la photo d'un autre TAG
+            with open(os.path.join(UPLOADS, os.path.basename(new)), "wb") as fh:
+                fh.write(small)
+            pg_store.write_file(new, small)
+            if new != photo:
+                conn.execute("UPDATE tags SET photo=? WHERE id=? AND photo=?", (new, tid, photo))
+                conn.commit()
+                drop_photo_files([photo])
+            st["saved"] += len(data) - len(small)
+            if i % 20 == 0:
+                pg_store.vacuum(("assetpilot_files",))   # la place libérée sert aux photos suivantes
+        conn.close()
+        pg_store.vacuum(("assetpilot_files",))
+        errs = pg_store.compact(("assetpilot_files",))
+        if errs:
+            st["error"] = "Place réutilisable mais pas encore rendue au disque : " + "; ".join(errs)
+        pg_store.save_db(DB)
+    except Exception as e:
+        st["error"] = str(e)
+    finally:
+        st["running"] = False
+        st["finished"] = now()
+
+
+@app.route("/admin/storage", methods=["POST"])
+def admin_storage():
+    """Libérer de la place dans PostgreSQL : copies de la base, compression des photos, compactage."""
+    if not is_admin():
+        abort(403)
+    action = request.form.get("action")
+    if action == "shrink":
+        if not _SHRINK["running"]:
+            import threading
+            _SHRINK.update(running=True, done=0, total=0, saved=0, skipped=0, started=now(), finished=None, error=None)
+            threading.Thread(target=_shrink_worker, daemon=True, name="makinti-photos").start()
+        flash("Compression des photos lancée : la page se met à jour toute seule.", "success")
+    elif action == "copies" and pg_store.enabled():
+        keep = max(1, _int(request.form.get("keep")) or 3)
+        n = pg_store.prune_copies(keep)
+        errs = pg_store.compact(("assetpilot_store",))
+        flash("%d ancienne(s) copie(s) de la base supprimée(s) ; les %d derniers jours sont gardés." % (n, keep), "success")
+        if errs:
+            flash("Place réutilisable mais pas encore rendue au disque : " + "; ".join(errs), "error")
+    elif action == "compact" and pg_store.enabled():
+        errs = pg_store.compact()
+        flash("Compactage terminé." if not errs else "Compactage partiel : " + "; ".join(errs), "success" if not errs else "error")
     return redirect(url_for("admin_photos"))
 
 

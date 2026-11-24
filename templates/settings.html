@@ -5,7 +5,7 @@
 {% block content %}
 <div class="tabs">
   {% for k,l,n in [('plants','Usines',plants|length),('lines','Lignes de production',lines|length),('sga','SGA',sgas|length),('equipment','Équipements',eqs|length),('organes','Organes',n_organes)] %}<a href="?tab={{ k }}" class="{{ 'on' if tab==k }}">{{ l }} ({{ n }})</a>{% endfor %}
-  <a href="{{ url_for('users') }}">Utilisateurs & accès →</a>{% if is_admin() %}<a href="{{ url_for('admin_backup') }}">⬇ Sauvegarder la base</a><a href="{{ url_for('admin_restore') }}">⬆ Restaurer une sauvegarde</a><a href="{{ url_for('admin_photos') }}">📷 Photos des TAGs traités</a>{% endif %}<a href="{{ url_for('checklists') }}">Checklists →</a>
+  <a href="{{ url_for('users') }}">Utilisateurs & accès →</a>{% if is_admin() %}<a href="{{ url_for('admin_backup') }}">⬇ Sauvegarder la base</a><a href="{{ url_for('admin_restore') }}">⬆ Restaurer une sauvegarde</a><a href="{{ url_for('admin_photos') }}">📷 Photos &amp; place de la base</a>{% endif %}<a href="{{ url_for('checklists') }}">Checklists →</a>
 </div>
 {% if tab=='plants' %}
 {% if is_admin() %}<form class="card" method="post" action="{{ url_for('settings_save', entity='plant') }}"><h3>Créer une usine</h3>

@@ -6,7 +6,7 @@ rechargée depuis PostgreSQL. Ainsi, rien n'est perdu quand l'hébergeur efface 
 du service (déploiement, redémarrage, mise en veille), même sans disque persistant.
 
 Tables utilisées (préfixe assetpilot_, aucune autre table de la base n'est lue ni modifiée) :
-  assetpilot_store : la base (nom 'assetpilot.db') et une copie par jour sur 14 jours ;
+  assetpilot_store : la base (nom 'assetpilot.db') et une copie par jour (PG_DAILY_KEEP jours, 7 par défaut) ;
   assetpilot_files : les photos des TAGs.
 """
 import datetime as dt
@@ -18,7 +18,7 @@ import time
 
 URL = (os.environ.get("DATABASE_URL") or "").strip()
 MAIN = "assetpilot.db"
-DAILY_KEEP = 14
+DAILY_KEEP = max(1, int(os.environ.get("PG_DAILY_KEEP", "7") or 7))
 
 _lock = threading.Lock()
 _state = {"saved_mtime": 0.0, "last_error": None, "last_save": None, "thread": False}
@@ -108,10 +108,13 @@ def save_db(db_path):
             day = MAIN + "@" + dt.date.today().isoformat()
             with _connect() as conn:
                 _ensure(conn)
-                for name in (MAIN, day):
-                    conn.execute("""INSERT INTO assetpilot_store(name, data, size, updated_at) VALUES (%s, %s, %s, %s)
-                                    ON CONFLICT (name) DO UPDATE SET data=EXCLUDED.data, size=EXCLUDED.size,
-                                    updated_at=EXCLUDED.updated_at""", (name, data, len(data), _now()))
+                conn.execute("""INSERT INTO assetpilot_store(name, data, size, updated_at) VALUES (%s, %s, %s, %s)
+                                ON CONFLICT (name) DO UPDATE SET data=EXCLUDED.data, size=EXCLUDED.size,
+                                updated_at=EXCLUDED.updated_at""", (MAIN, data, len(data), _now()))
+                # copie du jour : écrite une seule fois par jour (état au premier enregistrement de la journée).
+                # Réécrire une copie complète à chaque modification remplissait la base de versions périmées.
+                conn.execute("""INSERT INTO assetpilot_store(name, data, size, updated_at) VALUES (%s, %s, %s, %s)
+                                ON CONFLICT (name) DO NOTHING""", (day, data, len(data), _now()))
                 limit = MAIN + "@" + (dt.date.today() - dt.timedelta(days=DAILY_KEEP)).isoformat()
                 conn.execute("DELETE FROM assetpilot_store WHERE name LIKE %s AND name < %s", (MAIN + "@%", limit))
             _state.update(saved_mtime=mtime, last_error=None, last_save=_now())
@@ -259,17 +262,84 @@ def usage():
     return dict(database=r[0], files=r[1], store=r[2], n_files=r[3])
 
 
-def compact():
-    """Rend au disque la place libérée par les suppressions (VACUUM FULL des tables MAKINTI)."""
+def _autocommit():
+    import psycopg
+    return psycopg.connect(URL.replace("postgres://", "postgresql://", 1), connect_timeout=20, autocommit=True)
+
+
+def vacuum(tables=("assetpilot_store", "assetpilot_files")):
+    """VACUUM simple : la place des lignes supprimées est réutilisable (sans espace disque supplémentaire)."""
+    if not enabled():
+        return
+    with _autocommit() as conn:
+        for t in tables:
+            try:
+                conn.execute("VACUUM " + t)
+            except Exception as e:
+                print("VACUUM %s :" % t, e)
+
+
+def compact(tables=("assetpilot_store", "assetpilot_files")):
+    """Rend au disque la place libérée (VACUUM FULL). Il faut assez de place libre pour réécrire les données conservées :
+    en cas d'échec, un VACUUM simple rend au moins la place réutilisable. Retourne la liste des erreurs."""
     if not enabled():
         return None
-    import psycopg
-    url = URL.replace("postgres://", "postgresql://", 1)
     errors = []
-    with psycopg.connect(url, connect_timeout=20, autocommit=True) as conn:
-        for table in ("assetpilot_files", "assetpilot_store"):
+    with _autocommit() as conn:
+        for t in tables:
             try:
-                conn.execute("VACUUM FULL " + table)
-            except Exception as e:  # droits insuffisants, verrou… : la place sera réutilisée par les prochains ajouts
-                errors.append("%s : %s" % (table, e))
+                conn.execute("VACUUM FULL " + t)
+            except Exception as e:
+                errors.append("%s : %s" % (t, str(e).splitlines()[0]))
+                try:
+                    conn.execute("VACUUM " + t)
+                except Exception:
+                    pass
     return errors
+
+
+def prune_copies(keep_days):
+    """Ne garde que les copies journalières des « keep_days » derniers jours (et supprime les copies nommées)."""
+    if not enabled():
+        return 0
+    limit = MAIN + "@" + (dt.date.today() - dt.timedelta(days=max(0, keep_days - 1))).isoformat()
+    with _connect() as conn:
+        _ensure(conn)
+        cur = conn.execute("DELETE FROM assetpilot_store WHERE name LIKE %s AND (name < %s OR name NOT LIKE %s)",
+                           (MAIN + "@%", limit, MAIN + "@____-__-__"))
+        return cur.rowcount or 0
+
+
+def write_file(rel_path, data):
+    if not enabled():
+        return
+    with _connect() as conn:
+        _ensure(conn)
+        conn.execute("""INSERT INTO assetpilot_files(path, data, updated_at) VALUES (%s, %s, %s)
+                        ON CONFLICT (path) DO UPDATE SET data=EXCLUDED.data, updated_at=EXCLUDED.updated_at""",
+                     (rel_path, data, _now()))
+
+
+def diagnostics():
+    """Ce qui occupe la base PostgreSQL : plus grosses tables (toutes applications confondues), lignes mortes, WAL."""
+    if not enabled():
+        return None
+    out = {"tables": [], "wal": None}
+    with _connect() as conn:
+        _ensure(conn)
+        out["database"] = conn.execute("SELECT pg_database_size(current_database())").fetchone()[0]
+        out["tables"] = [dict(name=r[0], size=r[1], live=r[2], dead=r[3]) for r in conn.execute("""
+            SELECT c.relname, pg_total_relation_size(c.oid), COALESCE(s.n_live_tup, 0), COALESCE(s.n_dead_tup, 0)
+            FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+            LEFT JOIN pg_stat_user_tables s ON s.relid=c.oid
+            WHERE c.relkind IN ('r','m') AND n.nspname NOT IN ('pg_catalog','information_schema','pg_toast')
+            ORDER BY 2 DESC LIMIT 15""").fetchall()]
+        r = conn.execute("""SELECT COALESCE(SUM(octet_length(data)),0), COUNT(*) FROM assetpilot_store""").fetchone()
+        out["store_live"], out["store_rows"] = r[0], r[1]
+        r = conn.execute("""SELECT COALESCE(SUM(octet_length(data)),0), COUNT(*) FROM assetpilot_files""").fetchone()
+        out["files_live"], out["files_rows"] = r[0], r[1]
+        try:
+            out["wal"] = conn.execute("SELECT COALESCE(SUM(size),0) FROM pg_ls_waldir()").fetchone()[0]
+        except Exception:
+            conn.rollback()
+    return out

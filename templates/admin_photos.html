@@ -8,9 +8,44 @@
   <div class="kpi k-blu"><div class="ic">📷</div><div><b>{{ stats.n_all }}</b><span>Photos de TAGs dans la base</span><small>{{ mo(stats.size_all) }}</small></div></div>
   <div class="kpi k-grn"><div class="ic">✓</div><div><b>{{ stats.n_archived }}</b><span>Photos déjà archivées</span><small>retirées de la base</small></div></div>
   {% if usage %}
-  <div class="kpi k-yel"><div class="ic">DB</div><div><b>{{ mo(usage.database) }}</b><span>Base PostgreSQL entière</span><small>dont photos {{ mo(usage.files) }}</small></div></div>
-  <div class="kpi k-pur"><div class="ic">⟳</div><div><b>{{ mo(usage.store) }}</b><span>Copies de la base</span><small>base actuelle + 14 copies journalières</small></div></div>
+  <div class="kpi k-yel"><div class="ic">DB</div><div><b>{{ mo(usage.database) }}</b><span>Base PostgreSQL entière</span><small>sur 1 Go (Render)</small></div></div>
+  <div class="kpi k-pur"><div class="ic">⟳</div><div><b>{{ usage.store_rows }}</b><span>Copies de la base gardées</span><small>{{ mo(usage.store_live) }} de données</small></div></div>
   {% endif %}
+</div>
+
+{% if shrink.running %}<meta http-equiv="refresh" content="5">{% endif %}
+<div class="card">
+  <h3 style="margin-top:0">Libérer de la place</h3>
+  {% if usage %}
+  <p class="small muted" style="margin-top:0">Ce qui occupe la base (taille sur disque, y compris la place des données supprimées pas encore rendue) :</p>
+  <div class="tbl-wrap"><table>
+    <tr><th>Table</th><th class="right">Taille sur disque</th><th class="right">Lignes</th><th class="right">Lignes supprimées en attente</th></tr>
+    {% for r in usage.tables %}<tr><td>{{ r.name }}{% if not r.name.startswith('assetpilot_') %} <span class="small muted">(hors MAKINTI)</span>{% endif %}</td>
+      <td class="right"><b>{{ mo(r.size) }}</b></td><td class="right">{{ r.live }}</td><td class="right">{{ r.dead }}</td></tr>{% endfor %}
+    {% if usage.wal is not none %}<tr><td>Journal PostgreSQL (WAL)</td><td class="right"><b>{{ mo(usage.wal) }}</b></td><td></td><td></td></tr>{% endif %}
+  </table></div>
+  <p class="small muted">Données réellement utiles : photos {{ mo(usage.files_live) }} ({{ usage.files_rows }}) · copies de la base {{ mo(usage.store_live) }} ({{ usage.store_rows }}).</p>
+  {% endif %}
+  <div class="grid g3" style="margin-top:8px">
+    <form method="post" action="{{ url_for('admin_storage') }}" class="card" style="margin:0">
+      <b>1. Compresser les photos</b>
+      <p class="small muted">{{ n_big }} photo{{ 's' if n_big > 1 }} de plus de 400 Ko. Elles sont réduites à 1600 px (≈ 300 Ko), sans rien supprimer. Les nouvelles photos sont déjà réduites à l'envoi.</p>
+      {% if shrink.running %}<p><b>En cours : {{ shrink.done }} / {{ shrink.total }}</b> · {{ mo(shrink.saved) }} gagnés</p>
+      {% else %}{% if shrink.finished %}<p class="small">Dernière compression ({{ shrink.finished|d }}) : {{ mo(shrink.saved) }} gagnés.{% if shrink.error %} <span style="color:#a30b24">{{ shrink.error }}</span>{% endif %}</p>{% endif %}
+      <input type="hidden" name="action" value="shrink"><button class="btn">Compresser les photos</button>{% endif %}
+    </form>
+    <form method="post" action="{{ url_for('admin_storage') }}" class="card" style="margin:0" onsubmit="return confirm('Supprimer les copies de la base plus anciennes ?')">
+      <b>2. Réduire les copies de la base</b>
+      <p class="small muted">Une copie complète de la base est gardée chaque jour pour pouvoir revenir en arrière ({{ keep_days }} jours par défaut).</p>
+      <input type="hidden" name="action" value="copies">
+      <div class="row" style="gap:8px">Garder <select name="keep" style="width:auto">{% for k in (1, 3, 7) %}<option value="{{ k }}" {{ 'selected' if k == 3 }}>{{ k }} jour{{ 's' if k > 1 }}</option>{% endfor %}</select><button class="btn">Réduire</button></div>
+    </form>
+    <form method="post" action="{{ url_for('admin_storage') }}" class="card" style="margin:0">
+      <b>3. Compacter</b>
+      <p class="small muted">Rend au disque la place des données supprimées (à faire après les étapes 1, 2 ou le retrait d'un lot de photos).</p>
+      <input type="hidden" name="action" value="compact"><button class="btn grey">Compacter maintenant</button>
+    </form>
+  </div>
 </div>
 
 {% if batch %}
