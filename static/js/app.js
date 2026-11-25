@@ -459,3 +459,24 @@ document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click'
   });
   pv.querySelector('[data-photo="clear"]').addEventListener('click', () => { input.value = ''; pv.style.display = 'none'; });
 })();
+
+
+// Créer / modifier une checklist : choix de la ligne, puis seules les machines de cette ligne sont proposées
+(function () {
+  const ls = document.getElementById('cl-line'), es = document.getElementById('cl-equipment');
+  if (!ls || !es) return;
+  const groups = Array.from(es.querySelectorAll('optgroup')).map(g => g.cloneNode(true));
+  const ph = es.options[0].cloneNode(true);
+  function fill(keep) {
+    const before = es.value;
+    const p = ph.cloneNode(true);
+    p.textContent = ls.value ? '— Choisir la machine —' : "— Choisir d'abord la ligne —";
+    es.replaceChildren(p, ...groups.filter(g => g.dataset.line === ls.value).map(g => g.cloneNode(true)));
+    es.value = keep && Array.from(es.options).some(o => o.value === keep) ? keep : '';
+    if (es.value !== before) es.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  ls.addEventListener('change', () => fill());
+  const cur = es.value, opt = cur ? es.querySelector('option[value="' + cur + '"]') : null;
+  if (opt) { ls.value = opt.parentElement.dataset.line; fill(cur); }
+  else { if (ls.options.length === 2) ls.value = ls.options[1].value; fill(); }
+})();

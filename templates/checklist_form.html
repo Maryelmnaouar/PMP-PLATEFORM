@@ -8,7 +8,12 @@
   {% if v.from_cm %}<input type="hidden" name="from_cm" value="{{ v.from_cm }}">{% endif %}
   <div class="grid g3">
     <div class="field"><label class="lbl">Nom de la checklist *</label><input type="text" name="name" value="{{ v.name or '' }}" required placeholder="Ex. CILT Souffleuse — moules"></div>
-    <div class="field"><label class="lbl">Machine *</label><select name="equipment_id" id="cl-equipment" required><option value="">— Choisir la machine —</option>{% for grp in equipment|groupby('line_name') %}<optgroup label="{{ grp.grouper }}">{% for e in grp.list %}<option value="{{ e.id }}" {{ 'selected' if v.equipment_id|string==e.id|string }}>{{ e.reference }} · {{ e.name|short }} ({{ e.sga_name or 'sans SGA' }})</option>{% endfor %}</optgroup>{% endfor %}</select></div>
+    {% set eq_lines = equipment|groupby('line_id') %}{% set multi_plant = (equipment|groupby('plant_id'))|length > 1 %}
+    {% if eq_lines|length > 1 %}
+    <div class="field"><label class="lbl" for="cl-line">Ligne *</label><select id="cl-line" required><option value="">— Choisir la ligne —</option>
+      {% for lg in eq_lines|sort(attribute='list.0.line_name') %}<option value="{{ lg.grouper }}">{{ lg.list[0].line_name }}{% if multi_plant %} — {{ lg.list[0].plant_name }}{% endif %}</option>{% endfor %}</select></div>
+    {% endif %}
+    <div class="field"><label class="lbl">Machine *</label><select name="equipment_id" id="cl-equipment" required><option value="">— Choisir la machine —</option>{% for grp in equipment|groupby('line_id') %}<optgroup label="{{ grp.list[0].line_name }}" data-line="{{ grp.grouper }}">{% for e in grp.list %}<option value="{{ e.id }}" {{ 'selected' if v.equipment_id|string==e.id|string }}>{{ e.reference }} · {{ e.name|short }} ({{ e.sga_name or 'sans SGA' }})</option>{% endfor %}</optgroup>{% endfor %}</select></div>
     <div class="field"><label class="lbl">Responsable par défaut</label><select name="assigned_to"><option value="">— Aucun —</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if v.assigned_to|string==u.id|string }}>{{ u.name }} · {{ u.role }}</option>{% endfor %}</select></div>
     <div class="field"><label class="lbl">État machine</label><select name="machine_state">{% for m in MACHINE_STATES %}<option {{ 'selected' if v.machine_state==m }}>{{ m }}</option>{% endfor %}</select></div>
     <div class="field"><label class="lbl">Nombre de personnes</label><input type="number" min="1" name="people" value="{{ v.people or 1 }}"></div>

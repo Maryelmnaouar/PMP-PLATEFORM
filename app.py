@@ -2105,8 +2105,9 @@ def save_items(cid, rows):
 def form_equipment():
     """Machines proposées dans les formulaires : celles des lignes de l'utilisateur."""
     lc, la = in_clause("e.line_id", allowed_line_ids())
-    return q("SELECT e.*, s.name sga_name, l.name line_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id "
-             "JOIN lines l ON l.id=e.line_id WHERE " + lc + " ORDER BY l.name, e.position", la)
+    return q("SELECT e.*, s.name sga_name, l.name line_name, l.plant_id, p.name plant_name FROM equipment e "
+             "LEFT JOIN sga s ON s.id=e.sga_id JOIN lines l ON l.id=e.line_id JOIN plants p ON p.id=l.plant_id WHERE " + lc +
+             " ORDER BY p.name, l.name, e.position", la)
 
 
 def form_people(with_sgas=True):
