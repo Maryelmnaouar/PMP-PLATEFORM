@@ -18,7 +18,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import sap_integration as sap
-from organes_data import ORGANES, CBGS_PLANT, RGB2_LINE, RGB2_EQUIPMENT
+from organes_data import ORGANES, CBGS_PLANT, RGB2_LINE, RGB2_EQUIPMENT, PET2_LINE, PET2_EQUIPMENT, UTL_LINE, UTL_EQUIPMENT
 import pg_store
 
 
@@ -487,22 +487,28 @@ def migrate_photo_archive(conn):
     conn.commit()
 
 
-def seed_cbgs(conn):
-    """Usine CBGS, ligne RGB2 et ses équipements (référentiel SAP). Créés une seule fois, sans rien modifier d'existant ;
+def _seed_plant_lines(conn, meta_key, lines):
+    """Crée une fois (repère meta_key) l'usine CBGS, les lignes données et leurs équipements, sans rien modifier d'existant ;
     les organes sont ajoutés ensuite par migrate_organes."""
-    if os.environ.get("SEED_BASE_DATA", "1") == "0" or conn.execute("SELECT 1 FROM meta WHERE key='seed_cbgs_rgb2'").fetchone():
+    if os.environ.get("SEED_BASE_DATA", "1") == "0" or conn.execute("SELECT 1 FROM meta WHERE key=?", (meta_key,)).fetchone():
         return
     p = conn.execute("SELECT id FROM plants WHERE UPPER(code)=? OR UPPER(name)=?", (CBGS_PLANT[0], CBGS_PLANT[1])).fetchone()
     plant_id = p[0] if p else conn.execute("INSERT INTO plants(code, name, city) VALUES(?,?,?)", CBGS_PLANT).lastrowid
-    l = conn.execute("SELECT id FROM lines WHERE plant_id=? AND (code=? OR UPPER(name) IN (?, 'RGB2'))",
-                     (plant_id, RGB2_LINE[0], RGB2_LINE[1].upper())).fetchone()
-    line_id = l[0] if l else conn.execute("INSERT INTO lines(plant_id, code, name) VALUES(?,?,?)", (plant_id,) + RGB2_LINE).lastrowid
-    for pos, (ref, name) in enumerate(RGB2_EQUIPMENT, 1):
-        if not conn.execute("SELECT 1 FROM equipment WHERE reference=?", (ref,)).fetchone():
-            conn.execute("INSERT INTO equipment(line_id, sga_id, reference, name, position) VALUES(?,?,?,?,?)",
-                         (line_id, None, ref, name, pos))
-    conn.execute("INSERT INTO meta(key, value) VALUES('seed_cbgs_rgb2', ?)", (now(),))
+    for (code, name), equipment in lines:
+        l = conn.execute("SELECT id FROM lines WHERE plant_id=? AND (code=? OR UPPER(name)=?)", (plant_id, code, name.upper())).fetchone()
+        line_id = l[0] if l else conn.execute("INSERT INTO lines(plant_id, code, name) VALUES(?,?,?)", (plant_id, code, name)).lastrowid
+        for pos, (ref, ename) in enumerate(equipment, 1):
+            if not conn.execute("SELECT 1 FROM equipment WHERE reference=?", (ref,)).fetchone():
+                conn.execute("INSERT INTO equipment(line_id, sga_id, reference, name, position) VALUES(?,?,?,?,?)",
+                             (line_id, None, ref, ename, pos))
+    conn.execute("INSERT INTO meta(key, value) VALUES(?, ?)", (meta_key, now()))
     conn.commit()
+
+
+def seed_cbgs(conn):
+    """Usine CBGS : ligne RGB2, puis ligne PET KRONES et Utilités (air comprimé HP)."""
+    _seed_plant_lines(conn, "seed_cbgs_rgb2", [(RGB2_LINE, RGB2_EQUIPMENT)])
+    _seed_plant_lines(conn, "seed_cbgs_pet2_utl", [(PET2_LINE, PET2_EQUIPMENT), (UTL_LINE, UTL_EQUIPMENT)])
 
 
 def organe_label(o):
