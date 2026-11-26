@@ -13,6 +13,7 @@
 <div id="scope-fields">
 <label class="lbl">Usines * <span class="small muted">— l'utilisateur ne voit que les données de ses usines</span></label>
 <div class="perm-grid" style="margin-bottom:12px">{% for p in plants %}<label><input type="checkbox" name="plant_ids" value="{{ p.id }}" class="js-plant" {{ 'checked' if p.id in my_plants }}> <b>{{ p.name }}</b></label>{% else %}<span class="small muted">Aucune usine.</span>{% endfor %}</div>
+<label class="row" style="gap:8px;margin:0 0 12px;padding:8px 10px;background:#eef6ff;border-radius:8px"><input type="checkbox" name="edit_plant_tags" value="1" {{ 'checked' if perms and 'tags_edit_plant' in perms }}> <span><b>✏️ Peut modifier tous les TAGs de ses usines</b> <span class="small muted">— corriger le contenu de n'importe quel TAG (type, anomalie, machine, organe, description, photo), sans pouvoir le supprimer</span></span></label>
 <label class="lbl">Lignes <span class="small muted">— aucune cochée = toutes les lignes de l'usine</span></label>
 <div class="perm-grid" style="margin-bottom:12px">{% for l in lines %}<label class="js-line-opt" data-plant="{{ l.plant_id }}"><input type="checkbox" name="line_ids" value="{{ l.id }}" class="js-line" data-plant="{{ l.plant_id }}" {{ 'checked' if l.id in my_lines }}> {{ l.name }} <span class="small muted">({{ l.plant_name }})</span></label>{% endfor %}</div>
 <label class="lbl">SGA rattachées (une ou plusieurs)</label>
@@ -21,4 +22,4 @@
 <div class="row" style="margin-bottom:8px"><label class="lbl" style="margin:0">Droits d'accès</label>
   <select name="perm_mode" id="perm_mode" style="width:auto"><option value="default" {{ 'selected' if not custom }}>Par défaut selon le type</option><option value="custom" {{ 'selected' if custom }}>Personnalisés</option></select>
   <span class="small muted">Administrateur = tous les droits.</span></div>
-<div class="perm-grid">{% for k,l in PERMS %}<label><input type="checkbox" name="perm_{{ k }}" data-key="{{ k }}" {{ 'checked' if perms and k in perms }}> {{ l }}</label>{% endfor %}</div>
+<div class="perm-grid">{% for k,l in PERMS if k != 'tags_edit_plant' %}<label><input type="checkbox" name="perm_{{ k }}" data-key="{{ k }}" {{ 'checked' if perms and k in perms }}> {{ l }}</label>{% endfor %}</div>

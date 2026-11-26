@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Modifier {{ t.tag_code }}{% endblock %}
 {% block heading %}Modifier {{ t.tag_code }}{% endblock %}
-{% block subheading %}{% if owner_mode %}Vous avez lancé ce TAG : vous pouvez corriger son contenu (pas le supprimer){% else %}Réservé à l'administrateur{% endif %} · chaque modification est tracée dans l'historique du TAG{% endblock %}
+{% block subheading %}{% if owner_mode %}{{ 'Vous avez lancé ce TAG' if is_author else 'TAG de votre usine' }} : vous pouvez corriger son contenu (pas le supprimer){% else %}Réservé à l'administrateur{% endif %} · chaque modification est tracée dans l'historique du TAG{% endblock %}
 {% block content %}
 <form method="post" enctype="multipart/form-data" class="card">
   <div class="field"><label class="lbl">Type d'étiquette</label>

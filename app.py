@@ -125,6 +125,7 @@ PERMS = [
     ("tags_create", "Lancer un TAG"),
     ("tags_move", "Changer le statut des TAGs de son périmètre"),
     ("tags_all", "Agir sur tous les TAGs"),
+    ("tags_edit_plant", "Modifier tous les TAGs de ses usines (sans les supprimer)"),
     ("tag_validate", "Valider les TAGs RCM / Safety (N° d'avis SAP)"),
     ("countermeasure", "Remplir le formulaire de contre-mesure"),
     ("tasks_exec", "Exécuter ses tâches / checklists"),
@@ -1322,7 +1323,10 @@ def load_tag(tag_id):
 
 
 def tag_query(extra="", args=()):
-    clause, sargs = data_scope("e.line_id", "t.sga_id")
+    if can("tags_edit_plant"):   # peut modifier tous les TAGs de ses usines : il les voit tous
+        clause, sargs = in_clause("e.line_id", allowed_line_ids())
+    else:
+        clause, sargs = data_scope("e.line_id", "t.sga_id")
     return q("""SELECT t.*, e.name eq_name, e.line_id eq_line_id, s.name sga_name, l.name line_name, ob.name observed_name, tr.name treated_name
                FROM tags t JOIN equipment e ON e.id=t.equipment_id LEFT JOIN sga s ON s.id=t.sga_id
                JOIN lines l ON l.id=e.line_id
@@ -1566,7 +1570,8 @@ def tag_new():
 @app.route("/tags/<int:tag_id>")
 def tag_detail(tag_id):
     t = load_tag(tag_id)
-    if not (is_admin() or can("tags_all") or in_data_scope(t["eq_line_id"], t["sga_id"]) or t["observed_by"] == g.user["id"]):
+    if not (is_admin() or can("tags_all") or can("tags_edit_plant") or in_data_scope(t["eq_line_id"], t["sga_id"])
+            or t["observed_by"] == g.user["id"]):
         abort(403)
     history = q("SELECT h.*, u.name user_name FROM tag_history h LEFT JOIN users u ON u.id=h.user_id WHERE h.tag_id=? ORDER BY h.at, h.id", (tag_id,))
     cms = q("""SELECT m.*, c.code cl_code, c.name cl_name FROM countermeasures m LEFT JOIN checklists c ON c.id=m.checklist_id
@@ -1910,11 +1915,15 @@ def tag_countermeasure(tag_id):
 
 
 def can_owner_edit(t):
-    """La personne qui a lancé le TAG peut le modifier (pas le supprimer), si l'usine du TAG l'autorise (Paramètres → Usines)."""
-    if not t["created_by"] or t["created_by"] != g.user["id"]:
-        return False
+    """Modifier un TAG (pas le supprimer), hors administrateur :
+    - droit « Modifier tous les TAGs de ses usines » : tout TAG d'une usine à laquelle la personne est affectée ;
+    - sinon la personne qui a lancé le TAG, si l'usine du TAG l'autorise (Paramètres → Usines)."""
     p = q("SELECT p.id, p.owner_edit FROM lines l JOIN plants p ON p.id=l.plant_id WHERE l.id=?", (t["eq_line_id"],), one=True)
-    return bool(p and p["owner_edit"]) and plant_allowed(p["id"])
+    if not p or not plant_allowed(p["id"]):
+        return False
+    if can("tags_edit_plant"):
+        return True
+    return bool(t["created_by"]) and t["created_by"] == g.user["id"] and bool(p["owner_edit"])
 
 
 def owner_type_locked(t):
@@ -1970,8 +1979,8 @@ def tag_edit(tag_id):
 
 
 def tag_edit_owner(t):
-    """Modification par l'auteur : contenu de l'étiquette seulement (statut, avis SAP, OT et traitement inchangés)."""
-    equipment = scoped_equipment()
+    """Modification hors administrateur : contenu de l'étiquette seulement (statut, avis SAP, OT et traitement inchangés)."""
+    equipment = form_equipment()   # machines des lignes de l'utilisateur (filtrées ensuite sur l'usine du TAG)
     users = active_users()
     locked = owner_type_locked(t)
     if request.method == "POST":
@@ -1998,12 +2007,14 @@ def tag_edit_owner(t):
            (new_type, f["anomaly_type"], e["id"], e["sga_id"], e["line_id"], f.get("organe", "").strip(), f["description"].strip(),
             photo, observer, f.get("observed_at") or t["observed_at"], now(), t["id"]))
         ex("INSERT INTO tag_history(tag_id,user_id,from_status,to_status,comment,at) VALUES(?,?,?,?,?,?)",
-           (t["id"], g.user["id"], t["status"], t["status"], "TAG modifié par son auteur", now()))
+           (t["id"], g.user["id"], t["status"], t["status"],
+            "TAG modifié par son auteur" if t["created_by"] == g.user["id"] else "TAG modifié", now()))
         flash("%s modifié." % t["tag_code"], "success")
         return redirect(url_for("tag_detail", tag_id=t["id"]))
     plant_id = q("SELECT plant_id FROM lines WHERE id=?", (t["eq_line_id"],), one=True)["plant_id"]
     equipment = [x for x in equipment if x["plant_id"] == plant_id]
-    return render_template("tag_edit.html", t=t, equipment=equipment, users=users, owner_mode=True, type_locked=locked)
+    return render_template("tag_edit.html", t=t, equipment=equipment, users=users, owner_mode=True, type_locked=locked,
+                           is_author=t["created_by"] == g.user["id"])
 
 
 @app.route("/tags/<int:tag_id>/delete", methods=["POST"])
@@ -3212,7 +3223,10 @@ def save_user(user_id):
     elif f.get("perm_mode") == "custom":
         perms = [p for p in PERM_KEYS if f.get("perm_" + p)]
     else:
-        perms = ROLE_DEFAULTS[role]
+        perms = list(ROLE_DEFAULTS[role])
+    if role != "Administrateur":
+        # case « Modifier tous les TAGs de ses usines », indépendante du mode des droits
+        perms = [p for p in perms if p != "tags_edit_plant"] + (["tags_edit_plant"] if f.get("edit_plant_tags") else [])
     try:
         if user_id:
             ex("UPDATE users SET name=?, username=?, email=?, role=?, plant_id=?, permissions=?, active=? WHERE id=?",
@@ -3276,7 +3290,7 @@ def user_edit(user_id):
             return redirect(url_for("user_edit", user_id=user_id))
         return save_user(user_id)
     perms = set(json.loads(u["permissions"] or "[]"))
-    custom = sorted(perms) != sorted(ROLE_DEFAULTS.get(u["role"], []))
+    custom = sorted(perms - {"tags_edit_plant"}) != sorted(ROLE_DEFAULTS.get(u["role"], []))
     my_sgas = [r["sga_id"] for r in q("SELECT sga_id FROM user_sga WHERE user_id=?", (user_id,))]
     team_pool, team_ids = [], []
     if u["role"] in CHEF_ROLES:
