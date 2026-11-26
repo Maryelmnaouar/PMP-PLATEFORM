@@ -480,3 +480,15 @@ document.querySelectorAll('[data-copy]').forEach(b => b.addEventListener('click'
   if (opt) { ls.value = opt.parentElement.dataset.line; fill(cur); }
   else { if (ls.options.length === 2) ls.value = ls.options[1].value; fill(); }
 })();
+
+
+// Filtres en cascade : changer l'usine vide la ligne, la SGA, la machine et les personnes ; changer la ligne vide la SGA… 
+// (écoute en phase de capture : passe avant le onchange qui envoie le formulaire)
+(function () {
+  const below = { plant: ['line', 'sga', 'equipment', 'chef', 'user'], line: ['sga', 'equipment', 'chef', 'user'], sga: ['equipment', 'chef', 'user'] };
+  document.addEventListener('change', e => {
+    const el = e.target, form = el.form;
+    if (!form || (form.method || '').toLowerCase() !== 'get' || !below[el.name]) return;
+    below[el.name].forEach(n => { const c = form.elements[n]; if (c && c.tagName === 'SELECT') c.value = ''; });
+  }, true);
+})();

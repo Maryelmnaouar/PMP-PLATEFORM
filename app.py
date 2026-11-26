@@ -834,6 +834,33 @@ def scoped_sgas():
              "JOIN plants p ON p.id=l.plant_id WHERE " + clause + " ORDER BY s.name", args)
 
 
+def filter_options(f):
+    """Listes des filtres en cascade : usine → lignes de cette usine → SGA de la ligne → machines (de la ligne / SGA)."""
+    plant, line, sga = str(f.get("plant") or ""), str(f.get("line") or ""), str(f.get("sga") or "")
+    lines = [l for l in scoped_lines() if not plant or str(l["plant_id"]) == plant]
+    line_ids = {l["id"] for l in lines}
+    if line.isdigit() and int(line) in line_ids:
+        line_ids = {int(line)}
+    sgas = [x for x in scoped_sgas() if x["line_id"] in line_ids]
+    equipment = [e for e in scoped_equipment() if e["line_id"] in line_ids and (not sga or str(e["sga_id"]) == sga)]
+    return dict(plants=scoped_plants(), lines=lines, sgas=sgas, equipment=equipment)
+
+
+def filter_people(rows, f):
+    """Personnes des filtres : seulement celles de l'usine / ligne / SGA choisie."""
+    plant, line, sga = str(f.get("plant") or ""), str(f.get("line") or ""), str(f.get("sga") or "")
+    if not (plant or line or sga):
+        return rows
+    if sga:
+        keep = {r["user_id"] for r in q("SELECT user_id FROM user_sga WHERE sga_id=?", (sga,))}
+    elif line:
+        keep = {r["user_id"] for r in q("SELECT us.user_id FROM user_sga us JOIN sga s ON s.id=us.sga_id WHERE s.line_id=? "
+                                        "UNION SELECT user_id FROM user_lines WHERE line_id=?", (line, line))}
+    else:
+        keep = {r["user_id"] for r in q("SELECT user_id FROM user_plants WHERE plant_id=?", (plant,))}
+    return [r for r in rows if r["id"] in keep]
+
+
 def scoped_equipment():
     clause, args = data_scope("e.line_id", "e.sga_id")
     return q("SELECT e.*, s.name sga_name, l.name line_name, l.plant_id, p.name plant_name FROM equipment e LEFT JOIN sga s ON s.id=e.sga_id "
@@ -1150,11 +1177,11 @@ def dashboard(home=False):
               " AND u.role IN ('Opérateur','Technicien') ORDER BY u.name", sa)
     uc, ua = users_scope("id")
     chefs = q("SELECT * FROM users WHERE active=1 AND role IN (?,?,?) AND " + uc + " ORDER BY name", list(TEAM_ROLES) + ua)
-    plants = scoped_plants()
-    lines = scoped_lines()
+    opts = filter_options(f)
+    opts.pop("equipment")
     to_validate = SAP["pending_validation"](g.user) if (home and can("tag_validate")) else []
-    return render_template("dashboard.html", to_validate=to_validate, d=data, f=f, sgas=scoped_sgas(), users=users, chefs=chefs, plants=plants,
-                           lines=lines, is_home=home)
+    return render_template("dashboard.html", to_validate=to_validate, d=data, f=f, users=filter_people(users, f),
+                           chefs=filter_people(chefs, f), is_home=home, **opts)
 
 
 # ---------------------------------------------------------------------------
@@ -1339,17 +1366,15 @@ def tags_board():
                 (f["sga"],), one=True) if f["sga"] else None
     if sel_sga and not line_allowed(sel_sga["line_id"]):
         sel_sga = None
-    return render_template("tags_board.html", board=board, f=f, sgas=scoped_sgas(), equipment=scoped_equipment(),
-                           sel_sga=sel_sga, plants=scoped_plants(), lines=scoped_lines(),
-                           users=active_users(), count=len(rows))
+    return render_template("tags_board.html", board=board, f=f, sel_sga=sel_sga, users=active_users(), count=len(rows),
+                           **filter_options(f))
 
 
 @app.route("/tags/registre")
 def tags_list():
     f, extra, args = tag_filters()
     rows = tag_query(extra + " ORDER BY t.created_at DESC", args)
-    return render_template("tags_list.html", rows=rows, f=f, sgas=scoped_sgas(), equipment=scoped_equipment(),
-                           plants=scoped_plants(), lines=scoped_lines(), users=assignable_users())
+    return render_template("tags_list.html", rows=rows, f=f, users=assignable_users(), **filter_options(f))
 
 
 @app.route("/tags/registre/export.xlsx")
